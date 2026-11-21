@@ -163,4 +163,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('/rooms/{room}/snapshots/nearest', [\App\Http\Controllers\Api\V1\SnapshotController::class, 'nearest'])
             ->name('rooms.snapshots.nearest');
     });
+
+    // Documents / RAG ingestion (P08-T03) — teacher or school_admin
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/schools/{school}/documents', [\App\Http\Controllers\Api\V1\DocumentController::class, 'store'])
+            ->name('schools.documents.store');
+        Route::get('/schools/{school}/documents/{document}', [\App\Http\Controllers\Api\V1\DocumentController::class, 'show'])
+            ->name('schools.documents.show');
+    });
 });

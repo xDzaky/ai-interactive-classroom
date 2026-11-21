@@ -1210,3 +1210,12 @@ Plan:
 ### CHECKPOINT   2026-11-21 20:34 | Codex | tier HIGH | P08-T03
 Added the decided ADR-022 document API contract to CONTRACTS.md before resuming
 implementation. This restores CONTRACTS.md as the authoritative route/payload source.
+
+### CHECKPOINT   2026-11-21 20:39 | Codex | tier HIGH | P08-T03 step 2
+Added document/document_chunks storage, PostgreSQL vector(1536) conversion, and
+the authenticated internal LiteLLM embedding endpoint. Evidence:
+  - `php artisan test tests/Feature/DocumentApiTest.php --compact` → 10/10 PASS
+  - `uv run pytest tests/test_p08_t03.py -q` → 3/3 PASS
+Note: `python3 -m pytest` is not the project environment and failed collection
+because global Python has no litellm; the task-mandated `uv run pytest` passes.
+Next: finish robust PDF extraction and the queued ingestion job integration (step 3).
