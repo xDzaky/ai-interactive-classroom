@@ -258,3 +258,5 @@ Rules:
 | apps/web/src/lib/api/snapshots.test.ts | 4 tests for snapshots API client | — | P07-T01 | LOCKED |
 | apps/web/src/hooks/useSnapshot.ts | useSnapshot hook — host auto-pushes snapshot every 50 events; fetchNearestSnapshot for replay | useSnapshot, UseSnapshotOptions, UseSnapshotReturn | P07-T01 | LOCKED |
 | apps/web/src/hooks/useSnapshot.test.ts | 5 tests for useSnapshot hook | — | P07-T01 | LOCKED |
+| apps/web/src/lib/replayEngine.ts | Pure TS replay engine: seek/step/setSpeed using snapshots + events | createReplayEngine | P07-T02 | OK |
+| apps/web/src/lib/replayEngine.test.ts | 7 unit tests for replayEngine | — | P07-T02 | OK |

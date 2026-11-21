@@ -864,3 +864,21 @@ Plan:
   2. API: createReplayEngine(roomId) -> { seek, step, setSpeed }
   3. Internally: fetchNearestSnapshot -> fetch events after seq_at -> apply via applyEvent
   4. 5+ unit tests in replayEngine.test.ts
+
+
+### DONE   2026-11-21 18:29 | P07-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/replayEngine.ts — seek/step/setSpeed/getDuration/getCursor/msPerStep
+  apps/web/src/lib/replayEngine.test.ts — 7 unit tests
+Verify evidence:
+  - `pnpm run test:run` → 263/263 PASS (39 test files)
+Next: P07-T03 (Replay UI — timeline scrubber, play/pause, speed selector — MID tier)
+
+
+### START   2026-11-21 18:30 | Claude Antigravity | tier HIGH | P07-T03
+Resuming: no
+Plan:
+  1. ReplayViewer.tsx — timeline scrubber, play/pause, speed selector (1x/2x/4x), key-event highlights
+  2. Add /rooms/:id/replay route in apps/web/src/router/index.tsx
+  3. 4+ component tests

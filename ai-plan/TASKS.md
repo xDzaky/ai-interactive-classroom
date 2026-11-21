@@ -84,8 +84,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 
 ## P07 — Replay + offline · `tasks/P07-replay-offline.md`
 - [x] P07-T01 | MID  | deps: P04-T05  | Snapshot API + host-client snapshot creator
-- [~] P07-T02 | HIGH | deps: T01,P02-T02 | Replay engine (nearest snapshot + events, seek/step/speed)  — Claude Antigravity HIGH 2026-11-21T18:26
-- [ ] P07-T03 | MID  | deps: T02      | Replay UI (timeline, controls, key-event highlights)
+- [x] P07-T02 | HIGH | deps: T01,P02-T02 | Replay engine (nearest snapshot + events, seek/step/speed)
+- [~] P07-T03 | MID  | deps: T02      | Replay UI (timeline, controls, key-event highlights)  — Claude Antigravity HIGH 2026-11-21T18:30
 - [ ] P07-T04 | HIGH | deps: P04-T08  | Dexie: drafts + persistent outbox with idempotency keys
 - [ ] P07-T05 | HIGH | deps: T04      | Sync states + reconnect flush (saved locally/syncing/synced/needs attention)
 - [ ] P07-T06 | MID  | deps: P03-T03  | PWA (vite-plugin-pwa/Workbox), lazy loading, low-quality 3D default on weak devices
