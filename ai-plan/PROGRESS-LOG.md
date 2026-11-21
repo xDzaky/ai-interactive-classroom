@@ -1144,3 +1144,11 @@ Human authorized restoration of missing task specifications. Recreated
 `ai-plan/tasks/P08-ai-rag.md` from TASKS.md, CODEMAP.md, committed work evidence,
 and the governing contract policy. P08-T03 remains blocked until a document
 ingestion HTTP contract is explicitly decided.
+
+
+### START   2026-11-21 20:11 | Codex | tier HIGH | P08-T03
+Resuming: ADR-020 resolved; no implementation began while the ingestion HTTP contract is absent.
+Plan:
+  1. Verify document-ingestion contract availability.
+  2. Add storage and tenant-scoped ingestion only after contract approval.
+  3. Add feature and service tests, then run the required suites.
