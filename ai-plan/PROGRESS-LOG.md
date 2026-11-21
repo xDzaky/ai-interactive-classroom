@@ -509,3 +509,7 @@ Review summary:
   - Cleaned up stale "stub" comment in TeacherView.tsx (now says "real-time via ParticipantList, P04-T09")
   - All P04 CODEMAP rows marked LOCKED
 Next: P05-T01 (Migrations: presenter_requests, room_permissions, room_devices)
+
+### START   2026-11-21 16:27 | Claude Antigravity | tier HIGH | P05-T01
+Resuming: no
+Plan: Create 3 migrations — presenter_requests, room_permissions, room_devices — matching CONTRACTS.md schema exactly. Add schema shape tests. Run php artisan test.
