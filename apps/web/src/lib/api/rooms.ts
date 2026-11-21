@@ -103,6 +103,16 @@ export async function regenerateCode(roomId: string): Promise<Room> {
   return data;
 }
 
+/** Fetch the current participant's info (role, id) in a room. */
+export async function fetchMe(roomId: string, participantToken?: string): Promise<Participant> {
+  const headers: Record<string, string> = {};
+  if (participantToken) {
+    headers["Authorization"] = `Participant ${participantToken}`;
+  }
+  const { data } = await api.get<Participant>(`/api/v1/rooms/${roomId}/participants/me`, { headers });
+  return data;
+}
+
 /** Join a room by code (guest or authenticated user). */
 export async function joinRoom(
   code: string,

@@ -70,7 +70,9 @@
       "smartDisplay": "Layar Interaktif",
       "mobileHost": "Host via HP",
       "group": "Kelompok"
-    }
+    },
+    "toolbar": "Toolbar",
+    "participantListPlaceholder": "Daftar peserta diperbarui secara real-time"
   },
   "whiteboard": {
     "tools": {

@@ -58,8 +58,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P04-T03 | HIGH | deps: T02      | Join flow (guest + account), participant tokens, rate limits
 - [x] P04-T04 | HIGH | deps: T03,P00-T03 | Reverb install + channel authorization with participant guard
 - [x] P04-T05 | HIGH | deps: T04      | Event ingestion API (seq, idempotency, permission allowlist, broadcast) + sync endpoints
-- [~] P04-T06 | MID  | deps: T02,P01-T05 | Web: quick setup (adaptive mode), create room, lobby, QR  <-- Claude Antigravity / HIGH / 2026-11-21 15:36
-- [ ] P04-T07 | MID  | deps: T05,T06,P02-T07 | Web: Teacher / Presentation / Student views
+- [x] P04-T06 | MID  | deps: T02,P01-T05 | Web: quick setup (adaptive mode), create room, lobby, QR
+- [x] P04-T07 | MID  | deps: T05,T06,P02-T07 | Web: Teacher / Presentation / Student views
 - [ ] P04-T08 | HIGH | deps: T05,P02-T02 | Web: realtime sync engine (ordering, gap fill, dedupe, optimistic)
 - [ ] P04-T09 | LOW  | deps: T05,T07  | Host participant list
 - [ ] P04-RV  | HIGH | deps: T01-T09  | Phase review

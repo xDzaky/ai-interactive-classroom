@@ -408,3 +408,42 @@ Next: P04-T06 (Web: create room, lobby, QR)
 ### START   2026-11-21 15:36 | Claude Antigravity | tier HIGH | P04-T06
 Resuming: no
 Plan: Create rooms.ts API client, CreateRoomPage, LobbyPage (QR), RoomPage routing — web tests with mocked API
+
+### DONE   2026-11-21 15:42 | P04-T06 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/api/rooms.ts — rooms API client (createRoom, fetchRoom, openLobby, startRoom, endRoom, regenerateCode, joinRoom)
+  apps/web/src/pages/room/CreateRoomPage.tsx — classroom select + mode select + create+openLobby flow
+  apps/web/src/pages/room/LobbyPage.tsx — QR code + join code + start/regenerate actions
+  apps/web/src/router/index.tsx — added /rooms/create + /room/:roomId/lobby routes
+  apps/web/src/i18n/locales/id.json — added room.* i18n keys
+  apps/web/src/lib/api/rooms.test.ts — 7 tests
+  apps/web/src/pages/room/CreateRoomPage.test.tsx — 4 tests
+  apps/web/src/pages/room/LobbyPage.test.tsx — 5 tests
+Verify evidence:
+  - `pnpm run test:run` → 156/156 PASS (15 test files)
+  - `pnpm run build` → ✓ built in 17.31s
+Next: P04-T07 (Teacher/Presentation/Student views)
+
+### START   2026-11-21 15:42 | Claude Antigravity | tier HIGH | P04-T07
+Resuming: no
+Plan: TeacherView (whiteboard+toolbar+controls), PresentationView (fullscreen), StudentView (readonly whiteboard), RoomPage routing by role
+
+### DONE   2026-11-21 16:01 | P04-T07 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/pages/room/TeacherView.tsx — host view (whiteboard+toolbar+end room+participant sidebar stub)
+  apps/web/src/pages/room/PresentationView.tsx — read-only projector view (fullscreen toggle)
+  apps/web/src/pages/room/StudentView.tsx — student view (read-only whiteboard, raise hand FR-013, follow-teacher toggle)
+  apps/web/src/pages/room/RoomPage.tsx — routes to correct view by decoded role (teacher_host/presenter→TeacherView, student/guest→StudentView, ?mode=presentation→PresentationView)
+  apps/web/src/lib/api/rooms.ts — added fetchMe()
+  apps/web/src/i18n/locales/id.json — added toolbar + participantListPlaceholder keys
+  + 4 test files (171 tests total)
+Verify evidence:
+  - `pnpm run test:run` → 19/19 files, 171/171 PASS
+  - `pnpm run build` → ✓ built in 11.97s
+Key fixes:
+  - applyEvent returns [BoardState, InverseEvent] tuple — must use [0]
+  - useWhiteboardTool(onEvent, seqRef) — seqRef = useRef(0) gives {current: number}
+  - StudentView follow-button: removed aria-label, test uses text content
+Next: P04-T08 (Web: realtime sync engine)

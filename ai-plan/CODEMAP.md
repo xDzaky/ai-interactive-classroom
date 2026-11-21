@@ -145,3 +145,12 @@ Rules:
 | apps/api/database/factories/ClassroomFactory.php | Classroom model factory | ClassroomFactory | P04-T02 | OK |
 | apps/api/tests/Feature/RoomApiTest.php | 15 feature tests for Room domain API | — | P04-T02 | OK |
 | apps/api/tests/Feature/RoomJoinTest.php | 14 feature tests for join flow (guest, auth, tokens, errors) | — | P04-T03 | OK |
+| apps/web/src/pages/room/TeacherView.tsx | Teacher view — writable whiteboard, toolbar, room controls (end room, participant sidebar stub) | TeacherView, TeacherViewProps | P04-T07 | OK |
+| apps/web/src/pages/room/PresentationView.tsx | Presentation/projector view — read-only whiteboard, fullscreen toggle | PresentationView, PresentationViewProps | P04-T07 | OK |
+| apps/web/src/pages/room/StudentView.tsx | Student view — read-only whiteboard, raise hand (FR-013), follow-teacher toggle | StudentView, StudentViewProps | P04-T07 | OK |
+| apps/web/src/pages/room/RoomPage.tsx | Room router — decodes token/role, routes to Teacher/Student/Presentation view | RoomPage (default) | P04-T07 | OK |
+| apps/web/src/lib/api/rooms.ts | rooms API client — added fetchMe (GET /rooms/{room}/participants/me) | fetchMe | P04-T07 | OK |
+| apps/web/src/pages/room/TeacherView.test.tsx | 4 tests for TeacherView | — | P04-T07 | OK |
+| apps/web/src/pages/room/PresentationView.test.tsx | 3 tests for PresentationView | — | P04-T07 | OK |
+| apps/web/src/pages/room/StudentView.test.tsx | 4 tests for StudentView | — | P04-T07 | OK |
+| apps/web/src/pages/room/RoomPage.test.tsx | 4 tests for RoomPage routing | — | P04-T07 | OK |
