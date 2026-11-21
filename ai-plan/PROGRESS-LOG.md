@@ -238,3 +238,15 @@ Verify evidence:
 ### START   2026-11-21 14:35 | Claude Antigravity | tier HIGH | P03-T03
 Resuming: no
 Plan: SolidViewer component (R3F), parameter panel, labels, low-quality mode
+
+### DONE   2026-11-21 14:37 | P03-T03 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/components/math/SolidViewer.tsx — R3F canvas, OrbitControls, Html labels, clip plane, wireframe, parameter sliders, formula panel
+  apps/web/src/components/math/SolidViewer.test.tsx — 8 tests (R3F mocked)
+Verify evidence:
+  - `pnpm run test:run` → 113/113 PASS (10 test files)
+
+### START   2026-11-21 14:38 | Claude Antigravity | tier HIGH | P03-T04
+Resuming: no
+Plan: math-core — safe AST evaluator (recursive descent parser, whitelist: +,-,*,/,^,sqrt,sin,cos,tan,log,abs,pi,e) NO eval/Function()
