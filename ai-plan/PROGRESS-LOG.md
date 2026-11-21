@@ -1180,3 +1180,14 @@ Plan:
   2. Counts: Laravel ≥182, vitest ≥321, build green, pytest ≥26
   3. Lock all P08 CODEMAP rows
   4. Mark P08-RV [x]
+
+
+### BLOCKED   2026-11-21 20:18 | Codex | tier HIGH | P08-RV
+Reason: P08-RV depends on T01-T07, but P08-T03 is blocked by ADR-022 and P08-T04
+is not started. The phase cannot be marked complete or its CODEMAP rows locked.
+Verification observed during resume:
+  - `cd apps/api && php artisan test --compact` → 182/182 PASS, 383 assertions
+  - Web test execution started successfully and ran P08 tutor/panel tests, but no
+    complete summary was captured before this review was halted by unmet dependencies.
+Three pre-existing local web-file modifications were not changed by this review.
+Action needed: decide ADR-022, complete P08-T03 and P08-T04, then reopen P08-RV.

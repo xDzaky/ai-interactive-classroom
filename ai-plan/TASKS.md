@@ -100,7 +100,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P08-T06 | MID  | deps: T05      | Teacher AI UI: outline/quiz generator with edit+approve
 - [x] P08-T07 | MID  | deps: T04,T05  | Student AI tutor UI (hint-first)
 - [ ] P08-T08 | HIGH | deps: P02-T06,P03-T06 | OPTIONAL: rule-based sketch recognition + clarification UI
-- [~] P08-RV  | HIGH | deps: T01-T07  | Phase review  — Claude Antigravity HIGH 2026-11-21T20:12
+- [!] P08-RV  | HIGH | deps: T01-T07  | Phase review  — BLOCKED: P08-T03/P08-T04 incomplete
 
 ## P09 — Pilot readiness · `tasks/P09-pilot.md`
 - [ ] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)
