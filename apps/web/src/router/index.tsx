@@ -35,6 +35,7 @@ export const router = createBrowserRouter([
   { path: "/login", element: withSuspense(LoginPage) },
   { path: "/dashboard", element: withSuspense(DashboardPage) },
   { path: "/rooms/create", element: withSuspense(CreateRoomPage) },
+  { path: "/room/new", element: withSuspense(CreateRoomPage) },
   { path: "/room/:roomId/lobby", element: withSuspense(LobbyPage) },
   { path: "/join", element: withSuspense(JoinPage) },
   { path: "/join/:code", element: withSuspense(JoinPage) },
