@@ -33,8 +33,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P01-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P02 — Whiteboard MVP · `tasks/P02-whiteboard.md`
-- [~] P02-T01 | MID  | deps: P00-T06  | whiteboard-core: board model types + zod schemas + event types  <-- Claude Antigravity / HIGH / 2026-11-21 13:57
-- [ ] P02-T02 | HIGH | deps: T01      | whiteboard-core: reducer, inverse events, undo/redo history (pure, tested)
+- [x] P02-T01 | MID  | deps: P00-T06  | whiteboard-core: board model types + zod schemas + event types
+- [x] P02-T02 | HIGH | deps: T01      | whiteboard-core: reducer, inverse events, undo/redo history (pure, tested)
 - [ ] P02-T03 | MID  | deps: T02,P00-T04 | Web: canvas render from state, zoom/pan, grid
 - [ ] P02-T04 | MID  | deps: T03      | Tools: select/transform, pen, eraser, line/arrow, text
 - [ ] P02-T05 | MID  | deps: T04      | Shape builder: click-create, drag-resize, numeric panel, snapping

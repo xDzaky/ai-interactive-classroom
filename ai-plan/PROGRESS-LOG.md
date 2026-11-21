@@ -111,3 +111,15 @@ CODEMAP: all P00 rows filled. All tasks [x]. Phase 0 COMPLETE.
 ### START   2026-11-21 13:37 | Claude Antigravity | tier HIGH | P01-T01
 Resuming: no
 Plan: Create all P01 migrations — schools, memberships, classrooms, subjects, curricula
+
+### DONE   2026-11-21 14:06 | P02-T01 + P02-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  packages/whiteboard-core/src/index.ts — full Zod schemas + factory helpers + reducer export
+  packages/whiteboard-core/src/reducer.ts — applyEvent (14 event types), applyInverse, pushHistory, undo, redo
+  packages/whiteboard-core/src/reducer.test.ts — 22 vitest tests
+  packages/whiteboard-core/package.json — zod dep added
+Verify evidence:
+  - `pnpm run test` → 22/22 PASS (1 test file, 1.11s)
+  - `pnpm -r --filter './packages/**' build` → all 5 packages: Done (tsc)
+Next eligible task: P02-T03 (Web: canvas render from state, zoom/pan, grid)

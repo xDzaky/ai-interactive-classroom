@@ -21,6 +21,7 @@
     "vitest": "^2.0.0"
   },
   "dependencies": {
-    "@ai-classroom/shared-types": "workspace:*"
+    "@ai-classroom/shared-types": "workspace:*",
+    "zod": "^3.23.8"
   }
 }

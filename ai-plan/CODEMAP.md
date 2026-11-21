@@ -100,3 +100,11 @@ Rules:
 | Vitest component test | apps/web/src/test/NotFoundPage.test.tsx | MemoryRouter wrapper, RTL, jest-dom matchers |
 | Zod schema + TS type | packages/shared-types/src/index.ts | z.infer pattern, branded UUIDs, discriminated unions |
 | FastAPI endpoint test | apps/ai-service/tests/test_health.py | httpx AsyncClient, auth header pattern |
+
+## P02 — Whiteboard MVP
+
+| path | purpose | public exports | task | status |
+|------|---------|---------------|------|--------|
+| packages/whiteboard-core/src/index.ts | Board state types, Zod schemas, event type union, factory helpers | BoardStroke, BoardObject, Transform, SceneState, BoardState, WhiteboardEvent, WhiteboardEventType, createInitialBoardState, getActiveScene, createScene | P02-T01 | LOCKED |
+| packages/whiteboard-core/src/reducer.ts | Pure reducer: applyEvent, applyInverse, undo/redo history management | applyEvent, applyInverse, pushHistory, undo, redo, createHistory, InverseEvent, WhiteboardHistory, HistoryResult | P02-T02 | LOCKED |
+| packages/whiteboard-core/src/reducer.test.ts | 22 vitest tests: all event types, inverse round-trips, undo/redo stack | — | P02-T02 | LOCKED |
