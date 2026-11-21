@@ -272,3 +272,11 @@ Rules:
 | apps/web/src/lib/useWeakDevice.ts | Detect weak device (hardwareConcurrency<4 or deviceMemory<4) for 3D quality degradation | isWeakDevice, useWeakDevice | P07-T06 | LOCKED |
 | apps/web/src/lib/useWeakDevice.test.ts | 6 unit tests for useWeakDevice | — | P07-T06 | LOCKED |
 | apps/web/public/manifest.json | PWA manifest (icons, shortcuts, theme) | — | P07-T06 | LOCKED |
+| apps/ai-service/app/__init__.py | ai-service app package marker | — | P08-T01 | OK |
+| apps/ai-service/app/auth.py | FastAPI dependency: X-Internal-Secret auth | require_internal_auth | P08-T01 | OK |
+| apps/ai-service/app/llm.py | LiteLLM async wrapper: complete() | complete, DEFAULT_MODEL | P08-T01 | OK |
+| apps/ai-service/app/jobs.py | In-memory job store: create/get/run/dispatch | Job, create_job, get_job, dispatch | P08-T01 | OK |
+| apps/ai-service/app/routers/__init__.py | routers package marker | — | P08-T01 | OK |
+| apps/ai-service/app/routers/jobs.py | POST /ai/jobs (202) + GET /ai/jobs/{id} | router | P08-T01 | OK |
+| apps/ai-service/main.py | FastAPI app entrypoint + /health | app | P08-T01 | OK |
+| apps/ai-service/tests/test_p08_t01.py | 7 pytest tests: auth, job store, LiteLLM mock | — | P08-T01 | OK |

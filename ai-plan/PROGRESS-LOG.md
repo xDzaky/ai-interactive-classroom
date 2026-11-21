@@ -983,3 +983,31 @@ Plan:
   1. Create app/ package: auth.py (dependency), llm.py (LiteLLM wrapper), jobs.py (in-memory job store), routers/jobs.py
   2. Refactor main.py to use app package + mount routers
   3. 5+ tests covering auth, LiteLLM mock, job create/status
+
+
+### DONE   2026-11-21 19:27 | P08-T01 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/ai-service/app/__init__.py — package marker
+  apps/ai-service/app/auth.py — require_internal_auth FastAPI dependency
+  apps/ai-service/app/llm.py — LiteLLM async complete() wrapper
+  apps/ai-service/app/jobs.py — in-memory async job store (create/get/run/dispatch)
+  apps/ai-service/app/routers/__init__.py — package marker
+  apps/ai-service/app/routers/jobs.py — POST /ai/jobs (202+job_id) + GET /ai/jobs/{id}
+  apps/ai-service/main.py — refactored to use app package + mounts jobs router
+  apps/ai-service/tests/test_p08_t01.py — 7 P08-T01 tests
+  ai-plan/CODEMAP.md — P08-T01 rows added
+Verify evidence:
+  - `.venv/bin/python -m pytest tests/ -v` → 12/12 PASS (5 health + 7 P08-T01)
+Next: P08-T02 (geometry/math service)
+
+
+### START   2026-11-21 19:27 | Claude Antigravity | tier HIGH | P08-T02
+Resuming: no
+Plan:
+  1. Create tests/fixtures/geometry_cases.json — shared fixture (volume, surface area, area, perimeter)
+  2. Create apps/ai-service/app/routers/geometry.py — POST /ai/geometry/solve
+  3. Mount geometry router in main.py
+  4. Write Python contract tests (test_p08_t02.py) — each fixture case verified by Python solver
+  5. Write TS contract tests (geometry.contract.test.ts) — same fixture cases via @ai-classroom/geometry-core
+  6. Run pytest ≥ 17 tests; vitest still ≥ 288
