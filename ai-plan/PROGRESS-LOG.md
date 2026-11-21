@@ -546,3 +546,14 @@ Changed files:
 Verify evidence:
   - `php artisan test` → 121/121 PASS (8 new + 113 existing)
 Next: P05-T03 (Web: Raise Hand, host queue, approve dialog)
+
+### START   2026-11-21 16:37 | Claude Antigravity | tier HIGH | P05-T03
+Resuming: no
+Plan:
+  1. RaiseHandButton — student: button to POST /presenter-requests, shows pending/active state
+  2. PresenterQueue — teacher: live queue of presenter requests using useQuery (poll 3s), approve/reject dialog
+  3. ApproveDialog — modal with scope selector (draw_only, object_edit, full_board) + confirm
+  4. Wire RaiseHandButton into StudentView (replace stub raise-hand button from P04-T07)
+  5. Wire PresenterQueue into TeacherView sidebar (below ParticipantList)
+  6. API client helpers in lib/api/presenterRequests.ts
+  7. Tests for each component
