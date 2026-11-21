@@ -346,3 +346,7 @@ Changed files:
 Verify evidence:
   - `php artisan test` → 61/61 PASS
 Next: P04-T03 (Join flow: guest + account, participant tokens, rate limits)
+
+### START   2026-11-21 15:11 | Claude Antigravity | tier HIGH | P04-T03
+Resuming: no
+Plan: POST /rooms/join — validate code+alias, create Participant, return participant_token (JWT-like via Sanctum or custom HMAC), rate limit 10/min per IP
