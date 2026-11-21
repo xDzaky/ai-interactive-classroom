@@ -290,10 +290,12 @@ Rules:
 | apps/api/app/Http/Controllers/Api/V1/AiJobController.php | store (202+job_id, rate limit 20/hr) + show (own job, 403 for others) | store, show | P08-T05 | LOCKED |
 | apps/api/app/Jobs/AiJob.php | Laravel queue job: dispatch to ai-service, poll, write result+usage log | AiJob | P08-T05 | LOCKED |
 | apps/api/tests/Feature/AiJobApiTest.php | 9 feature tests: 202, auth, rate limit, 403, 404, done result | — | P08-T05 | LOCKED |
-| apps/web/src/hooks/useAiJob.ts | Hook: submit AI job + poll until done/failed | useAiJob, AiJobStatus, AiJobResult | P08-T06 | OK |
-| apps/web/src/pages/room/TeacherAiPanel.tsx | Teacher AI panel: outline/quiz generate, edit, approve | default TeacherAiPanel | P08-T06 | OK |
-| apps/web/src/pages/room/TeacherAiPanel.test.tsx | 8 component tests for TeacherAiPanel | — | P08-T06 | OK |
+| apps/web/src/hooks/useAiJob.ts | Hook: submit AI job + poll until done/failed | useAiJob, AiJobStatus, AiJobResult | P08-T06 | LOCKED |
+| apps/web/src/pages/room/TeacherAiPanel.tsx | Teacher AI panel: outline/quiz generate, edit, approve | default TeacherAiPanel | P08-T06 | LOCKED |
+| apps/web/src/pages/room/TeacherAiPanel.test.tsx | 8 component tests for TeacherAiPanel | — | P08-T06 | LOCKED |
 | apps/api/composer.json | Added Laravel Boost development dependency | — | P00-T08 | OK |
 | apps/api/boost.json | Laravel Boost generated-guidelines configuration | — | P00-T08 | OK |
 | apps/api/AGENTS.md | Laravel Boost supplementary agent guidance | — | P00-T08 | OK |
 | apps/api/CLAUDE.md | Laravel Boost supplementary agent guidance | — | P00-T08 | OK |
+| apps/web/src/pages/room/StudentAiTutor.tsx | Student AI tutor: hint-first chat, Socratic prompting, explain-on-request | default StudentAiTutor, TutorMessage, TutorStep | P08-T07 | OK |
+| apps/web/src/pages/room/StudentAiTutor.test.tsx | 8 component tests for StudentAiTutor | — | P08-T07 | OK |

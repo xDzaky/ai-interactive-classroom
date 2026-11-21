@@ -1159,3 +1159,24 @@ Reason: CONTRACTS.md defines AI job endpoints but no document-ingestion endpoint
 payload, authorization scope, or response. ADR-020 resolves embedding dimensions
 only. ADR-022 proposes a concrete contract for human approval.
 Action needed: decide ADR-022 and add the approved API contract to CONTRACTS.md.
+
+
+### DONE   2026-11-21 20:12 | P08-T07 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/web/src/pages/room/StudentAiTutor.tsx — hint-first tutor chat with Socratic hints + explain-on-request
+  apps/web/src/pages/room/StudentAiTutor.test.tsx — 8 component tests
+Verify evidence:
+  - `pnpm run test:run` → 321/321 PASS (46 test files)
+  - `php artisan test` → 182/182 PASS
+Fixes: scrollIntoView guarded with typeof check (jsdom compat)
+Next: P08-RV (phase review)
+
+
+### START   2026-11-21 20:12 | Claude Antigravity | tier HIGH | P08-RV
+Resuming: no
+Plan:
+  1. Run all 4 suites: php artisan test, pnpm run test:run, pnpm run build, python3 -m pytest
+  2. Counts: Laravel ≥182, vitest ≥321, build green, pytest ≥26
+  3. Lock all P08 CODEMAP rows
+  4. Mark P08-RV [x]
