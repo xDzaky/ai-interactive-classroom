@@ -94,3 +94,20 @@ Verify evidence:
 - `python3 yaml.safe_load ci.yml` → OK
 - CI file has 4 jobs: api-tests (PHPUnit), packages-build (pnpm), web-tests (vitest), ai-service-tests (pytest)
 Next eligible task: P00-RV (Phase 0 review)
+
+### DONE   2026-11-21 13:37 | P00-RV | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Full P00 verification:
+- git log → 5 task commits, all P00 tasks present
+- php artisan test → 4/4 PASS
+- pnpm -r build (packages) → 5/5 OK
+- pnpm test:run (web) → 1/1 PASS
+- pnpm build (web) → ✓ built in 12.40s, PWA sw.js
+- uv run pytest -v (ai-service) → 5/5 PASS
+- python3 yaml.safe_load docker-compose.yml → OK
+- python3 yaml.safe_load ci.yml → OK
+CODEMAP: all P00 rows filled. All tasks [x]. Phase 0 COMPLETE.
+
+### START   2026-11-21 13:37 | Claude Antigravity | tier HIGH | P01-T01
+Resuming: no
+Plan: Create all P01 migrations — schools, memberships, classrooms, subjects, curricula

@@ -20,10 +20,10 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P00-T06 | MID  | deps: T01,T04  | Shared packages scaffold (shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema)
 - [x] P00-T07 | LOW  | deps: T03,T04,T05,T06 | Root verify scripts + GitHub Actions CI
 - [ ] P00-T08 | LOW  | deps: T03      | OPTIONAL: Laravel Boost (dev) for Laravel-specific agent guidance
-- [ ] P00-RV  | HIGH | deps: T01-T07  | Phase review
+- [x] P00-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P01 — Foundation (identity, schools, classrooms, web shell) · `tasks/P01-foundation.md`
-- [ ] P01-T01 | MID  | deps: P00-T03  | Migrations: UUID users, schools, memberships, classrooms, subjects, curricula
+- [~] P01-T01 | MID  | deps: P00-T03  | Migrations: UUID users, schools, memberships, classrooms, subjects, curricula  <-- Claude Antigravity / HIGH / 2026-11-21 13:37
 - [ ] P01-T02 | MID  | deps: T01      | Auth API (Sanctum SPA cookie): login/logout/me + API error format + CORS
 - [ ] P01-T03 | MID  | deps: T02      | Schools/classrooms API + policies + tenant isolation tests
 - [ ] P01-T04 | LOW  | deps: P00-T06  | shared-types: zod schemas for auth/school/classroom/error
