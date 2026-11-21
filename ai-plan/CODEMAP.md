@@ -11,31 +11,92 @@ Rules:
 ## apps/api (Laravel)
 | Path | Purpose | Exports / routes | Task | Status |
 |---|---|---|---|---|
-| _(empty)_ | | | | |
+| apps/api/app/Http/Controllers/AiJobController.php | Stub AI job CRUD controller | POST /api/v1/ai/jobs, GET /api/v1/ai/jobs/{id} | P00-T03 | LOCKED |
+| apps/api/app/Http/Controllers/ClassroomController.php | Stub classroom CRUD controller | GET/POST /api/v1/classrooms | P00-T03 | LOCKED |
+| apps/api/app/Http/Controllers/LoginController.php | Stub login/logout/me controller | POST /api/v1/auth/login, POST /api/v1/auth/logout, GET /api/v1/auth/me | P00-T03 | LOCKED |
+| apps/api/app/Http/Controllers/RoomController.php | Stub room CRUD controller | GET/POST /api/v1/rooms | P00-T03 | LOCKED |
+| apps/api/app/Http/Controllers/SchoolController.php | Stub school CRUD controller | GET/POST /api/v1/schools | P00-T03 | LOCKED |
+| apps/api/app/Models/User.php | UUID user model with role enum | User (Eloquent model) | P00-T03 | LOCKED |
+| apps/api/bootstrap/app.php | App bootstrap: API routes, Sanctum, JSON errors | — | P00-T03 | LOCKED |
+| apps/api/database/migrations/*_create_users_table.php | UUID pk, role enum, school_id migration | — | P00-T03 | LOCKED |
+| apps/api/database/migrations/*_create_personal_access_tokens.php | UUID morphs for Sanctum tokens | — | P00-T03 | LOCKED |
+| apps/api/database/migrations/*_enable_pgvector.php | Enables pgvector extension (pgsql guard) | — | P00-T03 | LOCKED |
+| apps/api/routes/api.php | All API routes: health, auth, schools, classrooms, rooms, ai/jobs | — | P00-T03 | LOCKED |
+| apps/api/tests/Feature/HealthTest.php | Health endpoint feature tests (2 tests) | — | P00-T03 | LOCKED |
 
 ## apps/web (React)
 | Path | Purpose | Exports | Task | Status |
 |---|---|---|---|---|
-| _(empty)_ | | | | |
+| apps/web/index.html | Vite HTML entrypoint | — | P00-T04 | LOCKED |
+| apps/web/package.json | Web app deps (React 19, Vite 6, Tailwind 4, etc.) | — | P00-T04 | LOCKED |
+| apps/web/vite.config.ts | Vite config: React, Tailwind, PWA, proxy, chunks | — | P00-T04 | LOCKED |
+| apps/web/vitest.config.ts | Vitest config: jsdom, setup, coverage | — | P00-T04 | LOCKED |
+| apps/web/tsconfig.json | TS config for src (strict, bundler moduleResolution) | — | P00-T04 | LOCKED |
+| apps/web/tsconfig.node.json | TS config for vite/vitest configs (composite) | — | P00-T04 | LOCKED |
+| apps/web/src/index.css | Tailwind v4 CSS import | — | P00-T04 | LOCKED |
+| apps/web/src/main.tsx | App entrypoint: QueryClient + RouterProvider | — | P00-T04 | LOCKED |
+| apps/web/src/lib/api.ts | Axios instance with CSRF interceptor | api (axios instance) | P00-T04 | LOCKED |
+| apps/web/src/router/index.tsx | React Router v7 lazy routes for all pages | router | P00-T04 | LOCKED |
+| apps/web/src/stores/authStore.ts | Zustand auth store with persist middleware | useAuthStore | P00-T04 | LOCKED |
+| apps/web/src/i18n/index.ts | i18next setup with Indonesian locale | i18n | P00-T04 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Full Indonesian translation strings | — | P00-T04 | LOCKED |
+| apps/web/src/pages/LoginPage.tsx | Login page stub | LoginPage | P00-T04 | STUB (form impl in P01-T05) |
+| apps/web/src/pages/DashboardPage.tsx | Dashboard page stub | DashboardPage | P00-T04 | STUB (impl in P01-T06) |
+| apps/web/src/pages/RoomPage.tsx | Room page stub | RoomPage | P00-T04 | STUB (impl in P04-T07) |
+| apps/web/src/pages/JoinPage.tsx | Join room page stub | JoinPage | P00-T04 | STUB (impl in P04-T06) |
+| apps/web/src/pages/ControllerPage.tsx | Mobile controller page stub | ControllerPage | P00-T04 | STUB (impl in P05-T05) |
+| apps/web/src/pages/NotFoundPage.tsx | 404 page | NotFoundPage | P00-T04 | LOCKED |
+| apps/web/src/test/setup.ts | Vitest global test setup (jest-dom) | — | P00-T04 | LOCKED |
+| apps/web/src/test/NotFoundPage.test.tsx | NotFoundPage component test (1 test) | — | P00-T04 | LOCKED |
 
 ## apps/ai-service (FastAPI)
 | Path | Purpose | Exports / routes | Task | Status |
 |---|---|---|---|---|
-| apps/ai-service/main.py | FastAPI app + /health endpoint | app (FastAPI) | P00-T05 | LOCKED |
-| apps/ai-service/pyproject.toml | uv project config + all deps | — | P00-T05 | LOCKED |
-| apps/ai-service/tests/test_health.py | Health endpoint test | — | P00-T05 | LOCKED |
+| apps/ai-service/main.py | FastAPI app + /health + stub AI job endpoints | app (FastAPI) | P00-T05 | LOCKED |
+| apps/ai-service/pyproject.toml | uv project config + all deps from STACK.md | — | P00-T05 | LOCKED |
+| apps/ai-service/tests/test_health.py | 5 tests: health, job auth, job CRUD stubs | — | P00-T05 | LOCKED |
 
 ## packages/*
 | Path | Purpose | Exports | Task | Status |
 |---|---|---|---|---|
-| _(empty)_ | | | | |
+| packages/shared-types/src/index.ts | Zod schemas + TS types for all CONTRACTS entities | User, School, Classroom, Room, Participant, RoomEvent, PresenterRequest, RoomDevice, Activity, ApiError, PaginatedResponse, etc. | P00-T06 | LOCKED |
+| packages/whiteboard-core/src/index.ts | Board model types + initial state factory | BoardObject, BoardStroke, SceneState, BoardState, createInitialBoardState | P00-T06 | LOCKED |
+| packages/geometry-core/src/index.ts | Solid type enum + geometry result types (placeholder) | SolidType, GeometryResult | P00-T06 | STUB (formulas in P03-T01) |
+| packages/math-core/src/index.ts | AST node types + safe evaluator placeholder | ASTNode, ALLOWED_FUNCTIONS, parseExpression, evaluateAST | P00-T06 | STUB (safe evaluator in P03-T04) |
+| packages/curriculum-schema/src/index.ts | Subject/Curriculum/LessonTopic Zod schemas | Subject, Curriculum, LessonTopic | P00-T06 | LOCKED |
 
 ## infra / root / CI
 | Path | Purpose | Notes | Task | Status |
 |---|---|---|---|---|
-| _(empty)_ | | | | |
+| .github/workflows/ci.yml | GitHub Actions CI: 4 jobs (api, packages, web, ai-service) | Runs on push/PR to main | P00-T07 | LOCKED |
+| .gitignore | Monorepo gitignore (Node, PHP, Python, Vite, etc.) | — | P00-T01 | LOCKED |
+| .env.example | Root env vars template | — | P00-T02 | LOCKED |
+| docker-compose.yml | Postgres+pgvector, Redis, Mailpit services | YAML valid; runtime not tested (no Docker on host) | P00-T02 | LOCKED |
+| infra/postgres/init.sql | pgvector + uuid-ossp + classroom_test DB setup | — | P00-T02 | LOCKED |
+| package.json | Root workspace scripts + engine/pnpm version | — | P00-T01 | LOCKED |
+| pnpm-workspace.yaml | pnpm workspace packages + vite override | apps/web, packages/* | P00-T01 | LOCKED |
+| README.md | Project README | — | P00-T01 | LOCKED |
+| ai-plan/TASKS.md | Master task board | — | P00-T01 | OK |
+| ai-plan/CODEMAP.md | This file — code map | — | ongoing | OK |
+| ai-plan/CONTRACTS.md | API/DB/event contracts (source of truth for names) | — | P00-T01 | LOCKED |
+| ai-plan/STACK.md | Allowed packages and versions | — | P00-T01 | LOCKED |
+| ai-plan/REFERENCES.md | Allowed documentation URLs | — | P00-T01 | LOCKED |
+| ai-plan/DECISIONS.md | Architecture decision log | — | P00-T01 | OK |
+| ai-plan/KNOWLEDGE.md | Pitfalls and lessons learned | — | ongoing | OK |
+| ai-plan/PROGRESS-LOG.md | Session activity log | — | ongoing | OK |
+| ai-plan/REVIEW.md | HIGH-tier review protocol | — | P00-T01 | LOCKED |
+| ai-plan/PROMPTS.md | Copy-paste prompts for the human | — | P00-T01 | LOCKED |
+| ai-plan/tasks/P00-bootstrap.md | P00 task detail file | — | P00-T01 | OK |
+| docs/AI-Interactive-Classroom-Tech-Spec.md | Original technical specification | DO NOT MODIFY | P00-T01 | LOCKED |
+| docs/Proposal-AI-Interactive-Classroom.md | Original product proposal | DO NOT MODIFY | P00-T01 | LOCKED |
 
 ## Patterns to copy (filled by HIGH-tier agents)
 | Kind of work | Best example file | Why |
 |---|---|---|
-| _(empty)_ | | |
+| Laravel controller stub | apps/api/app/Http/Controllers/LoginController.php | Minimal resource controller, correct namespace |
+| Laravel feature test | apps/api/tests/Feature/HealthTest.php | PHPUnit + Laravel TestCase, JSON response assertions |
+| React page stub | apps/web/src/pages/NotFoundPage.tsx | Minimal page, useTranslation hook, Tailwind |
+| Zustand store | apps/web/src/stores/authStore.ts | persist middleware, TypeScript typed, selectors |
+| Vitest component test | apps/web/src/test/NotFoundPage.test.tsx | MemoryRouter wrapper, RTL, jest-dom matchers |
+| Zod schema + TS type | packages/shared-types/src/index.ts | z.infer pattern, branded UUIDs, discriminated unions |
+| FastAPI endpoint test | apps/ai-service/tests/test_health.py | httpx AsyncClient, auth header pattern |

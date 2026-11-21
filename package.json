@@ -16,5 +16,10 @@
     "node": ">=20",
     "pnpm": ">=8"
   },
-  "packageManager": "pnpm@11.5.2"
+  "packageManager": "pnpm@11.5.2",
+  "pnpm": {
+    "overrides": {
+      "vite": "^6.0.3"
+    }
+  }
 }

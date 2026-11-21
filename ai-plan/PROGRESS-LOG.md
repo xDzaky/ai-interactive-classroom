@@ -68,3 +68,29 @@ Verify evidence:
 - `uv run pytest -v` → test_health_returns_ok PASSED (1 passed in 4.04s, Python 3.12.8, pytest-9.2.0)
 Notes for next agent: FastAPI service ready on port 8100
 Next eligible task: P00-T07 (after T03,T04,T06 done)
+
+### DONE   2026-11-21 13:36 | P00-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files: apps/web/package.json, vite.config.ts, vitest.config.ts, tsconfig.json, tsconfig.node.json, index.html, src/main.tsx, src/index.css, src/router/index.tsx, src/lib/api.ts, src/stores/authStore.ts, src/i18n/index.ts, src/i18n/locales/id.json, src/pages/*.tsx, src/test/setup.ts, src/test/NotFoundPage.test.tsx, .env.example, pnpm-workspace.yaml (vite override added)
+Verify evidence:
+- `pnpm run build` → ✓ built in 12.40s, PWA v0.21.2, 17 precache entries, dist/sw.js generated
+- `pnpm run test:run` → 1 passed (NotFoundPage.test.tsx), duration 5.96s
+Fix applied: pnpm-workspace.yaml overrides.vite: "^6.0.3" to dedupe vite (vitest was pulling in vite@5 types)
+Notes for next agent: React web shell done. pages are STUB (marked in CODEMAP). pnpm 11.5.2 binary available at system pnpm (via nvm).
+Next eligible task: P00-T08 (OPTIONAL) or P00-RV
+
+### DONE   2026-11-21 13:36 | P00-T06 | status [x]
+Agent: Gemini 2.5 Pro + Claude (Antigravity) | tier HIGH
+Changed files: packages/shared-types/src/index.ts, packages/whiteboard-core/src/index.ts, packages/geometry-core/src/index.ts, packages/math-core/src/index.ts, packages/curriculum-schema/src/index.ts, all 5 package.json+tsconfig files
+Verify evidence:
+- `pnpm -r --filter './packages/**' build` → all 5 packages: Done (tsc -p tsconfig.build.json)
+Notes for next agent: geometry-core and math-core are STUB (placeholder impls). Full impl in P03-T01 and P03-T04.
+Next eligible task: P00-T07 (now done)
+
+### DONE   2026-11-21 13:36 | P00-T07 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files: .github/workflows/ci.yml
+Verify evidence:
+- `python3 yaml.safe_load ci.yml` → OK
+- CI file has 4 jobs: api-tests (PHPUnit), packages-build (pnpm), web-tests (vitest), ai-service-tests (pytest)
+Next eligible task: P00-RV (Phase 0 review)

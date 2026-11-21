@@ -15,10 +15,10 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P00-T01 | LOW  | deps: -        | Repo skeleton, git, pnpm workspace, .gitignore, copy original docs
 - [x] P00-T02 | LOW  | deps: T01      | Docker compose (Postgres+pgvector, Redis) + .env.example
 - [x] P00-T03 | MID  | deps: T01,T02  | Laravel 13 API in apps/api (Sanctum, Pest, pgsql, health endpoint)
-- [ ] P00-T04 | MID  | deps: T01      | React web shell in apps/web (Vite, Tailwind, shadcn, Router, Query, Zustand, Vitest)
+- [x] P00-T04 | MID  | deps: T01      | React web shell in apps/web (Vite, Tailwind, shadcn, Router, Query, Zustand, Vitest)
 - [x] P00-T05 | LOW  | deps: T01,T02  | FastAPI AI service in apps/ai-service (uv, health endpoint, pytest)
-- [~] P00-T06 | MID  | deps: T01,T04  | Shared packages scaffold (shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema)  <-- Gemini 2.5 Pro / HIGH / 2026-11-21 12:44
-- [ ] P00-T07 | LOW  | deps: T03,T04,T05,T06 | Root verify scripts + GitHub Actions CI
+- [x] P00-T06 | MID  | deps: T01,T04  | Shared packages scaffold (shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema)
+- [x] P00-T07 | LOW  | deps: T03,T04,T05,T06 | Root verify scripts + GitHub Actions CI
 - [ ] P00-T08 | LOW  | deps: T03      | OPTIONAL: Laravel Boost (dev) for Laravel-specific agent guidance
 - [ ] P00-RV  | HIGH | deps: T01-T07  | Phase review
 
