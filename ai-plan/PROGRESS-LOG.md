@@ -1074,3 +1074,22 @@ Plan:
   3. Wire to POST /ai/jobs endpoint (useAiJob hook)
   4. 4+ component tests
   5. Run vitest ≥ 305 tests
+
+
+### DONE   2026-11-21 19:44 | P08-T06 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/web/src/hooks/useAiJob.ts — submit AI job + poll until done/failed
+  apps/web/src/pages/room/TeacherAiPanel.tsx — outline/quiz generator, edit, approve
+  apps/web/src/pages/room/TeacherAiPanel.test.tsx — 8 component tests
+Verify evidence:
+  - `pnpm run test:run` → 313/313 PASS (45 test files)
+Next: P08-T07 (Student AI tutor UI)
+
+
+### START   2026-11-21 19:44 | Claude Antigravity | tier HIGH | P08-T07
+Resuming: no
+Plan:
+  1. Create StudentAiTutor.tsx — hint-first tutor with question/answer flow
+  2. 4+ component tests
+  3. Run vitest ≥ 313 tests
