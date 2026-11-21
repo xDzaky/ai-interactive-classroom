@@ -487,3 +487,25 @@ Key fixes:
   - TeacherView.test.tsx + RoomPage.test.tsx: added vi.mock("@/components/room/ParticipantList") to prevent Echo unconfigured error
   - useEchoPresence called with undefined event/callback — OK in tests (mocked)
 Next: P04-RV (Phase 4 Review)
+
+### START   2026-11-21 16:24 | Claude Antigravity | tier HIGH | P04-RV
+Resuming: no
+Plan: Run all verify commands (php artisan test, pnpm test:run, pnpm build, tsc --noEmit, pytest), review checklist, lock all P04 CODEMAP rows.
+
+### DONE   2026-11-21 16:27 | P04-RV | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Review summary:
+  - 107/107 Laravel tests PASS
+  - 183/183 vitest tests PASS (21/21 test files)
+  - 5/5 pytest tests PASS
+  - tsc --noEmit → 0 errors
+  - pnpm run build → ✓ built in 12.28s
+  - No stubs/TODOs in production paths (only future phase stubs in JoinPage/ControllerPage)
+  - Server-side authz: RoomPolicy + ParticipantTokenGuard on all participant routes
+  - No secrets committed
+  - No eval/Function() on user input
+  - All CONTRACTS.md names used exactly
+  - No new packages outside STACK.md in P04
+  - Cleaned up stale "stub" comment in TeacherView.tsx (now says "real-time via ParticipantList, P04-T09")
+  - All P04 CODEMAP rows marked LOCKED
+Next: P05-T01 (Migrations: presenter_requests, room_permissions, room_devices)

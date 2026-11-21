@@ -1,7 +1,7 @@
 /**
  * TeacherView — P04-T07
  * Teacher/host view: writable whiteboard + toolbar + room controls.
- * Shows participant count panel (placeholder, real-time wired in P04-T09).
+ * Shows participant list sidebar (real-time via ParticipantList, P04-T09).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -102,7 +102,7 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
     onSuccess: () => navigate("/dashboard"),
   });
 
-  // ── Participant count (stub — real-time in P04-T09) ─────────────────────
+  // ── Participant count shown in header (ParticipantList sidebar has full list) ─
   const [participantCount] = useState(1);
 
   return (

@@ -125,39 +125,39 @@ Rules:
 | apps/web/src/vite-env.d.ts | Vite + R3F type references | — | P03-T05 | OK |
 | apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx | DOM overlay layer for viz_solid + viz_graph BoardObjects over Konva canvas | WhiteboardOverlay, WhiteboardOverlayProps, ViewTransform | P03-T06 | OK |
 | apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx | 11 vitest tests for overlay positioning + rendering | — | P03-T06 | OK |
-| apps/api/database/migrations/2026_11_21_200001_create_rooms_table.php | rooms migration (uuid pk, classroom_id, host_id, code, status, mode, settings, starts_at, ends_at) | — | P04-T01 | OK |
-| apps/api/database/migrations/2026_11_21_200002_create_participants_table.php | participants migration (uuid pk, room_id, user_id nullable, alias, role, token_hash, joined_at, left_at) | — | P04-T01 | OK |
-| apps/api/database/migrations/2026_11_21_200003_create_whiteboards_table.php | whiteboards migration (uuid pk, room_id, name, scene_data) | — | P04-T01 | OK |
-| apps/api/database/migrations/2026_11_21_200004_create_room_events_table.php | room_events migration (uuid pk, room_id, seq, event_type, payload, actor_id, idempotency_key, committed_at) | — | P04-T01 | OK |
-| apps/api/database/migrations/2026_11_21_200005_create_room_snapshots_table.php | room_snapshots migration (uuid pk, room_id, seq_at, state, created_at) | — | P04-T01 | OK |
-| apps/api/database/migrations/2026_11_21_200006_create_audit_logs_table.php | audit_logs migration (uuid pk, room_id, actor_id, action, metadata, created_at) | — | P04-T01 | OK |
-| apps/api/tests/Feature/MigrationP04Test.php | 12 schema-shape tests for all 6 P04 tables | — | P04-T01 | OK |
-| apps/api/app/Models/Room.php | Room model — generateCode, canTransitionTo, relationships | Room | P04-T02 | OK |
-| apps/api/app/Models/Participant.php | Participant model | Participant | P04-T02 | OK |
-| apps/api/app/Models/Whiteboard.php | Whiteboard model | Whiteboard | P04-T02 | OK |
-| apps/api/app/Models/RoomEvent.php | RoomEvent model | RoomEvent | P04-T02 | OK |
-| apps/api/app/Models/RoomSnapshot.php | RoomSnapshot model | RoomSnapshot | P04-T02 | OK |
-| apps/api/app/Models/AuditLog.php | AuditLog model | AuditLog | P04-T02 | OK |
-| apps/api/app/Policies/RoomPolicy.php | Room authorization policy | RoomPolicy | P04-T02 | OK |
-| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — store/show/update/end/regenerateCode/join(stub) | RoomController | P04-T02 | OK |
-| apps/api/app/Console/Commands/ExpireRoomsCommand.php | rooms:expire Artisan command | ExpireRoomsCommand | P04-T02 | OK |
-| apps/api/database/factories/SchoolFactory.php | School model factory | SchoolFactory | P04-T02 | OK |
-| apps/api/database/factories/ClassroomFactory.php | Classroom model factory | ClassroomFactory | P04-T02 | OK |
-| apps/api/tests/Feature/RoomApiTest.php | 15 feature tests for Room domain API | — | P04-T02 | OK |
-| apps/api/tests/Feature/RoomJoinTest.php | 14 feature tests for join flow (guest, auth, tokens, errors) | — | P04-T03 | OK |
-| apps/web/src/pages/room/TeacherView.tsx | Teacher view — writable whiteboard, toolbar, room controls (end room, participant sidebar stub) | TeacherView, TeacherViewProps | P04-T07 | OK |
-| apps/web/src/pages/room/PresentationView.tsx | Presentation/projector view — read-only whiteboard, fullscreen toggle | PresentationView, PresentationViewProps | P04-T07 | OK |
-| apps/web/src/pages/room/StudentView.tsx | Student view — read-only whiteboard, raise hand (FR-013), follow-teacher toggle | StudentView, StudentViewProps | P04-T07 | OK |
-| apps/web/src/pages/room/RoomPage.tsx | Room router — decodes token/role, routes to Teacher/Student/Presentation view | RoomPage (default) | P04-T07 | OK |
-| apps/web/src/lib/api/rooms.ts | rooms API client — added fetchMe (GET /rooms/{room}/participants/me) | fetchMe | P04-T07 | OK |
-| apps/web/src/pages/room/TeacherView.test.tsx | 4 tests for TeacherView | — | P04-T07 | OK |
-| apps/web/src/pages/room/PresentationView.test.tsx | 3 tests for PresentationView | — | P04-T07 | OK |
-| apps/web/src/pages/room/StudentView.test.tsx | 4 tests for StudentView | — | P04-T07 | OK |
-| apps/web/src/pages/room/RoomPage.test.tsx | 4 tests for RoomPage routing | — | P04-T07 | OK |
-| apps/web/src/lib/syncEngine.ts | Realtime sync engine — seq ordering, gap detection, backfill (GET /events?after=N), dedupe, applyEvent. useSyncEngine React hook. | SyncEngine, useSyncEngine, BroadcastPayload, RemoteEvent | P04-T08 | OK |
-| apps/web/src/lib/syncEngine.test.ts | 8 tests for SyncEngine (in-order, dedup, gap-fill, backfill, seed, error) | — | P04-T08 | OK |
-| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — added participants() + participantMe() endpoints | participants(), participantMe() | P04-T09 | OK |
-| apps/api/routes/api.php | Added GET /rooms/{room}/participants + /participants/me routes under ParticipantTokenGuard | — | P04-T09 | OK |
-| apps/api/tests/Feature/ParticipantListTest.php | 7 feature tests for participant list endpoints | — | P04-T09 | OK |
-| apps/web/src/components/room/ParticipantList.tsx | Real-time participant list sidebar (REST poll + useEchoPresence presence channel) | ParticipantList, ParticipantListProps, ParticipantInfo | P04-T09 | OK |
-| apps/web/src/components/room/ParticipantList.test.tsx | 4 tests for ParticipantList component | — | P04-T09 | OK |
+| apps/api/database/migrations/2026_11_21_200001_create_rooms_table.php | rooms migration (uuid pk, classroom_id, host_id, code, status, mode, settings, starts_at, ends_at) | — | P04-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_200002_create_participants_table.php | participants migration (uuid pk, room_id, user_id nullable, alias, role, token_hash, joined_at, left_at) | — | P04-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_200003_create_whiteboards_table.php | whiteboards migration (uuid pk, room_id, name, scene_data) | — | P04-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_200004_create_room_events_table.php | room_events migration (uuid pk, room_id, seq, event_type, payload, actor_id, idempotency_key, committed_at) | — | P04-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_200005_create_room_snapshots_table.php | room_snapshots migration (uuid pk, room_id, seq_at, state, created_at) | — | P04-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_200006_create_audit_logs_table.php | audit_logs migration (uuid pk, room_id, actor_id, action, metadata, created_at) | — | P04-T01 | LOCKED |
+| apps/api/tests/Feature/MigrationP04Test.php | 12 schema-shape tests for all 6 P04 tables | — | P04-T01 | LOCKED |
+| apps/api/app/Models/Room.php | Room model — generateCode, canTransitionTo, relationships | Room | P04-T02 | LOCKED |
+| apps/api/app/Models/Participant.php | Participant model | Participant | P04-T02 | LOCKED |
+| apps/api/app/Models/Whiteboard.php | Whiteboard model | Whiteboard | P04-T02 | LOCKED |
+| apps/api/app/Models/RoomEvent.php | RoomEvent model | RoomEvent | P04-T02 | LOCKED |
+| apps/api/app/Models/RoomSnapshot.php | RoomSnapshot model | RoomSnapshot | P04-T02 | LOCKED |
+| apps/api/app/Models/AuditLog.php | AuditLog model | AuditLog | P04-T02 | LOCKED |
+| apps/api/app/Policies/RoomPolicy.php | Room authorization policy | RoomPolicy | P04-T02 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — store/show/update/end/regenerateCode/join(stub) | RoomController | P04-T02 | LOCKED |
+| apps/api/app/Console/Commands/ExpireRoomsCommand.php | rooms:expire Artisan command | ExpireRoomsCommand | P04-T02 | LOCKED |
+| apps/api/database/factories/SchoolFactory.php | School model factory | SchoolFactory | P04-T02 | LOCKED |
+| apps/api/database/factories/ClassroomFactory.php | Classroom model factory | ClassroomFactory | P04-T02 | LOCKED |
+| apps/api/tests/Feature/RoomApiTest.php | 15 feature tests for Room domain API | — | P04-T02 | LOCKED |
+| apps/api/tests/Feature/RoomJoinTest.php | 14 feature tests for join flow (guest, auth, tokens, errors) | — | P04-T03 | LOCKED |
+| apps/web/src/pages/room/TeacherView.tsx | Teacher view — writable whiteboard, toolbar, room controls (end room, participant sidebar stub) | TeacherView, TeacherViewProps | P04-T07 | LOCKED |
+| apps/web/src/pages/room/PresentationView.tsx | Presentation/projector view — read-only whiteboard, fullscreen toggle | PresentationView, PresentationViewProps | P04-T07 | LOCKED |
+| apps/web/src/pages/room/StudentView.tsx | Student view — read-only whiteboard, raise hand (FR-013), follow-teacher toggle | StudentView, StudentViewProps | P04-T07 | LOCKED |
+| apps/web/src/pages/room/RoomPage.tsx | Room router — decodes token/role, routes to Teacher/Student/Presentation view | RoomPage (default) | P04-T07 | LOCKED |
+| apps/web/src/lib/api/rooms.ts | rooms API client — added fetchMe (GET /rooms/{room}/participants/me) | fetchMe | P04-T07 | LOCKED |
+| apps/web/src/pages/room/TeacherView.test.tsx | 4 tests for TeacherView | — | P04-T07 | LOCKED |
+| apps/web/src/pages/room/PresentationView.test.tsx | 3 tests for PresentationView | — | P04-T07 | LOCKED |
+| apps/web/src/pages/room/StudentView.test.tsx | 4 tests for StudentView | — | P04-T07 | LOCKED |
+| apps/web/src/pages/room/RoomPage.test.tsx | 4 tests for RoomPage routing | — | P04-T07 | LOCKED |
+| apps/web/src/lib/syncEngine.ts | Realtime sync engine — seq ordering, gap detection, backfill (GET /events?after=N), dedupe, applyEvent. useSyncEngine React hook. | SyncEngine, useSyncEngine, BroadcastPayload, RemoteEvent | P04-T08 | LOCKED |
+| apps/web/src/lib/syncEngine.test.ts | 8 tests for SyncEngine (in-order, dedup, gap-fill, backfill, seed, error) | — | P04-T08 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — added participants() + participantMe() endpoints | participants(), participantMe() | P04-T09 | LOCKED |
+| apps/api/routes/api.php | Added GET /rooms/{room}/participants + /participants/me routes under ParticipantTokenGuard | — | P04-T09 | LOCKED |
+| apps/api/tests/Feature/ParticipantListTest.php | 7 feature tests for participant list endpoints | — | P04-T09 | LOCKED |
+| apps/web/src/components/room/ParticipantList.tsx | Real-time participant list sidebar (REST poll + useEchoPresence presence channel) | ParticipantList, ParticipantListProps, ParticipantInfo | P04-T09 | LOCKED |
+| apps/web/src/components/room/ParticipantList.test.tsx | 4 tests for ParticipantList component | — | P04-T09 | LOCKED |

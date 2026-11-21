@@ -62,7 +62,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P04-T07 | MID  | deps: T05,T06,P02-T07 | Web: Teacher / Presentation / Student views
 - [x] P04-T08 | HIGH | deps: T05,P02-T02 | Web: realtime sync engine (ordering, gap fill, dedupe, optimistic)
 - [x] P04-T09 | LOW  | deps: T05,T07 | Host participant list
-- [~] P04-RV  | HIGH | deps: T01-T09  | Phase review  <-- Claude Antigravity / HIGH / 2026-11-21 16:24
+- [x] P04-RV  | HIGH | deps: T01-T09  | Phase review
 
 ## P05 — Presenter approval + mobile controller · `tasks/P05-presenter-controller.md`
 - [ ] P05-T01 | LOW  | deps: P04-T01  | Migrations: presenter_requests, room_permissions, room_devices
