@@ -16,7 +16,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P00-T02 | LOW  | deps: T01      | Docker compose (Postgres+pgvector, Redis) + .env.example
 - [ ] P00-T03 | MID  | deps: T01,T02  | Laravel 13 API in apps/api (Sanctum, Pest, pgsql, health endpoint)
 - [ ] P00-T04 | MID  | deps: T01      | React web shell in apps/web (Vite, Tailwind, shadcn, Router, Query, Zustand, Vitest)
-- [ ] P00-T05 | LOW  | deps: T01,T02  | FastAPI AI service in apps/ai-service (uv, health endpoint, pytest)
+- [~] P00-T05 | HIGH | fastapi-worker | 2026-11-21 12:43 | LOW  | deps: T01,T02  | FastAPI AI service in apps/ai-service (uv, health endpoint, pytest)
 - [ ] P00-T06 | MID  | deps: T01,T04  | Shared packages scaffold (shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema)
 - [ ] P00-T07 | LOW  | deps: T03,T04,T05,T06 | Root verify scripts + GitHub Actions CI
 - [ ] P00-T08 | LOW  | deps: T03      | OPTIONAL: Laravel Boost (dev) for Laravel-specific agent guidance
