@@ -123,3 +123,5 @@ Rules:
 | apps/web/src/components/math/GraphViewer.test.tsx | 16 vitest tests for GraphViewer (controlled + uncontrolled modes) | — | P03-T05 | OK |
 | apps/web/src/r3f-types.d.ts | Augments React.JSX.IntrinsicElements with ThreeElements for react-jsx compat | — | P03-T05 | OK |
 | apps/web/src/vite-env.d.ts | Vite + R3F type references | — | P03-T05 | OK |
+| apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx | DOM overlay layer for viz_solid + viz_graph BoardObjects over Konva canvas | WhiteboardOverlay, WhiteboardOverlayProps, ViewTransform | P03-T06 | OK |
+| apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx | 11 vitest tests for overlay positioning + rendering | — | P03-T06 | OK |

@@ -49,7 +49,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P03-T03 | MID  | deps: T02      | Web: SolidViewer (R3F), parameter panel, labels, clip plane, low-quality mode, WebGL fallback
 - [x] P03-T04 | HIGH | deps: P00-T06  | math-core: safe expression evaluator (AST whitelist) + MathLive adapter
 - [x] P03-T05 | MID  | deps: T04,P00-T04 | Web: GraphViewer (Mafs) + expression list
-- [~] P03-T06 | HIGH | deps: T03,T05,P02-T07 | Integrate viz.solid / viz.graph objects into whiteboard (DOM overlay layer)  <-- Claude Antigravity / HIGH / 2026-11-21 14:52
+- [x] P03-T06 | HIGH | deps: T03,T05,P02-T07 | Integrate viz.solid / viz.graph objects into whiteboard (DOM overlay layer)
 - [ ] P03-RV  | HIGH | deps: T01-T06  | Phase review
 
 ## P04 — Classroom room (rooms, join, realtime, views) · `tasks/P04-room.md`

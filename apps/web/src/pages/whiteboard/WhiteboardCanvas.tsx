@@ -25,6 +25,8 @@ export interface WhiteboardCanvasProps {
   /** Show grid background */
   showGrid?: boolean;
   readOnly?: boolean;
+  /** Called whenever the pan/zoom view transform changes */
+  onViewChange?: (view: { x: number; y: number; scale: number }) => void;
 }
 
 interface ViewTransform {
@@ -209,9 +211,22 @@ export function WhiteboardCanvas({
   height = 600,
   showGrid = true,
   readOnly = false,
+  onViewChange,
 }: WhiteboardCanvasProps) {
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const stageRef = useRef<Konva.Stage | null>(null);
+
+  // Notify parent when view changes
+  const updateView = useCallback((next: ViewTransform) => {
+    setView(next);
+    onViewChange?.(next);
+  }, [onViewChange]);
+
+  // Also propagate when setView is called with functional updates (drag handler)
+  useEffect(() => {
+    onViewChange?.(view);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   const scene = getActiveScene(boardState);
 

@@ -281,3 +281,14 @@ Next: P03-T06 (WhiteboardOverlay — DOM overlay for SolidViewer/GraphViewer)
 ### START   2026-11-21 14:52 | Claude Antigravity | tier HIGH | P03-T06
 Resuming: no
 Plan: WhiteboardOverlay — renders SolidViewer and GraphViewer as DOM overlays positioned over Konva canvas using viz_solid/viz_graph object coords from BoardState
+
+### DONE   2026-11-21 14:58 | P03-T06 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx — DOM overlay for viz_solid + viz_graph, world-to-screen transform, 11 tests
+  apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx — 11 vitest tests
+  apps/web/src/pages/whiteboard/WhiteboardCanvas.tsx — added onViewChange prop + useEffect propagation
+Verify evidence:
+  - `pnpm run test:run` → 140/140 PASS (12 test files)
+  - `pnpm run build` → ✓ built in 8.96s, no TS errors
+Next: P03-RV (Phase 3 review)
