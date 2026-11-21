@@ -262,3 +262,6 @@ Rules:
 | apps/web/src/lib/replayEngine.test.ts | 7 unit tests for replayEngine | — | P07-T02 | OK |
 | apps/web/src/pages/room/ReplayViewer.tsx | Replay UI: timeline scrubber, play/pause, speed selector | default ReplayViewer | P07-T03 | OK |
 | apps/web/src/pages/room/ReplayViewer.test.tsx | 6 component tests for ReplayViewer | — | P07-T03 | OK |
+| apps/web/src/lib/offlineOutbox.ts | Dexie DB: OutboxDatabase, outbox+draft_boards tables, enqueue/getPendingOutbox/markCommitted/pruneCommitted/saveDraftBoard/loadDraftBoard/clearDraftBoard | db, enqueue, getPendingOutbox, markCommitted, pruneCommitted, saveDraftBoard, loadDraftBoard, clearDraftBoard | P07-T04 | OK |
+| apps/web/src/lib/offlineOutbox.test.ts | 7 unit tests for offlineOutbox helpers | — | P07-T04 | OK |
+| apps/web/src/lib/useDraftBoard.ts | Hook: debounced draft board persistence to IndexedDB | useDraftBoard | P07-T04 | OK |

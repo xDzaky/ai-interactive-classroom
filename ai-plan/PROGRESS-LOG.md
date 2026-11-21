@@ -901,3 +901,24 @@ Plan:
   1. Create apps/web/src/lib/offlineOutbox.ts — Dexie DB, outbox table
   2. Create apps/web/src/lib/useDraftBoard.ts — save/load draft board to IndexedDB
   3. 5+ unit tests
+
+
+### DONE   2026-11-21 18:42 | P07-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/offlineOutbox.ts — Dexie DB, outbox+draft_boards, 8 helpers
+  apps/web/src/lib/offlineOutbox.test.ts — 7 unit tests (mocked via vi.hoisted)
+  apps/web/src/lib/useDraftBoard.ts — debounced draft persistence hook
+Verify evidence:
+  - `pnpm run test:run` → 276/276 PASS (41 test files)
+Next: P07-T05 (Sync states + reconnect flush — HIGH tier)
+Knowledge: vi.mock() hoisting + Dexie class-field initializer conflict → use vi.hoisted() + mock the whole module export, not the Dexie class
+
+
+### START   2026-11-21 18:42 | Claude Antigravity | tier HIGH | P07-T05
+Resuming: no
+Plan:
+  1. Create apps/web/src/lib/useSyncStatus.ts — tracks 'saved_locally'|'syncing'|'synced'|'needs_attention'
+  2. On reconnect: drain outbox (flush pending events via POST /rooms/{room}/events)
+  3. Integrates with existing useSyncEngine from P04-T08
+  4. 5+ tests
