@@ -127,3 +127,14 @@ Next eligible task: P02-T03 (Web: canvas render from state, zoom/pan, grid)
 ### START   2026-11-21 14:07 | Claude Antigravity | tier HIGH | P02-T03
 Resuming: no
 Plan: Web canvas render from state, zoom/pan, grid — WhiteboardCanvas.tsx using Konva/react-konva + perfect-freehand
+
+### DONE   2026-11-21 14:14 | P02-T03 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/pages/whiteboard/WhiteboardCanvas.tsx — Konva Stage + Layers, strokes via perfect-freehand, objects, zoom/pan, grid
+  apps/web/src/pages/whiteboard/WhiteboardCanvas.test.tsx — 7 vitest tests (react-konva mocked)
+  apps/web/vitest.config.ts — exclude e2e from vitest, konva alias
+Verify evidence:
+  - `pnpm run test:run` → 8/8 PASS (2 test files, 2.06s)
+  - `pnpm run build` → pending (running)
+Next eligible task: P02-T04 (Tools: select/transform, pen, eraser, line/arrow, text)

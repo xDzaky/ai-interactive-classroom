@@ -8,6 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // Exclude Playwright e2e tests from vitest run
+    exclude: ["node_modules/**", "e2e/**", "dist/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
@@ -17,6 +19,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Use Konva browser build in jsdom (node build requires 'canvas' package)
+      "konva": path.resolve(__dirname, "node_modules/konva/lib/index.js"),
     },
   },
 });
