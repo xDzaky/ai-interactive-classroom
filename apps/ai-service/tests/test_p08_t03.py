@@ -25,3 +25,10 @@ def test_embedding_ingest_returns_one_vector_per_chunk(monkeypatch):
 def test_embedding_ingest_rejects_blank_chunk(monkeypatch):
     monkeypatch.setenv("LARAVEL_INTERNAL_SECRET", HEADERS["X-Internal-Secret"])
     assert client.post("/ai/embeddings/ingest", json={"chunks": [" "]}, headers=HEADERS).status_code == 422
+
+
+def test_extract_text_document(monkeypatch):
+    monkeypatch.setenv("LARAVEL_INTERNAL_SECRET", HEADERS["X-Internal-Secret"])
+    result = client.post("/ai/embeddings/extract", json={"content_base64": "bGVzc29u", "filename": "lesson.txt"}, headers=HEADERS)
+    assert result.status_code == 200
+    assert result.json() == {"text": "lesson"}

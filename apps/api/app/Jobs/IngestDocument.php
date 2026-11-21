@@ -32,16 +32,16 @@ class IngestDocument implements ShouldQueue
         $document->update(['status' => 'processing']);
 
         try {
-            // 1. Read text from storage
-            $text = $this->extractText($document);
+            $aiServiceUrl = rtrim(config('services.ai_service.url', 'http://localhost:8100'), '/');
+            $internalSecret = config('services.ai_service.secret', 'changeme');
+
+            // 1. Read and extract text through the authenticated AI service.
+            $text = $this->extractText($document, $aiServiceUrl, $internalSecret);
 
             // 2. Chunk text (~500 chars with ~50-char overlap)
             $chunks = $this->chunkText($text);
 
             // 3. Embed chunks via ai-service
-            $aiServiceUrl    = rtrim(config('services.ai_service.url', 'http://localhost:8100'), '/');
-            $internalSecret  = config('services.ai_service.secret', 'changeme');
-
             $response = Http::withHeaders([
                 'X-Internal-Secret' => $internalSecret,
             ])->post("{$aiServiceUrl}/ai/embeddings/ingest", [
@@ -87,7 +87,7 @@ class IngestDocument implements ShouldQueue
     // Private helpers
     // ---------------------------------------------------------------------------
 
-    private function extractText(Document $document): string
+    private function extractText(Document $document, string $aiServiceUrl, string $internalSecret): string
     {
         $path = $document->storage_path;
 
@@ -95,18 +95,14 @@ class IngestDocument implements ShouldQueue
             throw new \RuntimeException("File not found: {$path}");
         }
 
-        $content = Storage::disk('local')->get($path);
-        $ext     = pathinfo($path, PATHINFO_EXTENSION);
-
-        if (strtolower($ext) === 'pdf') {
-            // Basic text extraction from PDF without binary dependencies
-            // For production, wire a Python sidecar or queue to ai-service extract endpoint.
-            // For now: strip binary and keep printable ASCII (good enough for tests).
-            $content = preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', ' ', $content);
-            $content = preg_replace('/\s+/', ' ', $content);
+        $response = Http::withHeaders(['X-Internal-Secret' => $internalSecret])->post("{$aiServiceUrl}/ai/embeddings/extract", [
+            'content_base64' => base64_encode(Storage::disk('local')->get($path)),
+            'filename' => basename($path),
+        ]);
+        if (! $response->successful()) {
+            throw new \RuntimeException('Document extraction service error');
         }
-
-        return trim((string) $content);
+        return (string) $response->json('text');
     }
 
     private function chunkText(string $text, int $chunkSize = 500, int $overlap = 50): array

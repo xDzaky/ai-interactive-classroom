@@ -1219,3 +1219,10 @@ the authenticated internal LiteLLM embedding endpoint. Evidence:
 Note: `python3 -m pytest` is not the project environment and failed collection
 because global Python has no litellm; the task-mandated `uv run pytest` passes.
 Next: finish robust PDF extraction and the queued ingestion job integration (step 3).
+
+### CHECKPOINT   2026-11-21 20:43 | Codex | tier HIGH | P08-T03 step 3
+Moved PDF/text extraction into the authenticated AI service using pypdf and kept
+document content transient. Laravel now sends stored content only to that internal
+service before embedding; document status transitions remain queued→processing→ready/failed.
+Evidence: `uv run pytest tests/test_p08_t03.py -q` → 4/4 PASS; Laravel document
+feature tests → 10/10 PASS. Next: expand persistence/job failure coverage (step 4).
