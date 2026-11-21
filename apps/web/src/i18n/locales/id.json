@@ -279,5 +279,13 @@
     "accept": "Saya Setuju",
     "decline": "Tolak",
     "learnMore": "Pelajari lebih lanjut"
+  },
+  "a11y": {
+    "skipToMain": "Lewati ke konten utama"
+  },
+  "error": {
+    "unexpectedTitle": "Terjadi kesalahan",
+    "unexpectedBody": "Mohon muat ulang halaman.",
+    "reload": "Muat Ulang"
   }
 }

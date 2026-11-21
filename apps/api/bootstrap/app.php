@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Security headers on every response
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        // Structured request logging for API routes
+        $middleware->append(\App\Http\Middleware\RequestLogger::class);
 
         // Sanctum SPA cookie auth — stateful domains
         $middleware->statefulApi();
