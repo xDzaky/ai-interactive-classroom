@@ -61,3 +61,10 @@ Next eligible task: P00-T02
 ### START  2026-11-21 12:44 | Gemini 2.5 Pro | tier HIGH | P00-T06
 Resuming: no
 Plan: Create 5 TypeScript packages: shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema
+
+### DONE   2026-11-21 | P00-T05 | status [x]
+Changed files: apps/ai-service/main.py, pyproject.toml, tests/test_health.py, .env.example
+Verify evidence:
+- `uv run pytest -v` → test_health_returns_ok PASSED (1 passed in 4.04s, Python 3.12.8, pytest-9.2.0)
+Notes for next agent: FastAPI service ready on port 8100
+Next eligible task: P00-T07 (after T03,T04,T06 done)

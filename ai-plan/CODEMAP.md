@@ -21,7 +21,9 @@ Rules:
 ## apps/ai-service (FastAPI)
 | Path | Purpose | Exports / routes | Task | Status |
 |---|---|---|---|---|
-| _(empty)_ | | | | |
+| apps/ai-service/main.py | FastAPI app + /health endpoint | app (FastAPI) | P00-T05 | LOCKED |
+| apps/ai-service/pyproject.toml | uv project config + all deps | — | P00-T05 | LOCKED |
+| apps/ai-service/tests/test_health.py | Health endpoint test | — | P00-T05 | LOCKED |
 
 ## packages/*
 | Path | Purpose | Exports | Task | Status |
