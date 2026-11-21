@@ -831,3 +831,12 @@ Verify evidence:
 Phase 6 fully complete. All P06 tasks [x].
 Next: P07-T01 (Snapshot API + host-client snapshot creator — MID tier)
 
+
+### START   2026-11-21 18:16 | Claude Antigravity | tier HIGH | P07-T01
+Resuming: no
+Plan:
+  1. SnapshotController — GET index (list snapshots by room, ordered by seq_at) + POST store (host only)
+  2. Routes: GET/POST /rooms/{room}/snapshots (Sanctum auth — host creates, all can read)
+  3. Tests: 5+ feature tests (create, list, non-host cannot create, closest-snapshot lookup)
+  4. Web: snapshots.ts API client + useSnapshot hook (host auto-posts snapshot every N events)
+
