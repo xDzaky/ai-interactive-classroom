@@ -129,4 +129,59 @@ describe("WhiteboardCanvas", () => {
     );
     expect(container.firstChild).toBeTruthy();
   });
+
+  it("renders math shapes (ellipse, rhombus, pentagon, hexagon, star) without error", () => {
+    const stateWithShapes = {
+      ...state,
+      scenes: {
+        ...state.scenes,
+        "scene-1": {
+          ...state.scenes["scene-1"],
+          order: ["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"],
+          objects: {
+            "obj-1": {
+              id: "obj-1",
+              object_type: "ellipse" as const,
+              props: { cx: 50, cy: 50, rx: 30, ry: 20 },
+              created_at: Date.now(),
+              updated_at: Date.now(),
+            },
+            "obj-2": {
+              id: "obj-2",
+              object_type: "rhombus" as const,
+              props: { cx: 100, cy: 100, rx: 25, ry: 35 },
+              created_at: Date.now(),
+              updated_at: Date.now(),
+            },
+            "obj-3": {
+              id: "obj-3",
+              object_type: "pentagon" as const,
+              props: { cx: 150, cy: 150, r: 30 },
+              created_at: Date.now(),
+              updated_at: Date.now(),
+            },
+            "obj-4": {
+              id: "obj-4",
+              object_type: "hexagon" as const,
+              props: { cx: 200, cy: 200, r: 30 },
+              created_at: Date.now(),
+              updated_at: Date.now(),
+            },
+            "obj-5": {
+              id: "obj-5",
+              object_type: "star" as const,
+              props: { cx: 250, cy: 250, outerR: 30, innerR: 15 },
+              created_at: Date.now(),
+              updated_at: Date.now(),
+            },
+          },
+        },
+      },
+    };
+
+    const { container } = render(
+      <WhiteboardCanvas boardState={stateWithShapes} onBoardStateChange={noop} width={400} height={300} />
+    );
+    expect(container.firstChild).toBeTruthy();
+  });
 });

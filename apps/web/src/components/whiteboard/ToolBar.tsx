@@ -25,7 +25,12 @@ const TOOLS: ToolDef[] = [
   { type: "arrow",       label: "Panah",      icon: "→",   group: "shapes" },
   { type: "rect",        label: "Kotak",      icon: "▭",   group: "shapes" },
   { type: "circle",      label: "Lingkaran",  icon: "◯",   group: "shapes" },
+  { type: "ellipse",     label: "Elips",      icon: "⬭",   group: "shapes" },
   { type: "triangle",    label: "Segitiga",   icon: "△",   group: "shapes" },
+  { type: "rhombus",     label: "Belah Ketupat", icon: "◇", group: "shapes" },
+  { type: "pentagon",    label: "Segi Lima",  icon: "⬠",   group: "shapes" },
+  { type: "hexagon",     label: "Segi Enam",  icon: "⬡",   group: "shapes" },
+  { type: "star",        label: "Bintang",    icon: "☆",   group: "shapes" },
   { type: "text",        label: "Teks",       icon: "T",   group: "other" },
 ];
 
@@ -74,7 +79,7 @@ export function ToolBar({
     <div
       role="toolbar"
       aria-label="Alat papan tulis"
-      className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-md w-14"
+      className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-md w-14 max-h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden select-none"
     >
       {/* Tool buttons grouped */}
       {(["draw", "shapes", "other"] as const).map((group) => (

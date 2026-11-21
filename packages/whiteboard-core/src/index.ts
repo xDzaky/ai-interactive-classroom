@@ -42,6 +42,13 @@ export const BoardObjectSchema = z.object({
     "viz_solid",
     "viz_graph",
     "annotation",
+    // --- Extended math shapes ---
+    "ellipse",        // cx, cy, rx, ry
+    "polygon",        // cx, cy, r, sides (regular n-gon)
+    "rhombus",        // cx, cy, w, h
+    "star",           // cx, cy, outerR, innerR, points
+    "pentagon",       // alias for polygon sides=5
+    "hexagon",        // alias for polygon sides=6
   ]),
   props: z.record(z.unknown()),
   created_at: z.number(),

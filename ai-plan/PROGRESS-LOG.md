@@ -1395,3 +1395,12 @@ Date: %Y-%m-%dT%H:%M:%SZ
 - PersonalRoomPage: stable handleEvent via boardStateRef (no stale closure)
 - ToolBar: triangle entry (△ Segitiga)
 - 332/332 tests pass, tsc --noEmit clean, pushed to main
+
+## DONE — feat(whiteboard): multi-shape AI sketch recognition & math shapes
+Date: 2026-11-21T17:10:19Z
+- Fixed sketch recognition: multi-stage RDP corner classifier now distinguishes circle, ellipse, triangle, rect, rhombus, pentagon, hexagon, star
+- Added manual drawing & dashed preview for ellipse, rhombus, pentagon, hexagon, star
+- Added RenderObject SVG/Konva renderers for all 2D math shapes
+- Updated ToolBar with all math shape tools
+- Added unit tests for rendering all new shapes in WhiteboardCanvas.test.tsx (332/332 tests passed)
+- Vite production build clean (0 errors)

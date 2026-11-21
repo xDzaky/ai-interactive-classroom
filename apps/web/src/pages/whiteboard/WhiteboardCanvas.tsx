@@ -83,6 +83,79 @@ function strokeToPoints(stroke: BoardStroke): number[] {
 }
 
 // ---------------------------------------------------------------------------
+// Geometry helpers for 2D math shapes
+// ---------------------------------------------------------------------------
+
+function generateRegularPolygonPoints(cx: number, cy: number, r: number, sides: number): number[] {
+  const pts: number[] = [];
+  for (let i = 0; i < sides; i++) {
+    const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+    pts.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+  }
+  return pts;
+}
+
+function generateRhombusPoints(cx: number, cy: number, rx: number, ry: number): number[] {
+  return [cx, cy - ry, cx + rx, cy, cx, cy + ry, cx - rx, cy];
+}
+
+function generateStarPoints(cx: number, cy: number, outerR: number, innerR: number, numPoints = 5): number[] {
+  const pts: number[] = [];
+  const step = Math.PI / numPoints;
+  for (let i = 0; i < 2 * numPoints; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const angle = i * step - Math.PI / 2;
+    pts.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+  }
+  return pts;
+}
+
+function generateEllipsePoints(cx: number, cy: number, rx: number, ry: number, segments = 36): number[] {
+  const pts: number[] = [];
+  for (let i = 0; i < segments; i++) {
+    const angle = (i * 2 * Math.PI) / segments;
+    pts.push(cx + rx * Math.cos(angle), cy + ry * Math.sin(angle));
+  }
+  return pts;
+}
+
+function perpendicularDistance(
+  p: [number, number, number],
+  a: [number, number, number],
+  b: [number, number, number],
+): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+function ramerDouglasPeucker(
+  pts: [number, number, number][],
+  epsilon: number,
+): [number, number, number][] {
+  if (pts.length < 3) return pts;
+  let dmax = 0;
+  let index = 0;
+  const end = pts.length - 1;
+  for (let i = 1; i < end; i++) {
+    const d = perpendicularDistance(pts[i], pts[0], pts[end]);
+    if (d > dmax) {
+      index = i;
+      dmax = d;
+    }
+  }
+  if (dmax > epsilon) {
+    const recResults1 = ramerDouglasPeucker(pts.slice(0, index + 1), epsilon);
+    const recResults2 = ramerDouglasPeucker(pts.slice(index), epsilon);
+    return recResults1.slice(0, recResults1.length - 1).concat(recResults2);
+  }
+  return [pts[0], pts[end]];
+}
+
+// ---------------------------------------------------------------------------
 // Sketch recognition — pen strokes → clean shapes
 // ---------------------------------------------------------------------------
 
@@ -91,10 +164,15 @@ type RecognizedShape =
   | { type: "line"; x1: number; y1: number; x2: number; y2: number }
   | { type: "rect"; x: number; y: number; w: number; h: number }
   | { type: "circle"; cx: number; cy: number; r: number }
-  | { type: "triangle"; x1: number; y1: number; x2: number; y2: number; x3: number; y3: number };
+  | { type: "ellipse"; cx: number; cy: number; rx: number; ry: number }
+  | { type: "triangle"; x1: number; y1: number; x2: number; y2: number; x3: number; y3: number }
+  | { type: "rhombus"; cx: number; cy: number; rx: number; ry: number }
+  | { type: "pentagon"; cx: number; cy: number; r: number }
+  | { type: "hexagon"; cx: number; cy: number; r: number }
+  | { type: "star"; cx: number; cy: number; outerR: number; innerR: number };
 
 function recognizeShape(pts: [number, number, number][]): RecognizedShape {
-  if (pts.length < 4) return { type: "none" };
+  if (pts.length < 5) return { type: "none" };
 
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
@@ -105,22 +183,17 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   const bboxW = maxX - minX;
   const bboxH = maxY - minY;
 
-  if (bboxW < 8 && bboxH < 8) return { type: "none" };
+  if (bboxW < 12 && bboxH < 12) return { type: "none" };
 
   const first = pts[0];
   const last = pts[pts.length - 1];
-  const strokeLen = Math.sqrt(
-    Math.pow(last[0] - first[0], 2) + Math.pow(last[1] - first[1], 2),
-  );
+  const strokeLen = Math.hypot(last[0] - first[0], last[1] - first[1]);
   const pathLen = pts.reduce((sum, p, i) => {
     if (i === 0) return sum;
-    return (
-      sum +
-      Math.sqrt(Math.pow(p[0] - pts[i - 1][0], 2) + Math.pow(p[1] - pts[i - 1][1], 2))
-    );
+    return sum + Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
   }, 0);
 
-  // --- Line ---
+  // --- Line (open stroke) ---
   const maxDeviation = pts.reduce((max, p) => {
     if (strokeLen < 1) return max;
     const d =
@@ -133,67 +206,115 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
     return Math.max(max, d);
   }, 0);
 
-  if (maxDeviation / Math.max(strokeLen, 1) < 0.08 && strokeLen > 20) {
+  if (strokeLen > 25 && maxDeviation / Math.max(strokeLen, 1) < 0.08 && strokeLen / pathLen > 0.88) {
     return { type: "line", x1: first[0], y1: first[1], x2: last[0], y2: last[1] };
   }
 
-  // --- Circle ---
+  // --- Closed shape check ---
+  const startEndDist = Math.hypot(last[0] - first[0], last[1] - first[1]);
+  const isClosed = startEndDist < Math.max(bboxW, bboxH) * 0.45 || startEndDist < 40;
+  if (!isClosed) return { type: "none" };
+
   const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
-  const radii = pts.map((p) =>
-    Math.sqrt(Math.pow(p[0] - cx, 2) + Math.pow(p[1] - cy, 2)),
-  );
+  const radii = pts.map((p) => Math.hypot(p[0] - cx, p[1] - cy));
   const avgR = radii.reduce((a, b) => a + b, 0) / radii.length;
   const maxRDev = Math.max(...radii.map((r) => Math.abs(r - avgR)));
-  const startEndDist = Math.sqrt(
-    Math.pow(last[0] - first[0], 2) + Math.pow(last[1] - first[1], 2),
-  );
-  const isClosed = startEndDist < avgR * 0.7;
+  const stdDevR = Math.sqrt(radii.reduce((s, r) => s + Math.pow(r - avgR, 2), 0) / radii.length);
+  const aspect = bboxW / Math.max(bboxH, 1);
 
-  if (
-    isClosed &&
-    maxRDev / avgR < 0.28 &&
-    pathLen / (2 * Math.PI * avgR) > 0.5 &&
-    avgR > 10
-  ) {
-    return { type: "circle", cx, cy, r: avgR };
+  // --- Circle ---
+  if (stdDevR / Math.max(avgR, 1) < 0.16 && aspect >= 0.78 && aspect <= 1.28 && avgR > 10) {
+    return { type: "circle", cx, cy, r: (bboxW + bboxH) / 4 };
   }
 
-  // --- Rectangle ---
-  const bboxPerimeter = 2 * (bboxW + bboxH);
-  const isClosed2 = startEndDist < Math.min(bboxW, bboxH) * 0.5;
+  // --- Ellipse (elongated) ---
+  const rx = bboxW / 2;
+  const ry = bboxH / 2;
+  if (rx > 10 && ry > 10 && (aspect < 0.75 || aspect > 1.33)) {
+    const normErrors = pts.map((p) =>
+      Math.abs(Math.pow((p[0] - cx) / rx, 2) + Math.pow((p[1] - cy) / ry, 2) - 1),
+    );
+    const avgNormError = normErrors.reduce((a, b) => a + b, 0) / normErrors.length;
+    if (avgNormError < 0.28) {
+      return { type: "ellipse", cx, cy, rx, ry };
+    }
+  }
 
-  if (
-    isClosed2 &&
-    pathLen / bboxPerimeter < 1.5 &&
-    pathLen / bboxPerimeter > 0.6 &&
-    bboxW > 15 &&
-    bboxH > 15
-  ) {
+  // --- Polygon detection using Ramer-Douglas-Peucker (RDP) ---
+  const epsilon = Math.max(bboxW, bboxH) * 0.08;
+  const rdpPoints = ramerDouglasPeucker(pts, epsilon);
+
+  // Filter corners: remove closing point if close to first point
+  const corners: [number, number, number][] = [];
+  for (let i = 0; i < rdpPoints.length; i++) {
+    const pt = rdpPoints[i];
+    if (i === rdpPoints.length - 1 && Math.hypot(pt[0] - rdpPoints[0][0], pt[1] - rdpPoints[0][1]) < 25) {
+      continue;
+    }
+    if (
+      corners.length === 0 ||
+      Math.hypot(pt[0] - corners[corners.length - 1][0], pt[1] - corners[corners.length - 1][1]) >
+        Math.max(bboxW, bboxH) * 0.12
+    ) {
+      corners.push(pt);
+    }
+  }
+
+  // 1. Triangle (3 corners)
+  if (corners.length === 3) {
+    return {
+      type: "triangle",
+      x1: corners[0][0],
+      y1: corners[0][1],
+      x2: corners[1][0],
+      y2: corners[1][1],
+      x3: corners[2][0],
+      y3: corners[2][1],
+    };
+  }
+
+  // 2. 4 corners: Rhombus (Belah Ketupat) vs Rectangle
+  if (corners.length === 4) {
+    const diamondPoints = [
+      { x: cx, y: minY },
+      { x: maxX, y: cy },
+      { x: cx, y: maxY },
+      { x: minX, y: cy },
+    ];
+    const isDiamond = corners.every((c) =>
+      diamondPoints.some((dp) => Math.hypot(c[0] - dp.x, c[1] - dp.y) < Math.max(bboxW, bboxH) * 0.28),
+    );
+
+    if (isDiamond) {
+      return { type: "rhombus", cx, cy, rx: bboxW / 2, ry: bboxH / 2 };
+    }
     return { type: "rect", x: minX, y: minY, w: bboxW, h: bboxH };
   }
 
-  // --- Triangle: 3 roughly straight segments forming a closed loop ---
-  if (isClosed2 && pts.length > 10) {
-    // Find the two points farthest from the centroid baseline
-    // Simple: split path into 3 roughly equal segments, take endpoints as vertices
-    const n = pts.length;
-    const p0 = pts[0];
-    const p1 = pts[Math.floor(n / 3)];
-    const p2 = pts[Math.floor((2 * n) / 3)];
-    // Check that sides are roughly straight
-    const side1Len = Math.sqrt(Math.pow(p1[0]-p0[0],2)+Math.pow(p1[1]-p0[1],2));
-    const side2Len = Math.sqrt(Math.pow(p2[0]-p1[0],2)+Math.pow(p2[1]-p1[1],2));
-    const side3Len = Math.sqrt(Math.pow(p0[0]-p2[0],2)+Math.pow(p0[1]-p2[1],2));
-    const perimeter = side1Len + side2Len + side3Len;
-    if (perimeter > 30 && pathLen / perimeter < 1.6 && pathLen / perimeter > 0.5) {
-      return {
-        type: "triangle",
-        x1: p0[0], y1: p0[1],
-        x2: p1[0], y2: p1[1],
-        x3: p2[0], y3: p2[1],
-      };
+  // 3. 5 corners: Star vs Pentagon
+  if (corners.length === 5) {
+    let peakCount = 0;
+    for (let i = 1; i < radii.length - 1; i++) {
+      if (radii[i] > radii[i - 1] && radii[i] > radii[i + 1] && radii[i] > avgR * 1.15) {
+        peakCount++;
+      }
     }
+    if (peakCount >= 4) {
+      return { type: "star", cx, cy, outerR: Math.max(bboxW, bboxH) / 2, innerR: Math.max(bboxW, bboxH) / 4.5 };
+    }
+    return { type: "pentagon", cx, cy, r: Math.max(bboxW, bboxH) / 2 };
+  }
+
+  // 4. 6 corners: Hexagon
+  if (corners.length === 6) {
+    return { type: "hexagon", cx, cy, r: Math.max(bboxW, bboxH) / 2 };
+  }
+
+  // Fallback rectangle check
+  const bboxPerimeter = 2 * (bboxW + bboxH);
+  if (pathLen / bboxPerimeter > 0.8 && pathLen / bboxPerimeter < 1.25 && bboxW > 20 && bboxH > 20) {
+    return { type: "rect", x: minX, y: minY, w: bboxW, h: bboxH };
   }
 
   return { type: "none" };
@@ -310,6 +431,23 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           listening={false}
         />
       );
+    case "ellipse": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 50));
+      const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 30));
+      return (
+        <Line
+          id={obj.id}
+          points={generateEllipsePoints(cx, cy, rx, ry)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          listening={false}
+        />
+      );
+    }
     case "triangle":
       return (
         <Line
@@ -324,6 +462,99 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           listening={false}
         />
       );
+    case "rhombus": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 40));
+      const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 50));
+      return (
+        <Line
+          id={obj.id}
+          points={generateRhombusPoints(cx, cy, rx, ry)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
+    }
+    case "pentagon": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const r = Number(p.r ?? 40);
+      return (
+        <Line
+          id={obj.id}
+          points={generateRegularPolygonPoints(cx, cy, r, 5)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
+    }
+    case "hexagon": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const r = Number(p.r ?? 40);
+      return (
+        <Line
+          id={obj.id}
+          points={generateRegularPolygonPoints(cx, cy, r, 6)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
+    }
+    case "star": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const outerR = Number(p.outerR ?? (p.r ?? 45));
+      const innerR = Number(p.innerR ?? outerR / 2.2);
+      return (
+        <Line
+          id={obj.id}
+          points={generateStarPoints(cx, cy, outerR, innerR)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
+    }
+    case "polygon": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const r = Number(p.r ?? 40);
+      const sides = Number(p.sides ?? 5);
+      return (
+        <Line
+          id={obj.id}
+          points={generateRegularPolygonPoints(cx, cy, r, sides)}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
+    }
     case "arrow":
       return (
         <Arrow
@@ -534,7 +765,16 @@ export function WhiteboardCanvas({
         );
       }
     } else if (
-      (tool === "line" || tool === "arrow" || tool === "rect" || tool === "circle" || tool === "triangle") &&
+      (tool === "line" ||
+        tool === "arrow" ||
+        tool === "rect" ||
+        tool === "circle" ||
+        tool === "ellipse" ||
+        tool === "triangle" ||
+        tool === "rhombus" ||
+        tool === "pentagon" ||
+        tool === "hexagon" ||
+        tool === "star") &&
       start &&
       pts.length >= 1
     ) {
@@ -600,6 +840,23 @@ export function WhiteboardCanvas({
             listening: false,
           }),
         );
+      } else if (tool === "ellipse") {
+        const cx = (start.x + x2) / 2;
+        const cy = (start.y + y2) / 2;
+        const rx = Math.max(Math.abs(x2 - start.x) / 2, 2);
+        const ry = Math.max(Math.abs(y2 - start.y) / 2, 2);
+        layer.add(
+          new Konva.Line({
+            points: generateEllipsePoints(cx, cy, rx, ry),
+            closed: true,
+            stroke: col,
+            strokeWidth: sw,
+            fill: "transparent",
+            dash: dashed,
+            opacity: 0.8,
+            listening: false,
+          }),
+        );
       } else if (tool === "triangle") {
         const h = Math.abs(y2 - start.y);
         const side = h > 0 ? h / (Math.sqrt(3) / 2) : Math.abs(x2 - start.x);
@@ -620,6 +877,56 @@ export function WhiteboardCanvas({
             opacity: 0.8,
             lineCap: "round",
             lineJoin: "round",
+            listening: false,
+          }),
+        );
+      } else if (tool === "rhombus") {
+        const cx = (start.x + x2) / 2;
+        const cy = (start.y + y2) / 2;
+        const rx = Math.max(Math.abs(x2 - start.x) / 2, 2);
+        const ry = Math.max(Math.abs(y2 - start.y) / 2, 2);
+        layer.add(
+          new Konva.Line({
+            points: generateRhombusPoints(cx, cy, rx, ry),
+            closed: true,
+            stroke: col,
+            strokeWidth: sw,
+            fill: "transparent",
+            dash: dashed,
+            opacity: 0.8,
+            listening: false,
+          }),
+        );
+      } else if (tool === "pentagon" || tool === "hexagon") {
+        const cx = (start.x + x2) / 2;
+        const cy = (start.y + y2) / 2;
+        const r = Math.max(Math.max(Math.abs(x2 - start.x), Math.abs(y2 - start.y)) / 2, 2);
+        layer.add(
+          new Konva.Line({
+            points: generateRegularPolygonPoints(cx, cy, r, tool === "pentagon" ? 5 : 6),
+            closed: true,
+            stroke: col,
+            strokeWidth: sw,
+            fill: "transparent",
+            dash: dashed,
+            opacity: 0.8,
+            listening: false,
+          }),
+        );
+      } else if (tool === "star") {
+        const cx = (start.x + x2) / 2;
+        const cy = (start.y + y2) / 2;
+        const outerR = Math.max(Math.max(Math.abs(x2 - start.x), Math.abs(y2 - start.y)) / 2, 4);
+        const innerR = outerR / 2.2;
+        layer.add(
+          new Konva.Line({
+            points: generateStarPoints(cx, cy, outerR, innerR),
+            closed: true,
+            stroke: col,
+            strokeWidth: sw,
+            fill: "transparent",
+            dash: dashed,
+            opacity: 0.8,
             listening: false,
           }),
         );
@@ -659,7 +966,12 @@ export function WhiteboardCanvas({
         tool === "arrow" ||
         tool === "rect" ||
         tool === "circle" ||
-        tool === "triangle"
+        tool === "ellipse" ||
+        tool === "triangle" ||
+        tool === "rhombus" ||
+        tool === "pentagon" ||
+        tool === "hexagon" ||
+        tool === "star"
       ) {
         shapeStartRef.current = { x: pos.x, y: pos.y };
         livePointsRef.current = [[pos.x, pos.y, 0.5]];
@@ -753,6 +1065,58 @@ export function WhiteboardCanvas({
                 },
               },
             });
+          } else if (recognized.type === "ellipse") {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: "ellipse",
+                props: {
+                  cx: recognized.cx, cy: recognized.cy,
+                  rx: recognized.rx, ry: recognized.ry,
+                  stroke: col, strokeWidth: sw, fill: "transparent",
+                },
+              },
+            });
+          } else if (recognized.type === "rhombus") {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: "rhombus",
+                props: {
+                  cx: recognized.cx, cy: recognized.cy,
+                  rx: recognized.rx, ry: recognized.ry,
+                  stroke: col, strokeWidth: sw, fill: "transparent",
+                },
+              },
+            });
+          } else if (recognized.type === "pentagon" || recognized.type === "hexagon") {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: recognized.type,
+                props: {
+                  cx: recognized.cx, cy: recognized.cy,
+                  r: recognized.r,
+                  stroke: col, strokeWidth: sw, fill: "transparent",
+                },
+              },
+            });
+          } else if (recognized.type === "star") {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: "star",
+                props: {
+                  cx: recognized.cx, cy: recognized.cy,
+                  outerR: recognized.outerR, innerR: recognized.innerR,
+                  stroke: col, strokeWidth: sw, fill: "transparent",
+                },
+              },
+            });
           }
           return;
         }
@@ -828,6 +1192,64 @@ export function WhiteboardCanvas({
                 x3: mx + side / 2, y3: baseY,
                 stroke: col, strokeWidth: sw, fill: "transparent",
               },
+            },
+          });
+        }
+      } else if (tool === "ellipse") {
+        const cx = (start.x + pos.x) / 2;
+        const cy = (start.y + pos.y) / 2;
+        const rx = Math.max(Math.abs(pos.x - start.x) / 2, 2);
+        const ry = Math.max(Math.abs(pos.y - start.y) / 2, 2);
+        if (rx > 3 || ry > 3) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: "ellipse",
+              props: { cx, cy, rx, ry, stroke: col, strokeWidth: sw, fill: "transparent" },
+            },
+          });
+        }
+      } else if (tool === "rhombus") {
+        const cx = (start.x + pos.x) / 2;
+        const cy = (start.y + pos.y) / 2;
+        const rx = Math.max(Math.abs(pos.x - start.x) / 2, 2);
+        const ry = Math.max(Math.abs(pos.y - start.y) / 2, 2);
+        if (rx > 3 || ry > 3) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: "rhombus",
+              props: { cx, cy, rx, ry, stroke: col, strokeWidth: sw, fill: "transparent" },
+            },
+          });
+        }
+      } else if (tool === "pentagon" || tool === "hexagon") {
+        const cx = (start.x + pos.x) / 2;
+        const cy = (start.y + pos.y) / 2;
+        const r = Math.max(Math.max(Math.abs(pos.x - start.x), Math.abs(pos.y - start.y)) / 2, 2);
+        if (r > 3) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: tool,
+              props: { cx, cy, r, stroke: col, strokeWidth: sw, fill: "transparent" },
+            },
+          });
+        }
+      } else if (tool === "star") {
+        const cx = (start.x + pos.x) / 2;
+        const cy = (start.y + pos.y) / 2;
+        const outerR = Math.max(Math.max(Math.abs(pos.x - start.x), Math.abs(pos.y - start.y)) / 2, 4);
+        if (outerR > 5) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: "star",
+              props: { cx, cy, outerR, innerR: outerR / 2.2, stroke: col, strokeWidth: sw, fill: "transparent" },
             },
           });
         }
@@ -992,7 +1414,12 @@ export function WhiteboardCanvas({
     arrow: "crosshair",
     rect: "crosshair",
     circle: "crosshair",
+    ellipse: "crosshair",
     triangle: "crosshair",
+    rhombus: "crosshair",
+    pentagon: "crosshair",
+    hexagon: "crosshair",
+    star: "crosshair",
     text: "text",
   };
 
@@ -1087,7 +1514,7 @@ export function WhiteboardCanvas({
         {activeTool === "select"
           ? "Seret untuk panning · Scroll untuk zoom"
           : activeTool === "pen"
-            ? "Gambar · Auto-shape aktif (garis/kotak/lingkaran/segitiga)"
+            ? "Gambar bebas · Auto-shape aktif (garis, kotak, lingkaran, elips, segitiga, belah ketupat, segi lima/enam, bintang)"
             : "Klik & seret · Scroll untuk zoom"}
       </div>
     </div>

@@ -23,7 +23,12 @@ export type ToolType =
   | "text"
   | "rect"
   | "circle"
-  | "triangle";
+  | "triangle"
+  | "ellipse"
+  | "pentagon"
+  | "hexagon"
+  | "rhombus"
+  | "star";
 
 export interface ToolState {
   activeTool: ToolType;
