@@ -45,7 +45,6 @@ apps/api/storage/app/public/
 !apps/api/storage/logs/.gitignore
 apps/api/database/database.sqlite
 apps/api/.phpunit.result.cache
-apps/api/composer.lock
 
 # =============================================================================
 # Python / AI service

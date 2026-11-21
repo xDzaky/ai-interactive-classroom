@@ -38,3 +38,5 @@ _(none yet)_
 Format: `OI### | file | symptom | suggested fix | found by task`
 
 _(none yet)_
+
+K024 | api/pest | Pest 3/4 not compatible with PHPUnit 12 (Laravel 13 ships PHPUnit ^12.5). Use `php artisan test` with PHPUnit directly until Pest releases a PHPUnit-12-compatible version. Check: https://github.com/pestphp/pest/releases for a ^5.0 release that supports phpunit/phpunit ^12.
