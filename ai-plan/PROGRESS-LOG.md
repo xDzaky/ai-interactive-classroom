@@ -604,3 +604,15 @@ Plan:
   3. Device token auth: reads token from URL query param
   4. SyncEngine (read-only) to follow board state
   5. Test: renders device controls, dispatches events
+
+### DONE   2026-11-21 17:03 | P05-T05 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/pages/room/ControllerPage.tsx — mobile controller, gesture buttons, device.* events
+  apps/web/src/pages/room/ControllerPage.test.tsx — 5 tests
+  apps/web/src/i18n/locales/id.json — added controller.* i18n keys
+Verify evidence:
+  - `pnpm run test:run` → 196/196 PASS (24 test files)
+  - `pnpm run build` → built in 24.02s, no TS errors
+Next: P05-T06 (Web: Connect Device modal QR + device list/revoke)
+

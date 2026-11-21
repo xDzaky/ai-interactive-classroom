@@ -83,6 +83,19 @@
     "approve": "Setujui",
     "reject": "Tolak"
   },
+  "controller": {
+    "title": "Mobile Controller",
+    "notPaired": "Belum terpasang",
+    "connected": "Terhubung",
+    "prevPage": "Halaman Sebelumnya",
+    "nextPage": "Halaman Berikutnya",
+    "zoomIn": "Perbesar",
+    "zoomOut": "Perkecil",
+    "pointer": "Pointer Laser",
+    "blank": "Layar Hitam",
+    "unblank": "Tampilkan Layar",
+    "tokenRequired": "Token diperlukan. Gunakan QR dari guru."
+  },
   "whiteboard": {
     "tools": {
       "select": "Pilih",

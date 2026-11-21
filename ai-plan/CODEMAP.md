@@ -161,19 +161,22 @@ Rules:
 | apps/api/tests/Feature/ParticipantListTest.php | 7 feature tests for participant list endpoints | — | P04-T09 | LOCKED |
 | apps/web/src/components/room/ParticipantList.tsx | Real-time participant list sidebar (REST poll + useEchoPresence presence channel) | ParticipantList, ParticipantListProps, ParticipantInfo | P04-T09 | LOCKED |
 | apps/web/src/components/room/ParticipantList.test.tsx | 4 tests for ParticipantList component | — | P04-T09 | LOCKED |
-| apps/api/database/migrations/2026_11_21_300001_create_presenter_requests_table.php | presenter_requests migration (uuid pk, room_id, participant_id, status, scope, expires_at) | — | P05-T01 | OK |
-| apps/api/database/migrations/2026_11_21_300002_create_room_permissions_table.php | room_permissions migration (uuid pk, room_id, participant_id, permission, granted_by, granted_at, revoked_at) | — | P05-T01 | OK |
-| apps/api/database/migrations/2026_11_21_300003_create_room_devices_table.php | room_devices migration (uuid pk, room_id, device_id, device_name, token_hash, paired_at, revoked_at) | — | P05-T01 | OK |
-| apps/api/tests/Feature/MigrationP05Test.php | 6 schema-shape tests for all 3 P05 tables | — | P05-T01 | OK |
-| apps/api/app/Models/PresenterRequest.php | PresenterRequest Eloquent model | PresenterRequest | P05-T02 | OK |
-| apps/api/app/Models/RoomPermission.php | RoomPermission Eloquent model | RoomPermission | P05-T02 | OK |
-| apps/api/app/Models/RoomDevice.php | RoomDevice Eloquent model | RoomDevice | P05-T02 | OK |
-| apps/api/app/Http/Controllers/Api/V1/PresenterRequestController.php | Presenter request CRUD — POST/GET/PATCH/DELETE /rooms/{room}/presenter-requests | store, index, update, destroy | P05-T02 | OK |
-| apps/api/tests/Feature/PresenterRequestTest.php | 8 feature tests for presenter-requests CRUD (raise hand, approve, reject, revoke, duplicate guard) | — | P05-T02 | OK |
-| apps/web/src/lib/api/presenterRequests.ts | API client for presenter-request endpoints (raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest) | raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest, PRStatus, PRScope, PresenterRequest | P05-T03 | OK |
-| apps/web/src/components/room/RaiseHandButton.tsx | Student raise-hand button — POST /presenter-requests + DELETE on lower | RaiseHandButton, RaiseHandButtonProps | P05-T03 | OK |
-| apps/web/src/components/room/PresenterQueue.tsx | Teacher queue of pending presenter requests + ApproveDialog (scope selector) | PresenterQueue, PresenterQueueProps | P05-T03 | OK |
-| apps/web/src/components/room/RaiseHandButton.test.tsx | 4 tests for RaiseHandButton | — | P05-T03 | OK |
-| apps/web/src/components/room/PresenterQueue.test.tsx | 4 tests for PresenterQueue + ApproveDialog | — | P05-T03 | OK |
-| apps/api/app/Http/Controllers/Api/V1/DeviceController.php | Device pairing CRUD — POST/GET/DELETE /rooms/{room}/devices + confirm | store, index, destroy, confirm | P05-T04 | OK |
-| apps/api/tests/Feature/DevicePairingTest.php | 7 feature tests for device pairing (initiate, confirm, revoke, list) | — | P05-T04 | OK |
+| apps/api/database/migrations/2026_11_21_300001_create_presenter_requests_table.php | presenter_requests migration (uuid pk, room_id, participant_id, status, scope, expires_at) | — | P05-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_300002_create_room_permissions_table.php | room_permissions migration (uuid pk, room_id, participant_id, permission, granted_by, granted_at, revoked_at) | — | P05-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_300003_create_room_devices_table.php | room_devices migration (uuid pk, room_id, device_id, device_name, token_hash, paired_at, revoked_at) | — | P05-T01 | LOCKED |
+| apps/api/tests/Feature/MigrationP05Test.php | 6 schema-shape tests for all 3 P05 tables | — | P05-T01 | LOCKED |
+| apps/api/app/Models/PresenterRequest.php | PresenterRequest Eloquent model | PresenterRequest | P05-T02 | LOCKED |
+| apps/api/app/Models/RoomPermission.php | RoomPermission Eloquent model | RoomPermission | P05-T02 | LOCKED |
+| apps/api/app/Models/RoomDevice.php | RoomDevice Eloquent model | RoomDevice | P05-T02 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/PresenterRequestController.php | Presenter request CRUD — POST/GET/PATCH/DELETE /rooms/{room}/presenter-requests | store, index, update, destroy | P05-T02 | LOCKED |
+| apps/api/tests/Feature/PresenterRequestTest.php | 8 feature tests for presenter-requests CRUD (raise hand, approve, reject, revoke, duplicate guard) | — | P05-T02 | LOCKED |
+| apps/web/src/lib/api/presenterRequests.ts | API client for presenter-request endpoints (raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest) | raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest, PRStatus, PRScope, PresenterRequest | P05-T03 | LOCKED |
+| apps/web/src/components/room/RaiseHandButton.tsx | Student raise-hand button — POST /presenter-requests + DELETE on lower | RaiseHandButton, RaiseHandButtonProps | P05-T03 | LOCKED |
+| apps/web/src/components/room/PresenterQueue.tsx | Teacher queue of pending presenter requests + ApproveDialog (scope selector) | PresenterQueue, PresenterQueueProps | P05-T03 | LOCKED |
+| apps/web/src/components/room/RaiseHandButton.test.tsx | 4 tests for RaiseHandButton | — | P05-T03 | LOCKED |
+| apps/web/src/components/room/PresenterQueue.test.tsx | 4 tests for PresenterQueue + ApproveDialog | — | P05-T03 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/DeviceController.php | Device pairing CRUD — POST/GET/DELETE /rooms/{room}/devices + confirm | store, index, destroy, confirm | P05-T04 | LOCKED |
+| apps/api/tests/Feature/DevicePairingTest.php | 7 feature tests for device pairing (initiate, confirm, revoke, list) | — | P05-T04 | LOCKED |
+| apps/web/src/pages/room/ControllerPage.tsx | Mobile Controller app — gesture controls (prev/next/zoom/pointer/blank), sends device.* events | ControllerPage | P05-T05 | LOCKED |
+| apps/web/src/pages/room/ControllerPage.test.tsx | 5 tests for ControllerPage gesture controls | — | P05-T05 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Added controller.* i18n keys for mobile controller UI | — | P05-T05 | LOCKED |
