@@ -154,3 +154,5 @@ Rules:
 | apps/web/src/pages/room/PresentationView.test.tsx | 3 tests for PresentationView | — | P04-T07 | OK |
 | apps/web/src/pages/room/StudentView.test.tsx | 4 tests for StudentView | — | P04-T07 | OK |
 | apps/web/src/pages/room/RoomPage.test.tsx | 4 tests for RoomPage routing | — | P04-T07 | OK |
+| apps/web/src/lib/syncEngine.ts | Realtime sync engine — seq ordering, gap detection, backfill (GET /events?after=N), dedupe, applyEvent. useSyncEngine React hook. | SyncEngine, useSyncEngine, BroadcastPayload, RemoteEvent | P04-T08 | OK |
+| apps/web/src/lib/syncEngine.test.ts | 8 tests for SyncEngine (in-order, dedup, gap-fill, backfill, seed, error) | — | P04-T08 | OK |

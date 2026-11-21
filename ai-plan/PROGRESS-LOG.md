@@ -451,3 +451,14 @@ Next: P04-T08 (Web: realtime sync engine)
 ### START   2026-11-21 16:03 | Claude Antigravity | tier HIGH | P04-T08
 Resuming: no
 Plan: syncEngine.ts — configureEcho, subscribe to private-room.{id} channel, event ordering by seq, gap detection + fill (GET /rooms/{room}/events?after=N), dedupe by idempotency_key, optimistic apply + dispatch to applyEvent. useSyncEngine React hook. Tests with mock Echo.
+
+### DONE   2026-11-21 16:08 | P04-T08 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/syncEngine.ts — SyncEngine class + useSyncEngine hook (ordering, gap detection, backfill, dedup, applyEvent)
+  apps/web/src/lib/syncEngine.test.ts — 8 tests
+Verify evidence:
+  - `pnpm run test:run` → 20/20 files, 179/179 PASS
+  - `pnpm run build` → ✓ built in 11.22s
+Key fix: WhiteboardEvent only has {event_type, payload, idempotency_key?} — stripped extra fields before passing to applyEvent
+Next: P04-T09 (Host participant list)
