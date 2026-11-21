@@ -132,3 +132,15 @@ Rules:
 | apps/api/database/migrations/2026_11_21_200005_create_room_snapshots_table.php | room_snapshots migration (uuid pk, room_id, seq_at, state, created_at) | — | P04-T01 | OK |
 | apps/api/database/migrations/2026_11_21_200006_create_audit_logs_table.php | audit_logs migration (uuid pk, room_id, actor_id, action, metadata, created_at) | — | P04-T01 | OK |
 | apps/api/tests/Feature/MigrationP04Test.php | 12 schema-shape tests for all 6 P04 tables | — | P04-T01 | OK |
+| apps/api/app/Models/Room.php | Room model — generateCode, canTransitionTo, relationships | Room | P04-T02 | OK |
+| apps/api/app/Models/Participant.php | Participant model | Participant | P04-T02 | OK |
+| apps/api/app/Models/Whiteboard.php | Whiteboard model | Whiteboard | P04-T02 | OK |
+| apps/api/app/Models/RoomEvent.php | RoomEvent model | RoomEvent | P04-T02 | OK |
+| apps/api/app/Models/RoomSnapshot.php | RoomSnapshot model | RoomSnapshot | P04-T02 | OK |
+| apps/api/app/Models/AuditLog.php | AuditLog model | AuditLog | P04-T02 | OK |
+| apps/api/app/Policies/RoomPolicy.php | Room authorization policy | RoomPolicy | P04-T02 | OK |
+| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — store/show/update/end/regenerateCode/join(stub) | RoomController | P04-T02 | OK |
+| apps/api/app/Console/Commands/ExpireRoomsCommand.php | rooms:expire Artisan command | ExpireRoomsCommand | P04-T02 | OK |
+| apps/api/database/factories/SchoolFactory.php | School model factory | SchoolFactory | P04-T02 | OK |
+| apps/api/database/factories/ClassroomFactory.php | Classroom model factory | ClassroomFactory | P04-T02 | OK |
+| apps/api/tests/Feature/RoomApiTest.php | 15 feature tests for Room domain API | — | P04-T02 | OK |

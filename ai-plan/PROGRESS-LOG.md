@@ -326,3 +326,23 @@ Next: P04-T02 (Room domain API)
 ### START   2026-11-21 15:07 | Claude Antigravity | tier HIGH | P04-T02
 Resuming: no
 Plan: Room model, RoomPolicy, RoomController (create/show/patch/end/regenerate-code), expiry Artisan command
+
+### DONE   2026-11-21 15:11 | P04-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Models/Room.php — Room model, generateCode(), canTransitionTo(), relationships
+  apps/api/app/Models/Participant.php — Participant model
+  apps/api/app/Models/Whiteboard.php — Whiteboard model
+  apps/api/app/Models/RoomEvent.php — RoomEvent model
+  apps/api/app/Models/RoomSnapshot.php — RoomSnapshot model
+  apps/api/app/Models/AuditLog.php — AuditLog model
+  apps/api/app/Policies/RoomPolicy.php — create/view/update/end/regenerateCode policies
+  apps/api/app/Http/Controllers/Api/V1/RoomController.php — full implementation (store/show/update/end/regenerateCode)
+  apps/api/app/Console/Commands/ExpireRoomsCommand.php — rooms:expire artisan command
+  apps/api/app/Providers/AppServiceProvider.php — registered RoomPolicy
+  apps/api/database/factories/SchoolFactory.php — School factory
+  apps/api/database/factories/ClassroomFactory.php — Classroom factory
+  apps/api/tests/Feature/RoomApiTest.php — 15 tests
+Verify evidence:
+  - `php artisan test` → 61/61 PASS
+Next: P04-T03 (Join flow: guest + account, participant tokens, rate limits)
