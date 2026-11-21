@@ -41,6 +41,13 @@ vi.mock("@/lib/api/rooms", () => ({
   endRoom: vi.fn().mockResolvedValue({}),
 }));
 
+// Mock ParticipantList so TeacherView tests don't need Echo configured
+vi.mock("@/components/room/ParticipantList", () => ({
+  ParticipantList: ({ roomId }: { roomId: string }) => (
+    <div data-testid="participant-list" data-room={roomId} />
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

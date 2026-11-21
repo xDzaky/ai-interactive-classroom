@@ -74,6 +74,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->name('rooms.events.store');
         Route::get('/rooms/{room}/events', [\App\Http\Controllers\Api\V1\RoomEventController::class, 'index'])
             ->name('rooms.events.index');
+        // Participant list — host or any participant
+        Route::get('/rooms/{room}/participants', [\App\Http\Controllers\Api\V1\RoomController::class, 'participants'])
+            ->name('rooms.participants.index');
+        // Current participant (me)
+        Route::get('/rooms/{room}/participants/me', [\App\Http\Controllers\Api\V1\RoomController::class, 'participantMe'])
+            ->name('rooms.participants.me');
     });
 
     // AI Jobs (implemented in P08)

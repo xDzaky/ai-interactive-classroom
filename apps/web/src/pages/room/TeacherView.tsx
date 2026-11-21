@@ -16,6 +16,7 @@ import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { endRoom } from "@/lib/api/rooms";
+import { ParticipantList } from "@/components/room/ParticipantList";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -180,19 +181,12 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           />
         </main>
 
-        {/* Right: participant list (placeholder, real-time in P04-T09) */}
+        {/* Right: participant list (real-time via ParticipantList) */}
         <aside
           className="flex w-56 shrink-0 flex-col border-l border-slate-700 bg-slate-800"
-          aria-label={t("room.participants", { count: participantCount })}
+          aria-label={t("room.participants", { count: 0 })}
         >
-          <div className="border-b border-slate-700 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {t("room.participants", { count: participantCount })}
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            <p className="text-xs text-slate-500 italic mt-2 px-1">
-              {t("room.participantListPlaceholder")}
-            </p>
-          </div>
+          <ParticipantList roomId={roomId} authToken={_token || undefined} />
         </aside>
       </div>
     </div>

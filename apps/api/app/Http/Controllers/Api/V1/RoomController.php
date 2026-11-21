@@ -214,6 +214,61 @@ class RoomController extends Controller
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
+    // ── GET /api/v1/rooms/{room}/participants ────────────────────────────────
+
+    /**
+     * List active participants in a room.
+     * Requires host (Sanctum) or any participant token.
+     */
+    public function participants(Request $request, Room $room): JsonResponse
+    {
+        // Participant token path — any authenticated participant may list
+        $participant = $request->attributes->get('participant');
+        if (!($participant instanceof Participant)) {
+            // Fall back to Sanctum policy check for host/admin
+            $this->authorize('view', $room);
+        }
+
+        $participants = Participant::where('room_id', $room->id)
+            ->whereNull('left_at')
+            ->get(['id', 'room_id', 'user_id', 'alias', 'role', 'joined_at']);
+
+        return response()->json(['data' => $participants]);
+    }
+
+    // ── GET /api/v1/rooms/{room}/participants/me ─────────────────────────────
+
+    /**
+     * Return the current participant's info.
+     * Accepts Sanctum auth (host) or Participant token header.
+     */
+    public function participantMe(Request $request, Room $room): JsonResponse
+    {
+        // Participant token path (set by ParticipantTokenGuard middleware)
+        $participant = $request->attributes->get('participant');
+        if ($participant instanceof Participant) {
+            return response()->json($participant->only(
+                ['id', 'room_id', 'user_id', 'alias', 'role', 'joined_at', 'left_at']
+            ));
+        }
+
+        // Sanctum host path: look up their participant record
+        $user = $request->user();
+        if ($user) {
+            $p = Participant::where('room_id', $room->id)
+                ->where('user_id', $user->id)
+                ->whereNull('left_at')
+                ->first();
+            if ($p) {
+                return response()->json($p->only(
+                    ['id', 'room_id', 'user_id', 'alias', 'role', 'joined_at', 'left_at']
+                ));
+            }
+        }
+
+        return response()->json(['message' => 'Not a participant.'], 403);
+    }
+
     private function log(string $roomId, ?string $actorId, string $action, array $metadata = []): void
     {
         AuditLog::create([

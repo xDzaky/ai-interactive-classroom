@@ -466,3 +466,24 @@ Next: P04-T09 (Host participant list)
 ### START   2026-11-21 16:09 | Claude Antigravity | tier HIGH | P04-T09
 Resuming: no
 Plan: 1) GET /rooms/{room}/participants endpoint in RoomController, 2) ParticipantList.tsx component (uses useEchoPresence + REST fallback), 3) Wire ParticipantList into TeacherView sidebar, 4) Tests.
+
+### DONE   2026-11-21 16:24 | P04-T09 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Http/Controllers/Api/V1/RoomController.php — added participants() + participantMe()
+  apps/api/routes/api.php — added GET /rooms/{room}/participants + /participants/me routes
+  apps/api/tests/Feature/ParticipantListTest.php — 7 feature tests
+  apps/web/src/components/room/ParticipantList.tsx — real-time participant list (REST poll + presence)
+  apps/web/src/components/room/ParticipantList.test.tsx — 4 component tests
+  apps/web/src/pages/room/TeacherView.tsx — wired ParticipantList, removed duplicate import
+  apps/web/src/pages/room/TeacherView.test.tsx — added ParticipantList mock
+  apps/web/src/pages/room/RoomPage.test.tsx — added ParticipantList mock
+Verify evidence:
+  - `php artisan test` → 107/107 PASS
+  - `pnpm run test:run` → 21/21 files, 183/183 PASS
+  - `pnpm run build` → ✓ built in 12.28s
+Key fixes:
+  - Duplicate import of ParticipantList in TeacherView.tsx removed
+  - TeacherView.test.tsx + RoomPage.test.tsx: added vi.mock("@/components/room/ParticipantList") to prevent Echo unconfigured error
+  - useEchoPresence called with undefined event/callback — OK in tests (mocked)
+Next: P04-RV (Phase 4 Review)

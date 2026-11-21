@@ -156,3 +156,8 @@ Rules:
 | apps/web/src/pages/room/RoomPage.test.tsx | 4 tests for RoomPage routing | — | P04-T07 | OK |
 | apps/web/src/lib/syncEngine.ts | Realtime sync engine — seq ordering, gap detection, backfill (GET /events?after=N), dedupe, applyEvent. useSyncEngine React hook. | SyncEngine, useSyncEngine, BroadcastPayload, RemoteEvent | P04-T08 | OK |
 | apps/web/src/lib/syncEngine.test.ts | 8 tests for SyncEngine (in-order, dedup, gap-fill, backfill, seed, error) | — | P04-T08 | OK |
+| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Room API — added participants() + participantMe() endpoints | participants(), participantMe() | P04-T09 | OK |
+| apps/api/routes/api.php | Added GET /rooms/{room}/participants + /participants/me routes under ParticipantTokenGuard | — | P04-T09 | OK |
+| apps/api/tests/Feature/ParticipantListTest.php | 7 feature tests for participant list endpoints | — | P04-T09 | OK |
+| apps/web/src/components/room/ParticipantList.tsx | Real-time participant list sidebar (REST poll + useEchoPresence presence channel) | ParticipantList, ParticipantListProps, ParticipantInfo | P04-T09 | OK |
+| apps/web/src/components/room/ParticipantList.test.tsx | 4 tests for ParticipantList component | — | P04-T09 | OK |

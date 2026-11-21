@@ -61,7 +61,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P04-T06 | MID  | deps: T02,P01-T05 | Web: quick setup (adaptive mode), create room, lobby, QR
 - [x] P04-T07 | MID  | deps: T05,T06,P02-T07 | Web: Teacher / Presentation / Student views
 - [x] P04-T08 | HIGH | deps: T05,P02-T02 | Web: realtime sync engine (ordering, gap fill, dedupe, optimistic)
-- [~] P04-T09 | LOW  | deps: T05,T07 | Host participant list  <-- Claude Antigravity / HIGH / 2026-11-21 16:09
+- [x] P04-T09 | LOW  | deps: T05,T07 | Host participant list
 - [ ] P04-RV  | HIGH | deps: T01-T09  | Phase review
 
 ## P05 — Presenter approval + mobile controller · `tasks/P05-presenter-controller.md`

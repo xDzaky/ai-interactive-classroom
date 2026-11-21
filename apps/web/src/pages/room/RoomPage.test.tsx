@@ -43,6 +43,13 @@ vi.mock("@/lib/api/rooms", () => ({
   endRoom: vi.fn(),
 }));
 
+// Mock ParticipantList so RoomPage tests don't need Echo configured
+vi.mock("@/components/room/ParticipantList", () => ({
+  ParticipantList: ({ roomId }: { roomId: string }) => (
+    <div data-testid="participant-list" data-room={roomId} />
+  ),
+}));
+
 import { fetchRoom, fetchMe } from "@/lib/api/rooms";
 import RoomPage from "@/pages/room/RoomPage";
 
