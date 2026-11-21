@@ -61,6 +61,13 @@ vi.mock("@/components/room/ConnectDeviceModal", () => ({
     open ? <div data-testid="connect-device-modal" onClick={onClose} /> : null,
 }));
 
+// Mock ActivityBuilder — no React Query / API in TeacherView tests
+vi.mock("@/components/room/ActivityBuilder", () => ({
+  ActivityBuilder: ({ roomId }: { roomId: string }) => (
+    <div data-testid="activity-builder" data-room={roomId} />
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

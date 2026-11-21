@@ -717,3 +717,36 @@ Verify evidence:
   - `php artisan test` → 157/157 PASS
 Next: P06-T03 (Web: host builder, student responder, results dashboard)
 
+
+### START   2026-11-21 17:27 | Claude Antigravity | tier HIGH | P06-T03
+Resuming: no
+Plan:
+  1. apps/web/src/lib/api/activities.ts — API client (createActivity, listActivities, updateActivity, submitAnswer, getResults)
+  2. apps/web/src/components/room/ActivityBuilder.tsx — host creates poll/quiz, adds questions, starts activity
+  3. apps/web/src/components/room/ActivityResponder.tsx — student answers an active activity
+  4. apps/web/src/components/room/ActivityResults.tsx — host sees results with counts per option
+  5. Wire ActivityBuilder into TeacherView sidebar + ActivityResponder into StudentView
+  6. i18n keys for activity.*
+  7. Tests for all 3 components (mock fetch)
+
+
+### DONE   2026-11-21 17:44 | P06-T03 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/api/activities.ts — API client (listActivities, createActivity, updateActivity, submitAnswer, getActivityResults)
+  apps/web/src/lib/api/activities.test.ts — 5 API client tests
+  apps/web/src/components/room/ActivityBuilder.tsx — host creates/starts activities (4 tests)
+  apps/web/src/components/room/ActivityResponder.tsx — student answers active activity (3 tests)
+  apps/web/src/components/room/ActivityResults.tsx — host results dashboard (4 tests)
+  apps/web/src/pages/room/TeacherView.tsx — added ActivityBuilder import + render (additive)
+  apps/web/src/pages/room/StudentView.tsx — added ActivityResponder import + render (additive)
+  apps/web/src/pages/room/TeacherView.test.tsx — added vi.mock for ActivityBuilder (additive)
+  apps/web/src/pages/room/StudentView.test.tsx — added vi.mock for ActivityResponder (additive)
+  apps/web/src/pages/room/RoomPage.test.tsx — added mocks for Activity* components (additive)
+  apps/web/src/i18n/locales/id.json — added activity.* i18n keys
+Key fix: ActivityResponder.test.tsx line 76 — changed findByText("activity.answerSubmitted") to findByText(/activity\.answerSubmitted/) because JSX renders ✓ + t() as separate text nodes
+Verify evidence:
+  - `pnpm run test:run` → 221/221 PASS (30 test files)
+  - `pnpm run build` → ✓ built in 14.70s
+Next: P06-T04 (Group workspace + leader submission) — HIGH tier task, claim next
+

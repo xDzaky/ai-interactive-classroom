@@ -63,6 +63,20 @@ vi.mock("@/components/room/ConnectDeviceModal", () => ({
     open ? <div data-testid="connect-device-modal" onClick={onClose} /> : null,
 }));
 
+// Mock ActivityBuilder — no React Query in RoomPage tests
+vi.mock("@/components/room/ActivityBuilder", () => ({
+  ActivityBuilder: ({ roomId }: { roomId: string }) => (
+    <div data-testid="activity-builder" data-room={roomId} />
+  ),
+}));
+
+// Mock ActivityResponder — no React Query in RoomPage tests
+vi.mock("@/components/room/ActivityResponder", () => ({
+  ActivityResponder: ({ roomId }: { roomId: string }) => (
+    <div data-testid="activity-responder" data-room={roomId} />
+  ),
+}));
+
 // Mock RaiseHandButton — no fetch in RoomPage tests
 vi.mock("@/components/room/RaiseHandButton", () => ({
   RaiseHandButton: () => <button aria-label="Angkat Tangan">✋</button>,

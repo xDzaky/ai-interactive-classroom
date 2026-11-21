@@ -11,6 +11,7 @@ import {
 import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { RaiseHandButton } from "@/components/room/RaiseHandButton";
+import { ActivityResponder } from "@/components/room/ActivityResponder";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -89,6 +90,9 @@ export function StudentView({
           readOnly
         />
       </main>
+
+      {/* Activity responder — shown when a poll/quiz is active */}
+      <ActivityResponder roomId={roomId} participantToken={participantToken} />
 
       {/* Bottom action bar */}
       <div

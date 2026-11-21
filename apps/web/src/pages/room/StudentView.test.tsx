@@ -35,6 +35,13 @@ vi.mock("@/components/room/RaiseHandButton", () => ({
   ),
 }));
 
+// Mock ActivityResponder to avoid React Query / API in StudentView tests
+vi.mock("@/components/room/ActivityResponder", () => ({
+  ActivityResponder: ({ roomId }: { roomId: string }) => (
+    <div data-testid="activity-responder" data-room={roomId} />
+  ),
+}));
+
 import { StudentView } from "@/pages/room/StudentView";
 
 function wrapper({ children }: { children: React.ReactNode }) {

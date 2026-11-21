@@ -183,5 +183,42 @@
     "revoke": "Cabut",
     "errorInitiate": "Gagal membuat QR pairing. Coba lagi.",
     "errorRevoke": "Gagal mencabut akses perangkat. Coba lagi."
+  },
+  "activity": {
+    "title": "Aktivitas",
+    "createNew": "Buat Baru",
+    "titleLabel": "Judul Aktivitas",
+    "titlePlaceholder": "Contoh: Kuis Pembuka",
+    "typeLabel": "Jenis",
+    "typePoll": "Polling",
+    "typeQuiz": "Kuis",
+    "type": {
+      "poll": "Polling",
+      "quiz": "Kuis",
+      "group_task": "Tugas Kelompok"
+    },
+    "questionLabel": "Pertanyaan",
+    "questionPlaceholder": "Tulis pertanyaan",
+    "optionLabel": "Pilihan",
+    "optionPlaceholder": "Pilihan",
+    "addQuestion": "Tambah Pertanyaan",
+    "save": "Simpan",
+    "start": "Mulai",
+    "stop": "Hentikan",
+    "results": "Hasil",
+    "backToList": "Kembali ke Daftar",
+    "submit": "Kirim Jawaban",
+    "answerSubmitted": "Jawaban terkirim",
+    "noActiveActivity": "Tidak ada aktivitas aktif saat ini.",
+    "responses": "jawaban",
+    "status": {
+      "draft": "Draf",
+      "active": "Aktif",
+      "closed": "Selesai"
+    },
+    "errorCreate": "Gagal membuat aktivitas.",
+    "errorUpdate": "Gagal memperbarui aktivitas.",
+    "errorSubmit": "Gagal mengirim jawaban.",
+    "errorResults": "Gagal memuat hasil."
   }
 }

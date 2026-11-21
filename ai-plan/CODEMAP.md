@@ -209,3 +209,17 @@ Rules:
 | apps/api/app/Http/Controllers/Api/V1/ActivityController.php | Activity CRUD + start/stop + answer submit + results (answer_key guarded) | index, store, show, update, answer, results | P06-T02 | LOCKED |
 | apps/api/routes/api.php | Added activity routes (GET/POST/PATCH activities, POST answers, GET results) | — | P06-T02 | LOCKED |
 | apps/api/tests/Feature/ActivityApiTest.php | 10 feature tests for activity API | — | P06-T02 | LOCKED |
+| apps/web/src/lib/api/activities.ts | Activities API client (listActivities, createActivity, updateActivity, submitAnswer, getActivityResults) | listActivities, createActivity, updateActivity, submitAnswer, getActivityResults, Activity, ActivityQuestion, ActivityAnswer | P06-T03 | LOCKED |
+| apps/web/src/lib/api/activities.test.ts | 5 tests for activities API client | — | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityBuilder.tsx | Host creates poll/quiz, adds questions, starts activity | ActivityBuilder, ActivityBuilderProps | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityBuilder.test.tsx | 4 tests for ActivityBuilder (host UI) | — | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityResponder.tsx | Student answers active poll/quiz — radio options, submit, submitted state | ActivityResponder, ActivityResponderProps | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityResponder.test.tsx | 3 tests for ActivityResponder (no-active, options, submit) | — | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityResults.tsx | Host results dashboard — counts + % per option, answer key highlight | ActivityResults, ActivityResultsProps | P06-T03 | LOCKED |
+| apps/web/src/components/room/ActivityResults.test.tsx | 4 tests for ActivityResults (no results, loading, counts, answer key) | — | P06-T03 | LOCKED |
+| apps/web/src/pages/room/TeacherView.tsx | Added ActivityBuilder import + render in sidebar (additive) | (unchanged exports) | P06-T03 | LOCKED |
+| apps/web/src/pages/room/StudentView.tsx | Added ActivityResponder import + render (additive) | (unchanged exports) | P06-T03 | LOCKED |
+| apps/web/src/pages/room/TeacherView.test.tsx | Added vi.mock for ActivityBuilder (additive) | — | P06-T03 | LOCKED |
+| apps/web/src/pages/room/StudentView.test.tsx | Added vi.mock for ActivityResponder (additive) | — | P06-T03 | LOCKED |
+| apps/web/src/pages/room/RoomPage.test.tsx | Added mocks for ActivityBuilder + ActivityResponder (additive) | — | P06-T03 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Added activity.* i18n keys (title, type.poll, type.quiz, noActiveActivity, submit, answerSubmitted, errorSubmit, etc.) | — | P06-T03 | LOCKED |
