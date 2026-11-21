@@ -26,7 +26,8 @@ ADR-018 | DECIDED | PhET and OpenStax content MUST NOT be bundled (NC license).
 ADR-019 | DECIDED | Guest tokens scoped to one room + one participant. Room code alone is not authorization.
 ADR-020 | DECIDED | Use OpenAI `text-embedding-3-small` (1536 dimensions) for pgvector. This matches the existing LiteLLM/OpenAI environment configuration. Approved by human 2026-11-21.
 ADR-021 | DECIDED | Add `laravel/boost` `^2.10` as a development dependency for Laravel-specific AI guidance. Composer registry reports MIT license and Laravel 13 compatibility. Approved by human 2026-11-21.
+ADR-022 | PROPOSED | Document-ingestion HTTP contract for P08-T03. Decide: (a) `POST /schools/{schoolId}/documents` with multipart `file` upload, teacher/school-admin authorization, returning `202 {document_id,status}`; or (b) another exact route, request format, authorization scope, and response shape. The project must not implement storage, embedding, or retrieval until this contract is decided and recorded in CONTRACTS.md.
 
 ## PROPOSED entries (need human/HIGH-tier decision)
 
-_(No outstanding proposed entries.)_
+_(ADR-022 above requires a decision.)_

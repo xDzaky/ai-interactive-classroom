@@ -1152,3 +1152,10 @@ Plan:
   1. Verify document-ingestion contract availability.
   2. Add storage and tenant-scoped ingestion only after contract approval.
   3. Add feature and service tests, then run the required suites.
+
+
+### BLOCKED   2026-11-21 20:12 | Codex | tier HIGH | P08-T03
+Reason: CONTRACTS.md defines AI job endpoints but no document-ingestion endpoint,
+payload, authorization scope, or response. ADR-020 resolves embedding dimensions
+only. ADR-022 proposes a concrete contract for human approval.
+Action needed: decide ADR-022 and add the approved API contract to CONTRACTS.md.

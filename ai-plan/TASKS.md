@@ -94,7 +94,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 ## P08 — AI / RAG · `tasks/P08-ai-rag.md`
 - [x] P08-T01 | MID  | deps: P00-T05  | ai-service structure, internal auth, LiteLLM wrapper
 - [x] P08-T02 | HIGH | deps: T01,P03-T01 | Geometry/math service with shared fixtures (contract tests TS↔Python)
-- [~] P08-T03 | HIGH | deps: T01,P01-T03 | Document ingestion + embeddings + pgvector  <-- Codex / HIGH / 2026-11-21 20:11
+- [!] P08-T03 | HIGH | deps: T01,P01-T03 | Document ingestion + embeddings + pgvector  <-- BLOCKED: ADR-022 ingestion API contract
 - [ ] P08-T04 | HIGH | deps: T03      | Scoped retrieval + cited answers
 - [x] P08-T05 | HIGH | deps: T01,P04-T03 | Laravel AI job layer (202 + job_id, usage log, rate limit)
 - [x] P08-T06 | MID  | deps: T05      | Teacher AI UI: outline/quiz generator with edit+approve
