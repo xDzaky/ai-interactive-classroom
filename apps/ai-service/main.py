@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.routers import geometry as geometry_router
 from app.routers import jobs as jobs_router
 from app.routers import embeddings as embeddings_router
+from app.routers import retrieval as retrieval_router
 
 app = FastAPI(
     title="AI Interactive Classroom — AI Service",
@@ -18,6 +19,7 @@ app = FastAPI(
 app.include_router(jobs_router.router)
 app.include_router(geometry_router.router)
 app.include_router(embeddings_router.router)
+app.include_router(retrieval_router.router)
 
 
 # ---------------------------------------------------------------------------

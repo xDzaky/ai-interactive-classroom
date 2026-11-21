@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\CitedAnswerJob;
 use App\Models\AiJob;
 use App\Models\AiUsageLog;
 use Illuminate\Http\JsonResponse;
@@ -58,7 +59,11 @@ class AiJobController extends Controller
 
         // Dispatch to ai-service asynchronously (fire-and-forget via queue job)
         // In development (QUEUE_CONNECTION=sync), this runs inline; in production use Redis queue.
-        dispatch(new \App\Jobs\AiJob($job->id));
+        if ($data['type'] === 'cited_answer') {
+            dispatch(new CitedAnswerJob($job->id));
+        } else {
+            dispatch(new \App\Jobs\AiJob($job->id));
+        }
 
         return response()->json([
             'job_id' => $job->id,
