@@ -277,3 +277,7 @@ Verify evidence:
   - `pnpm run test:run` → 129/129 PASS (11 test files)
   - `pnpm run build` → ✓ built in 9.62s, no TS errors
 Next: P03-T06 (WhiteboardOverlay — DOM overlay for SolidViewer/GraphViewer)
+
+### START   2026-11-21 14:52 | Claude Antigravity | tier HIGH | P03-T06
+Resuming: no
+Plan: WhiteboardOverlay — renders SolidViewer and GraphViewer as DOM overlays positioned over Konva canvas using viz_solid/viz_graph object coords from BoardState
