@@ -1032,3 +1032,21 @@ Resuming: no
 Plan:
   ADR-020 check: if embedding model not decided → mark [!] and STOP.
   If decided: proceed with pgvector migrations + document ingestion + embeddings endpoint.
+
+
+### BLOCKED   2026-11-21 19:34 | P08-T03 | status [!]
+Agent: Claude Antigravity | tier HIGH
+Reason: ADR-020 (embedding model for pgvector) is PROPOSED, not decided by human.
+Need: Human must decide: OpenAI text-embedding-3-small (1536-dim) vs sentence-transformers (768-dim).
+Resolution: Once ADR-020 is filled, resume from step 1 (migration creation).
+
+
+### START   2026-11-21 19:34 | Claude Antigravity | tier HIGH | P08-T05
+Resuming: no
+Plan:
+  1. Create migration: ai_jobs + ai_usage_logs tables
+  2. Create Eloquent models: AiJob, AiUsageLog
+  3. Implement AiJobController (store: 202+job_id, show: status poll)
+  4. Add rate limiting: 20 AI jobs per hour per user
+  5. Write Laravel feature tests (≥7 tests)
+  6. Run php artisan test → ≥180 tests
