@@ -79,6 +79,8 @@ describe("snapToAnchors", () => {
       { x: 15, y: 10, kind: "edge" as const },
     ];
     const result = snapToAnchors({ x: 11, y: 10 }, closeAnchors, 20);
-    expect((result as { kind: string }).kind).toBe("corner");
+    // result may be an AnchorPoint (with kind) or a plain Point
+    const kind = (result as { kind?: string }).kind;
+    expect(kind).toBe("corner");
   });
 });

@@ -108,3 +108,13 @@ Rules:
 | packages/whiteboard-core/src/index.ts | Board state types, Zod schemas, event type union, factory helpers | BoardStroke, BoardObject, Transform, SceneState, BoardState, WhiteboardEvent, WhiteboardEventType, createInitialBoardState, getActiveScene, createScene | P02-T01 | LOCKED |
 | packages/whiteboard-core/src/reducer.ts | Pure reducer: applyEvent, applyInverse, undo/redo history management | applyEvent, applyInverse, pushHistory, undo, redo, createHistory, InverseEvent, WhiteboardHistory, HistoryResult | P02-T02 | LOCKED |
 | packages/whiteboard-core/src/reducer.test.ts | 22 vitest tests: all event types, inverse round-trips, undo/redo stack | — | P02-T02 | LOCKED |
+
+| path | purpose | public exports | task | status |
+|------|---------|---------------|------|--------|
+| apps/web/src/pages/whiteboard/WhiteboardCanvas.tsx | Konva Stage canvas: strokes (perfect-freehand), objects, zoom/pan, grid layer | WhiteboardCanvas, WhiteboardCanvasProps | P02-T03 | LOCKED |
+| apps/web/src/hooks/useWhiteboardTool.ts | Tool state machine: 9 tools → WhiteboardEvents on pointer up | useWhiteboardTool, ToolType, ToolState | P02-T04 | LOCKED |
+| apps/web/src/components/whiteboard/ToolBar.tsx | Toolbar UI + ShapePropertiesPanel (accessible, Indonesian labels) | ToolBar, ShapePropertiesPanel | P02-T05 | LOCKED |
+| apps/web/src/lib/snapping.ts | Grid snap, axis constrain, anchor snap pure functions | snapToGrid, snapSize, constrainToAxis, snapToAnchors | P02-T05 | LOCKED |
+| apps/web/src/hooks/usePointerEvents.ts | Unified pointer handler: mouse/pen/touch, palm rejection, pinch-zoom | usePointerEvents, ViewTransform, WorldPoint | P02-T06 | LOCKED |
+| apps/web/src/lib/sceneManager.ts | Scene CRUD, reorder, localStorage, JSON export/import | addScene, removeScene, renameScene, switchScene, exportBoardJson, importBoardJson, saveBoardToLocal, loadBoardFromLocal | P02-T07 | LOCKED |
+| apps/web/src/lib/exportPng.ts | Export Konva stage to PNG download | exportStageToPng, exportStageToBlob | P02-T08 | LOCKED |

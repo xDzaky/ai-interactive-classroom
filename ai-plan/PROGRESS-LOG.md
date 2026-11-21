@@ -195,3 +195,19 @@ Verify evidence:
 ### START   2026-11-21 14:24 | Claude Antigravity | tier HIGH | P02-RV
 Resuming: no
 Plan: Phase 2 review — run all verify commands, update CODEMAP
+
+### DONE   2026-11-21 14:29 | P02-RV | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Full P02 verification:
+  - whiteboard-core `pnpm run test` → 22/22 PASS
+  - packages `pnpm -r --filter './packages/**' build` → 5/5 Done (tsc)
+  - web `pnpm run test:run` → 81/81 PASS (8 test files)
+  - web `pnpm run build` → ✓ built in 10.56s, PWA sw.js
+  - api `php artisan test` → 34/34 PASS
+  - ai-service `uv run pytest -v` → 5/5 PASS
+  CODEMAP updated. All P02 tasks [x]. Phase 2 COMPLETE.
+  TS fixes: exportPng.test.ts typed mock, snapping.test.ts cast fix.
+
+### START   2026-11-21 14:30 | Claude Antigravity | tier HIGH | P03-T01
+Resuming: no
+Plan: geometry-core — solid formulas for 6 solids, shared fixture JSON, full tests
