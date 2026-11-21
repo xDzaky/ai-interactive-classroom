@@ -13,7 +13,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 
 ## P00 — Bootstrap & tooling · `tasks/P00-bootstrap.md`
 - [x] P00-T01 | LOW  | deps: -        | Repo skeleton, git, pnpm workspace, .gitignore, copy original docs
-- [ ] P00-T02 | LOW  | deps: T01      | Docker compose (Postgres+pgvector, Redis) + .env.example
+- [x] P00-T02 | LOW  | deps: T01      | Docker compose (Postgres+pgvector, Redis) + .env.example
 - [ ] P00-T03 | MID  | deps: T01,T02  | Laravel 13 API in apps/api (Sanctum, Pest, pgsql, health endpoint)
 - [ ] P00-T04 | MID  | deps: T01      | React web shell in apps/web (Vite, Tailwind, shadcn, Router, Query, Zustand, Vitest)
 - [~] P00-T05 | HIGH | fastapi-worker | 2026-11-21 12:43 | LOW  | deps: T01,T02  | FastAPI AI service in apps/ai-service (uv, health endpoint, pytest)
