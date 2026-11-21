@@ -171,4 +171,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('/schools/{school}/documents/{document}', [\App\Http\Controllers\Api\V1\DocumentController::class, 'show'])
             ->name('schools.documents.show');
     });
+
+    // Privacy / GDPR (P09-T02) — own data only
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me/export', [\App\Http\Controllers\Api\V1\PrivacyController::class, 'export'])
+            ->name('me.export');
+        Route::delete('/me', [\App\Http\Controllers\Api\V1\PrivacyController::class, 'destroy'])
+            ->name('me.destroy');
+    });
 });

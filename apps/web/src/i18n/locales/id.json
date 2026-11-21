@@ -272,5 +272,12 @@
     "success": "{{count}} kelompok berhasil dibuat!",
     "error": "Gagal membuat kelompok otomatis.",
     "noParticipants": "Belum ada peserta untuk dibagi."
+  },
+  "consent": {
+    "title": "Pemberitahuan Privasi",
+    "body": "Aplikasi ini mengumpulkan data sesi kelas untuk mendukung fitur pembelajaran. Data Anda hanya digunakan sesuai tujuan pendidikan dan tidak dibagikan kepada pihak ketiga.",
+    "accept": "Saya Setuju",
+    "decline": "Tolak",
+    "learnMore": "Pelajari lebih lanjut"
   }
 }

@@ -103,8 +103,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P08-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P09 — Pilot readiness · `tasks/P09-pilot.md`
-- [~] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)  <-- Claude Antigravity / HIGH / 2026-11-21 20:53
-- [ ] P09-T02 | HIGH | deps: P07-RV    | Privacy: retention job, export/erasure, consent notice
+- [x] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)
+- [~] P09-T02 | HIGH | deps: P07-RV    | Privacy: retention job, export/erasure, consent notice  <-- Claude Antigravity / HIGH / 2026-11-21 20:58
 - [ ] P09-T03 | MID  | deps: P07-RV    | Accessibility pass
 - [ ] P09-T04 | MID  | deps: P05-RV    | Playwright multi-context E2E (teacher + student + controller)
 - [ ] P09-T05 | MID  | deps: P07-RV    | Performance + network throttling checks
