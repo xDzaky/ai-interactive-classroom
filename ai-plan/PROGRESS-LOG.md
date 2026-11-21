@@ -1137,3 +1137,10 @@ Verify evidence:
   - `composer show laravel/boost --locked --name-only` → laravel/boost v2.10.4, MIT
   - `php artisan test --compact` → 182/182 PASS, 383 assertions
 Next: no task spec is available for the next eligible work; restore/create missing task files.
+
+
+### RESTORED   2026-11-21 20:10 | Codex | tier HIGH | P08 task specification
+Human authorized restoration of missing task specifications. Recreated
+`ai-plan/tasks/P08-ai-rag.md` from TASKS.md, CODEMAP.md, committed work evidence,
+and the governing contract policy. P08-T03 remains blocked until a document
+ingestion HTTP contract is explicitly decided.
