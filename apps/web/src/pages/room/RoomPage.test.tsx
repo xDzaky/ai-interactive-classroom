@@ -148,7 +148,10 @@ function makeWrapper(initialPath = "/room/room-1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  localStorage.clear();
+  // Guard: localStorage may not be available in all jsdom configurations
+  if (typeof localStorage !== "undefined" && localStorage.clear) {
+    localStorage.clear();
+  }
   vi.mocked(fetchRoom).mockResolvedValue(MOCK_ROOM as never);
 });
 

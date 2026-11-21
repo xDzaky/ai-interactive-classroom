@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import {
   createInitialBoardState,
@@ -8,11 +8,17 @@ import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core"
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
-import { SolidViewer } from "@/components/math/SolidViewer";
-import { GraphViewer } from "@/components/math/GraphViewer";
 import { exportStageToPng } from "@/lib/exportPng";
 import type { SolidParams } from "@ai-classroom/geometry-core";
 import type Konva from "konva";
+
+// Lazy-load heavier 3D & 2D Math visualization engines
+const SolidViewer = lazy(() =>
+  import("@/components/math/SolidViewer").then((m) => ({ default: m.SolidViewer })),
+);
+const GraphViewer = lazy(() =>
+  import("@/components/math/GraphViewer").then((m) => ({ default: m.GraphViewer })),
+);
 
 const PERSONAL_ROOM_ID = "personal-sandbox";
 const GUEST_ID = "guest-me";
@@ -251,10 +257,18 @@ export default function PersonalRoomPage() {
             </div>
 
             <div className="flex-1 overflow-hidden p-4">
-              <SolidViewer
-                params={solidParams}
-                onParamsChange={setSolidParams}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                  </div>
+                }
+              >
+                <SolidViewer
+                  params={solidParams}
+                  onParamsChange={setSolidParams}
+                />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -278,7 +292,15 @@ export default function PersonalRoomPage() {
             </div>
 
             <div className="flex-1 overflow-hidden p-4">
-              <GraphViewer />
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+                  </div>
+                }
+              >
+                <GraphViewer />
+              </Suspense>
             </div>
           </div>
         </div>

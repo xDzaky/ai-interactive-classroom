@@ -59,7 +59,7 @@ export default function RoomPage() {
   // Load token from localStorage
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
-    if (roomId && roomId !== "undefined") {
+    if (roomId && roomId !== "undefined" && typeof localStorage !== "undefined" && localStorage.getItem) {
       setToken(localStorage.getItem(tokenKey(roomId)));
     }
   }, [roomId]);
