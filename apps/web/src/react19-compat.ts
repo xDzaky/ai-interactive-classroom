@@ -12,31 +12,29 @@
  *
  * MUST be the first import in main.tsx (before React itself).
  */
+import * as ReactModule from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const anyReact = require("react") as Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyReact = ReactModule as any;
 
 const clientInternals =
-  (anyReact.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE as Record<
-    string,
-    unknown
-  >) ?? {};
+  anyReact.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ?? {};
 
 const shim: Record<string, unknown> = {
   ReactCurrentOwner: { current: null },
   ReactCurrentDispatcher: {
     current: {
       readContext: () => null,
-      useCallback: () => () => {},
+      useCallback: (fn: unknown) => fn,
       useContext: () => null,
       useEffect: () => {},
       useImperativeHandle: () => {},
       useInsertionEffect: () => {},
       useLayoutEffect: () => {},
-      useMemo: () => null,
-      useReducer: () => [null, () => {}],
-      useRef: () => ({ current: null }),
-      useState: () => [null, () => {}],
+      useMemo: (fn: () => unknown) => fn(),
+      useReducer: (r: unknown, s: unknown) => [s, () => {}],
+      useRef: (v: unknown) => ({ current: v }),
+      useState: (v: unknown) => [v, () => {}],
       useDebugValue: () => {},
       useDeferredValue: (v: unknown) => v,
       useTransition: () => [false, (cb: () => void) => cb()],
@@ -54,9 +52,6 @@ const shim: Record<string, unknown> = {
   ...clientInternals,
 };
 
-// Use Object.defineProperty so the value cannot be overwritten after we set it.
-// This is the critical fix — a simple assignment can be overwritten by React 19
-// internal initialization that happens at module load time.
 const KEY = "__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED";
 
 try {
@@ -66,21 +61,22 @@ try {
         return shim;
       },
       set(_val: unknown) {
-        // Swallow any attempt to overwrite — the shim must survive React 19 init
+        // Swallow overwrites — shim must survive React 19 init
       },
       configurable: false,
       enumerable: false,
     });
   }
 } catch {
-  // Property already defined non-configurable — assign directly as fallback
+  // Already non-configurable — assign directly as fallback
   if (!anyReact[KEY]) {
     anyReact[KEY] = shim;
   }
 }
 
-// Expose React globally for libraries that access window.React
+// Expose React globally for libraries that check window.React
 const target = typeof window !== "undefined" ? window : globalThis;
-(target as Record<string, unknown>).React = anyReact;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(target as any).React = anyReact;
 
 export {};
