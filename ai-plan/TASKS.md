@@ -92,7 +92,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P07-RV  | HIGH | deps: T01-T06  | Phase review
 
 ## P08 — AI / RAG · `tasks/P08-ai-rag.md`
-- [ ] P08-T01 | MID  | deps: P00-T05  | ai-service structure, internal auth, LiteLLM wrapper
+- [~] P08-T01 | MID  | deps: P00-T05  | ai-service structure, internal auth, LiteLLM wrapper  — Claude Antigravity HIGH 2026-11-21T19:17
 - [ ] P08-T02 | HIGH | deps: T01,P03-T01 | Geometry/math service with shared fixtures (contract tests TS↔Python)
 - [ ] P08-T03 | HIGH | deps: T01,P01-T03 | Document ingestion + embeddings + pgvector (needs ADR-020 filled by human)
 - [ ] P08-T04 | HIGH | deps: T03      | Scoped retrieval + cited answers

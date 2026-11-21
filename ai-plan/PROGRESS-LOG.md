@@ -975,3 +975,11 @@ Verify evidence:
 Build fix: offlineOutbox.test.ts had two TS errors (sortBy("id") arg count + unsafe cast) — fixed before P07-RV commit
 All P07 tasks [x]. All CODEMAP rows LOCKED.
 Next: P08-T01 (FastAPI ai-service structure + internal auth + LiteLLM wrapper — HIGH tier)
+
+
+### START   2026-11-21 19:17 | Claude Antigravity | tier HIGH | P08-T01
+Resuming: no
+Plan:
+  1. Create app/ package: auth.py (dependency), llm.py (LiteLLM wrapper), jobs.py (in-memory job store), routers/jobs.py
+  2. Refactor main.py to use app package + mount routers
+  3. 5+ tests covering auth, LiteLLM mock, job create/status
