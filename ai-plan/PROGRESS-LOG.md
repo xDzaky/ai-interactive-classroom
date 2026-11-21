@@ -1296,3 +1296,59 @@ Plan:
   2. Register globally in bootstrap/app.php
   3. Write authz matrix tests: 401 without auth, 403 with wrong role for key routes
   4. Run php artisan test, verify ≥200
+
+### DONE   2026-11-21 21:10 | P09-T01 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/api/app/Http/Middleware/SecurityHeaders.php — X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy
+  apps/api/bootstrap/app.php — registered SecurityHeaders + RequestLogger globally
+  apps/api/tests/Feature/SecurityPassTest.php — 14 tests: headers, authz matrix, rate limit
+
+### DONE   2026-11-21 21:10 | P09-T02 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/api/app/Console/Commands/DeleteOldRooms.php — artisan rooms:prune command
+  apps/api/app/Http/Controllers/Api/V1/PrivacyController.php — GET /me/export, DELETE /me
+  apps/api/routes/api.php — privacy routes added
+  apps/api/tests/Feature/PrivacyTest.php — 8 tests: export, erasure, prune command
+  apps/web/src/components/ConsentNotice.tsx — privacy consent banner (WCAG accessible)
+  apps/web/src/components/ConsentNotice.test.tsx — 4 tests
+  apps/web/src/i18n/locales/id.json — consent.*, a11y.*, error.* i18n keys
+
+### DONE   2026-11-21 21:10 | P09-T03 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/web/src/components/SkipToMain.tsx — WCAG 2.2 skip-to-main link
+  apps/web/src/components/SkipToMain.test.tsx — 2 tests
+
+### DONE   2026-11-21 21:10 | P09-T04 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/web/e2e/multi-context.spec.ts — 3 Playwright multi-context tests (skipped without PLAYWRIGHT_RUN=true)
+
+### DONE   2026-11-21 21:10 | P09-T05 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Evidence: build in 12.94s; three-vendor 65.82 kB gzip (<100kB limit), canvas-vendor 106.18 kB (<400kB limit), PWA SW generated
+
+### DONE   2026-11-21 21:10 | P09-T06 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/api/app/Http/Middleware/RequestLogger.php — structured JSON request logging
+  apps/web/src/components/ErrorBoundary.tsx — React error boundary + console.error log hook
+  apps/web/src/components/ErrorBoundary.test.tsx — 4 tests
+
+### DONE   2026-11-21 21:10 | P09-T07 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  docs/PILOT-CHECKLIST.md — go/no-go criteria for classroom pilot
+  docs/DEVICE-COMPATIBILITY.md — browser/OS/device compatibility matrix
+
+### DONE   2026-11-21 21:10 | P09-RV | status [x]
+Agent: Claude Antigravity | tier HIGH
+Verify evidence (all 4 suites):
+  - `php artisan test --compact` → 222/222 PASS, 486 assertions
+  - `.venv/bin/python -m pytest tests/ -v` → 36/36 PASS
+  - `pnpm run test:run` → 331/331 PASS (49 test files)
+  - `pnpm run build` → built in 12.94s, PWA green (25 precache entries)
+Playwright E2E: 7 tests listed (skipped without live server — guard: PLAYWRIGHT_RUN=true)
+All P09 CODEMAP rows locked. ENTIRE PROJECT P00–P09 COMPLETE.

@@ -313,3 +313,18 @@ Rules:
 | apps/ai-service/tests/test_p08_t04.py | 6 pytest tests: auth, top-k ranking, answer, 422, LLM failure, cosine helper | — | P08-T04 | LOCKED |
 | apps/api/app/Jobs/CitedAnswerJob.php | Queue job: fetch school-scoped chunks from DB, POST to /ai/retrieval/search, write result | CitedAnswerJob | P08-T04 | LOCKED |
 | apps/api/tests/Feature/CitedAnswerJobTest.php | 6 feature tests: 202, dispatch, retrieval call, tenant isolation, empty docs, failed status | — | P08-T04 | LOCKED |
+| apps/api/app/Http/Middleware/SecurityHeaders.php | X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy, Permissions-Policy | SecurityHeaders | P09-T01 | LOCKED |
+| apps/api/tests/Feature/SecurityPassTest.php | 14 tests: security headers, authz matrix 401/403, rate limit 429 | — | P09-T01 | LOCKED |
+| apps/api/app/Console/Commands/DeleteOldRooms.php | rooms:prune artisan command (--days, --dry-run); archives ended rooms > N days old | DeleteOldRooms | P09-T02 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/PrivacyController.php | GET /me/export (own data JSON) + DELETE /me (anonymize PII) | export, destroy | P09-T02 | LOCKED |
+| apps/api/tests/Feature/PrivacyTest.php | 8 tests: export auth, own rooms only, erasure anonymizes, prune dry-run/archive/skip | — | P09-T02 | LOCKED |
+| apps/web/src/components/ConsentNotice.tsx | Privacy consent banner, accessible, i18n Indonesian | ConsentNotice | P09-T02 | LOCKED |
+| apps/web/src/components/ConsentNotice.test.tsx | 4 component tests for ConsentNotice | — | P09-T02 | LOCKED |
+| apps/web/src/components/SkipToMain.tsx | WCAG 2.2 skip-to-main-content link (sr-only, focus-visible) | SkipToMain | P09-T03 | LOCKED |
+| apps/web/src/components/SkipToMain.test.tsx | 2 tests: href, sr-only class | — | P09-T03 | LOCKED |
+| apps/web/e2e/multi-context.spec.ts | 3 Playwright E2E: teacher+student join, controller pair, teacher+student poll | — | P09-T04 | LOCKED |
+| apps/api/app/Http/Middleware/RequestLogger.php | Structured JSON request logging: method, path, status, duration_ms, user_id | RequestLogger | P09-T06 | LOCKED |
+| apps/web/src/components/ErrorBoundary.tsx | React error boundary: catches render errors, logs structured JSON, shows fallback | ErrorBoundary | P09-T06 | LOCKED |
+| apps/web/src/components/ErrorBoundary.test.tsx | 4 tests: render, error catch, onError callback, custom fallback | — | P09-T06 | LOCKED |
+| docs/PILOT-CHECKLIST.md | Go/no-go criteria: infra, security, data, functionality, performance, test suites | — | P09-T07 | LOCKED |
+| docs/DEVICE-COMPATIBILITY.md | Browser/OS/device matrix + performance baselines + network requirements | — | P09-T07 | LOCKED |

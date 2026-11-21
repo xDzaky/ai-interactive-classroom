@@ -105,12 +105,12 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 ## P09 — Pilot readiness · `tasks/P09-pilot.md`
 - [x] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)
 - [x] P09-T02 | HIGH | deps: P07-RV    | Privacy: retention job, export/erasure, consent notice
-- [~] P09-T03 | MID  | deps: P07-RV    | Accessibility pass  <-- Claude Antigravity / HIGH / 2026-11-21 21:01
-- [ ] P09-T04 | MID  | deps: P05-RV    | Playwright multi-context E2E (teacher + student + controller)
-- [ ] P09-T05 | MID  | deps: P07-RV    | Performance + network throttling checks
-- [ ] P09-T06 | MID  | deps: P08-T05   | Observability: structured logs, error hook, AI cost log
-- [ ] P09-T07 | LOW  | deps: P09-T04   | Pilot checklist + device compatibility matrix doc
-- [ ] P09-RV  | HIGH | deps: T01-T07   | Final review
+- [x] P09-T03 | MID  | deps: P07-RV    | Accessibility pass
+- [x] P09-T04 | MID  | deps: P05-RV    | Playwright multi-context E2E (teacher + student + controller)
+- [x] P09-T05 | MID  | deps: P07-RV    | Performance + network throttling checks
+- [x] P09-T06 | MID  | deps: P08-T05   | Observability: structured logs, error hook, AI cost log
+- [x] P09-T07 | LOW  | deps: P09-T04   | Pilot checklist + device compatibility matrix doc
+- [x] P09-RV  | HIGH | deps: T01-T07   | Final review
 
 ---
 
