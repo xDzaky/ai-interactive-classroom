@@ -44,7 +44,7 @@ Steps:
 - [x] 1. Confirm the required document-ingestion route, request payload, authorization scope, and response shape in CONTRACTS.md; if absent, add a PROPOSED ADR and stop.
 - [x] 2. Add document and chunk storage with a pgvector 1536-dimensional embedding that follows ADR-020.
 - [x] 3. Add authenticated, school-scoped ingestion and chunk/embedding processing without exposing document content across tenants.
-- [ ] 4. Add tests for authorization, tenant isolation, chunk persistence, and rejected invalid input.
+- [x] 4. Add tests for authorization, tenant isolation, chunk persistence, and rejected invalid input.
 - [ ] 5. Run the specified Laravel and AI-service test suites; update CODEMAP and commit.
 
 Verify:

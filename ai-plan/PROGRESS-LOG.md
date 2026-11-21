@@ -1226,3 +1226,8 @@ document content transient. Laravel now sends stored content only to that intern
 service before embedding; document status transitions remain queued→processing→ready/failed.
 Evidence: `uv run pytest tests/test_p08_t03.py -q` → 4/4 PASS; Laravel document
 feature tests → 10/10 PASS. Next: expand persistence/job failure coverage (step 4).
+
+### CHECKPOINT   2026-11-21 20:47 | Codex | tier HIGH | P08-T03 step 4
+Added job-level coverage for successful chunk persistence and extraction failure status.
+Evidence: `php artisan test tests/Feature/DocumentApiTest.php --compact` → 12/12 PASS.
+Next: run full Laravel and AI-service verification suites (step 5).

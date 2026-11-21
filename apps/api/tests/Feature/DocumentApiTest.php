@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -239,5 +240,45 @@ class DocumentApiTest extends TestCase
         $this->actingAs($outsider)
             ->getJson("/api/v1/schools/{$school->id}/documents/{$document->id}")
             ->assertStatus(403);
+    }
+
+    public function test_ingestion_job_persists_chunks_and_marks_document_ready(): void
+    {
+        Storage::fake('local');
+        $school = $this->makeSchool();
+        $teacher = $this->makeTeacher($school);
+        $path = "schools/{$school->id}/documents/lesson.txt";
+        Storage::disk('local')->put($path, 'A mathematics lesson');
+        $document = Document::create(['school_id' => $school->id, 'user_id' => $teacher->id, 'title' => 'Lesson', 'status' => 'queued', 'storage_path' => $path]);
+        config()->set('services.ai_service.url', 'http://ai.test');
+        config()->set('services.ai_service.secret', 'test-secret');
+        Http::fake([
+            'http://ai.test/ai/embeddings/extract' => Http::response(['text' => 'A mathematics lesson']),
+            'http://ai.test/ai/embeddings/ingest' => Http::response(['vectors' => [[0.1, 0.2]]]),
+        ]);
+
+        (new IngestDocument($document->id))->handle();
+
+        $this->assertDatabaseHas('documents', ['id' => $document->id, 'status' => 'ready']);
+        $this->assertDatabaseHas('document_chunks', ['document_id' => $document->id, 'chunk_index' => 0, 'text' => 'A mathematics lesson']);
+    }
+
+    public function test_ingestion_job_marks_document_failed_when_extraction_fails(): void
+    {
+        Storage::fake('local');
+        $school = $this->makeSchool();
+        $teacher = $this->makeTeacher($school);
+        $path = "schools/{$school->id}/documents/lesson.txt";
+        Storage::disk('local')->put($path, 'content');
+        $document = Document::create(['school_id' => $school->id, 'user_id' => $teacher->id, 'title' => 'Lesson', 'status' => 'queued', 'storage_path' => $path]);
+        config()->set('services.ai_service.url', 'http://ai.test');
+        Http::fake(['http://ai.test/ai/embeddings/extract' => Http::response([], 422)]);
+
+        try {
+            (new IngestDocument($document->id))->handle();
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertDatabaseHas('documents', ['id' => $document->id, 'status' => 'failed']);
     }
 }
