@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
@@ -5,9 +6,11 @@ import { useAuthStore } from "@/stores/authStore";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { School, Classroom } from "@ai-classroom/shared-types";
+import CreateClassroomModal from "@/components/CreateClassroomModal";
 
 function SchoolCard({ school }: { school: School }) {
   const { t } = useTranslation();
+  const [showCreate, setShowCreate] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["classrooms", school.id],
     queryFn: async () => {
@@ -22,7 +25,16 @@ function SchoolCard({ school }: { school: School }) {
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">{school.name}</h2>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
+        >
+          + {t("dashboard.createClassroom")}
+        </button>
       </div>
+      {showCreate && (
+        <CreateClassroomModal schoolId={school.id} onClose={() => setShowCreate(false)} />
+      )}
       {isLoading ? (
         <p className="text-sm text-slate-400">{t("common.loading")}</p>
       ) : !data?.length ? (

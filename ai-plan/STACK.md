@@ -49,6 +49,7 @@ Never add a package not listed here. If you need one, write a PROPOSED entry in 
 | @shadcn/ui | latest | UI components |
 | vitest | ^2.0 | Unit tests |
 | @testing-library/react | ^16.0 | Component tests |
+| @playwright/test | ^1.49 | E2E smoke tests |
 | react-konva | ~19.2.7 | Canvas whiteboard |
 | konva | ^9.3 | Canvas engine |
 | perfect-freehand | ^1.2 | Freehand strokes |
