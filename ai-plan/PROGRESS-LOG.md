@@ -963,3 +963,15 @@ Plan:
   2. Verify counts: Laravel >=173, vitest >=282, build green, pytest >=5
   3. Lock all P07 CODEMAP rows
   4. Mark P07-RV [x]
+
+
+### DONE   2026-11-21 19:16 | P07-RV | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Verify evidence:
+  - `php artisan test` → 173/173 PASS
+  - `python3 -m pytest tests/ -q` → 5/5 passed
+  - `pnpm run build` → ✓ built in 17.75s, PWA SW generated (25 precache entries)
+  - `pnpm run test:run` → 288/288 PASS (43 test files)
+Build fix: offlineOutbox.test.ts had two TS errors (sortBy("id") arg count + unsafe cast) — fixed before P07-RV commit
+All P07 tasks [x]. All CODEMAP rows LOCKED.
+Next: P08-T01 (FastAPI ai-service structure + internal auth + LiteLLM wrapper — HIGH tier)

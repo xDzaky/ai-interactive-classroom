@@ -85,11 +85,10 @@ vi.mock("./offlineOutbox", async (importOriginal) => {
       });
     },
     getPendingOutbox: async (roomId: string) => {
-      return outboxMock
-        .where("room_id")
-        .equals(roomId)
-        .filter((r: Record<string, unknown>) => !r.committed)
-        .sortBy("id");
+      // Return pending items directly — avoids calling sortBy("id") with typed arg
+      return [...mockOutbox].filter(
+        (r) => r.room_id === roomId && !r.committed,
+      );
     },
     markCommitted: async (id: number) => {
       await outboxMock.update(id, { committed: true });
@@ -200,7 +199,7 @@ describe("offlineOutbox", () => {
 
     const loaded = await loadDraftBoard("room-2");
     expect(loaded).not.toBeNull();
-    expect((loaded as Record<string, unknown>).seq).toBe(15);
+    expect((loaded as unknown as Record<string, unknown>).seq).toBe(15);
   });
 
   it("loadDraftBoard() returns null when no draft exists", async () => {

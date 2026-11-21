@@ -258,17 +258,17 @@ Rules:
 | apps/web/src/lib/api/snapshots.test.ts | 4 tests for snapshots API client | — | P07-T01 | LOCKED |
 | apps/web/src/hooks/useSnapshot.ts | useSnapshot hook — host auto-pushes snapshot every 50 events; fetchNearestSnapshot for replay | useSnapshot, UseSnapshotOptions, UseSnapshotReturn | P07-T01 | LOCKED |
 | apps/web/src/hooks/useSnapshot.test.ts | 5 tests for useSnapshot hook | — | P07-T01 | LOCKED |
-| apps/web/src/lib/replayEngine.ts | Pure TS replay engine: seek/step/setSpeed using snapshots + events | createReplayEngine | P07-T02 | OK |
-| apps/web/src/lib/replayEngine.test.ts | 7 unit tests for replayEngine | — | P07-T02 | OK |
-| apps/web/src/pages/room/ReplayViewer.tsx | Replay UI: timeline scrubber, play/pause, speed selector | default ReplayViewer | P07-T03 | OK |
-| apps/web/src/pages/room/ReplayViewer.test.tsx | 6 component tests for ReplayViewer | — | P07-T03 | OK |
-| apps/web/src/lib/offlineOutbox.ts | Dexie DB: OutboxDatabase, outbox+draft_boards tables, enqueue/getPendingOutbox/markCommitted/pruneCommitted/saveDraftBoard/loadDraftBoard/clearDraftBoard | db, enqueue, getPendingOutbox, markCommitted, pruneCommitted, saveDraftBoard, loadDraftBoard, clearDraftBoard | P07-T04 | OK |
-| apps/web/src/lib/offlineOutbox.test.ts | 7 unit tests for offlineOutbox helpers | — | P07-T04 | OK |
-| apps/web/src/lib/useDraftBoard.ts | Hook: debounced draft board persistence to IndexedDB | useDraftBoard | P07-T04 | OK |
-| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine + reconnect outbox flush | useSyncStatus, SyncState | P07-T05 | OK |
-| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | OK |
-| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine (saved_locally/syncing/synced/needs_attention) + outbox flush on reconnect | useSyncStatus, SyncState | P07-T05 | OK |
-| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | OK |
-| apps/web/src/lib/useWeakDevice.ts | Detect weak device (hardwareConcurrency<4 or deviceMemory<4) for 3D quality degradation | isWeakDevice, useWeakDevice | P07-T06 | OK |
-| apps/web/src/lib/useWeakDevice.test.ts | 6 unit tests for useWeakDevice | — | P07-T06 | OK |
-| apps/web/public/manifest.json | PWA manifest (icons, shortcuts, theme) | — | P07-T06 | OK |
+| apps/web/src/lib/replayEngine.ts | Pure TS replay engine: seek/step/setSpeed using snapshots + events | createReplayEngine | P07-T02 | LOCKED |
+| apps/web/src/lib/replayEngine.test.ts | 7 unit tests for replayEngine | — | P07-T02 | LOCKED |
+| apps/web/src/pages/room/ReplayViewer.tsx | Replay UI: timeline scrubber, play/pause, speed selector | default ReplayViewer | P07-T03 | LOCKED |
+| apps/web/src/pages/room/ReplayViewer.test.tsx | 6 component tests for ReplayViewer | — | P07-T03 | LOCKED |
+| apps/web/src/lib/offlineOutbox.ts | Dexie DB: OutboxDatabase, outbox+draft_boards tables, enqueue/getPendingOutbox/markCommitted/pruneCommitted/saveDraftBoard/loadDraftBoard/clearDraftBoard | db, enqueue, getPendingOutbox, markCommitted, pruneCommitted, saveDraftBoard, loadDraftBoard, clearDraftBoard | P07-T04 | LOCKED |
+| apps/web/src/lib/offlineOutbox.test.ts | 7 unit tests for offlineOutbox helpers | — | P07-T04 | LOCKED |
+| apps/web/src/lib/useDraftBoard.ts | Hook: debounced draft board persistence to IndexedDB | useDraftBoard | P07-T04 | LOCKED |
+| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine + reconnect outbox flush | useSyncStatus, SyncState | P07-T05 | LOCKED |
+| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | LOCKED |
+| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine (saved_locally/syncing/synced/needs_attention) + outbox flush on reconnect | useSyncStatus, SyncState | P07-T05 | LOCKED |
+| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | LOCKED |
+| apps/web/src/lib/useWeakDevice.ts | Detect weak device (hardwareConcurrency<4 or deviceMemory<4) for 3D quality degradation | isWeakDevice, useWeakDevice | P07-T06 | LOCKED |
+| apps/web/src/lib/useWeakDevice.test.ts | 6 unit tests for useWeakDevice | — | P07-T06 | LOCKED |
+| apps/web/public/manifest.json | PWA manifest (icons, shortcuts, theme) | — | P07-T06 | LOCKED |
