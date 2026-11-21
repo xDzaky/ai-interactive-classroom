@@ -1231,3 +1231,29 @@ feature tests → 10/10 PASS. Next: expand persistence/job failure coverage (ste
 Added job-level coverage for successful chunk persistence and extraction failure status.
 Evidence: `php artisan test tests/Feature/DocumentApiTest.php --compact` → 12/12 PASS.
 Next: run full Laravel and AI-service verification suites (step 5).
+
+### DONE   2026-11-21 20:44 | P08-T03 | status [x]
+Agent: Claude Antigravity + Codex | tier HIGH
+Changed files:
+  apps/api/database/migrations/2026_11_21_500002_create_documents_table.php — documents table
+  apps/api/database/migrations/2026_11_21_500003_create_document_chunks_table.php — document_chunks table
+  apps/api/app/Models/Document.php — Document Eloquent model
+  apps/api/app/Models/DocumentChunk.php — DocumentChunk Eloquent model
+  apps/api/app/Http/Controllers/Api/V1/DocumentController.php — store (202) + show
+  apps/api/app/Jobs/IngestDocument.php — queue job: extract, chunk, embed, store
+  apps/api/routes/api.php — document routes added
+  apps/api/tests/Feature/DocumentApiTest.php — 12 feature tests
+  apps/ai-service/app/routers/embeddings.py — POST /ai/embeddings/ingest + /extract
+  apps/ai-service/tests/test_p08_t03.py — 4 pytest tests
+Verify evidence:
+  - `php artisan test --compact` → 194/194 PASS, 406 assertions
+  - `.venv/bin/python -m pytest tests/ -v` → 30/30 PASS
+Next: P08-T04 (scoped retrieval + cited answers)
+
+### START   2026-11-21 20:44 | Claude Antigravity | tier HIGH | P08-T04
+Resuming: no prior implementation
+Plan:
+  1. Create ai-service retrieval router: POST /ai/retrieval/search (cosine similarity, school-scoped, top-k chunks)
+  2. Add cited_answer AI job type to AiJobController (extend, additive)
+  3. Create ai-service tests for retrieval (≥5)
+  4. Verify: pytest ≥35, Laravel ≥194

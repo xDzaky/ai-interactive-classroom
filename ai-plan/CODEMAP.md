@@ -299,3 +299,13 @@ Rules:
 | apps/api/CLAUDE.md | Laravel Boost supplementary agent guidance | — | P00-T08 | OK |
 | apps/web/src/pages/room/StudentAiTutor.tsx | Student AI tutor: hint-first chat, Socratic prompting, explain-on-request | default StudentAiTutor, TutorMessage, TutorStep | P08-T07 | OK |
 | apps/web/src/pages/room/StudentAiTutor.test.tsx | 8 component tests for StudentAiTutor | — | P08-T07 | OK |
+| apps/api/database/migrations/2026_11_21_500002_create_documents_table.php | documents table: uuid pk, school_id, user_id, title, content_hash, storage_path, embedding_model, status enum, ingested_at | — | P08-T03 | LOCKED |
+| apps/api/database/migrations/2026_11_21_500003_create_document_chunks_table.php | document_chunks table: uuid pk, document_id, chunk_index, chunk_text, embedding (text for SQLite compat) | — | P08-T03 | LOCKED |
+| apps/api/app/Models/Document.php | Document Eloquent model (HasUuids, school/user/chunks relations) | Document | P08-T03 | LOCKED |
+| apps/api/app/Models/DocumentChunk.php | DocumentChunk Eloquent model (HasUuids, document relation) | DocumentChunk | P08-T03 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/DocumentController.php | store (202, dispatch IngestDocument) + show (school-scoped) | store, show | P08-T03 | LOCKED |
+| apps/api/app/Jobs/IngestDocument.php | Queue job: extract text, chunk, call ai-service embed, persist DocumentChunk rows | IngestDocument | P08-T03 | LOCKED |
+| apps/api/routes/api.php | Added POST /schools/{school}/documents + GET /schools/{school}/documents/{document} routes | — | P08-T03 | LOCKED |
+| apps/api/tests/Feature/DocumentApiTest.php | 12 feature tests: auth, tenant isolation, 202, job dispatch, 422, show | — | P08-T03 | LOCKED |
+| apps/ai-service/app/routers/embeddings.py | POST /ai/embeddings/ingest (LiteLLM aembedding) + /extract (pypdf/text decode) | router | P08-T03 | LOCKED |
+| apps/ai-service/tests/test_p08_t03.py | 4 pytest tests: auth, ingest vectors, blank chunk, text extract | — | P08-T03 | LOCKED |
