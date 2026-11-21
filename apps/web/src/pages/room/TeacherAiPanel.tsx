@@ -21,7 +21,7 @@ interface TeacherAiPanelProps {
 
 export default function TeacherAiPanel({ roomId, onApprove }: TeacherAiPanelProps) {
   const { t } = useTranslation();
-  const { status: syncStatus } = useSyncStatus();
+  const { syncState } = useSyncStatus({ roomId: roomId ?? "none" });
   const { status, result, error, submit, reset } = useAiJob();
 
   const [mode, setMode] = useState<GenerateMode>("outline");
@@ -72,7 +72,7 @@ export default function TeacherAiPanel({ roomId, onApprove }: TeacherAiPanelProp
   const isLoading = status === "pending" || status === "running";
   const hasResult = status === "done" && result !== null;
   const hasFailed = status === "failed";
-  const offline = syncStatus === "needs_attention";
+  const offline = syncState === "needs_attention";
 
   return (
     <div className="flex flex-col gap-4 p-4 bg-white rounded-xl shadow" data-testid="teacher-ai-panel">

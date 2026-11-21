@@ -9,10 +9,14 @@ import React from "react";
 // Mock useAiJob hook
 const mockSubmit = vi.fn();
 const mockReset = vi.fn();
-let mockAiJobState = {
-  status: "idle" as const,
-  result: null as null | { status: string; result: Record<string, unknown> | null; tokens_used: number },
-  error: null as string | null,
+let mockAiJobState: {
+  status: string;
+  result: null | { status: string; result: Record<string, unknown> | null; tokens_used: number };
+  error: string | null;
+} = {
+  status: "idle",
+  result: null,
+  error: null,
 };
 
 vi.mock("../../hooks/useAiJob", () => ({

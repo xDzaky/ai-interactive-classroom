@@ -119,8 +119,7 @@ export default function StudentAiTutor({ roomId, topic }: StudentAiTutorProps) {
   const lastTutorMsg = [...messages].reverse().find((m) => m.role === "tutor");
   const showExplainButton =
     !isLoading &&
-    lastTutorMsg?.step === "hint" &&
-    status !== "running";
+    lastTutorMsg?.step === "hint";
 
   return (
     <div
