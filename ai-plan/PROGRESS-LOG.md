@@ -1113,3 +1113,10 @@ Plan:
   1. Check the Composer registry for Laravel Boost.
   2. Check package-policy eligibility before any installation.
   3. Install and generate supplementary guidance only if both task and package policy allow it.
+
+
+### BLOCKED   2026-11-21 20:00 | Codex | tier HIGH | P00-T08
+Reason: `composer search laravel/boost` found the package; `composer show laravel/boost --all`
+reports v2.10.4 and MIT. It is absent from the approved package list in STACK.md, and
+the project prohibits adding unlisted packages. ADR-021 proposes its approval.
+Action needed: human approval of ADR-021 and corresponding STACK.md version constraint.

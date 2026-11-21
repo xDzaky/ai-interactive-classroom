@@ -25,7 +25,8 @@ ADR-017 | DECIDED | tldraw SDK FORBIDDEN (paid license). Build whiteboard with K
 ADR-018 | DECIDED | PhET and OpenStax content MUST NOT be bundled (NC license).
 ADR-019 | DECIDED | Guest tokens scoped to one room + one participant. Room code alone is not authorization.
 ADR-020 | PROPOSED | Embedding model for pgvector: dimension must be decided before migration. Options: OpenAI text-embedding-3-small (1536-dim), sentence-transformers (768-dim). HUMAN MUST DECIDE before P08-T03.
+ADR-021 | PROPOSED | Add `laravel/boost` as a development dependency for Laravel-specific AI guidance. Composer registry reports v2.10.4, MIT license, and Laravel 13 compatibility. HUMAN MUST APPROVE and add the approved version constraint to STACK.md before P00-T08 may install it.
 
 ## PROPOSED entries (need human/HIGH-tier decision)
 
-_(ADR-020 above is the first one)_
+_(ADR-020 and ADR-021 above require a decision.)_
