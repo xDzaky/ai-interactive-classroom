@@ -73,6 +73,12 @@ Never invent names; use exactly what is here. If something is missing, add a PRO
 | POST | /ai/jobs | Submit AI job → 202 {job_id} |
 | GET | /ai/jobs/{jobId} | Poll status + result |
 
+### Documents
+| Method | Path | Body / Response keys | Notes |
+|---|---|---|---|
+| POST | /schools/{schoolId}/documents | multipart `file` (PDF/text, ≤10 MB), optional `title` → 202 {document_id, status:"queued"} | Teacher or school_admin only |
+| GET | /schools/{schoolId}/documents/{documentId} | → {id, title, status, ingested_at} | Teacher or school_admin only; status: queued, processing, ready, failed |
+
 ### Error format
 ```json
 { "message": "Human readable", "errors": { "field": ["msg"] }, "code": "ERROR_CODE" }

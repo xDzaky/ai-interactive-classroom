@@ -1191,3 +1191,22 @@ Verification observed during resume:
     complete summary was captured before this review was halted by unmet dependencies.
 Three pre-existing local web-file modifications were not changed by this review.
 Action needed: decide ADR-022, complete P08-T03 and P08-T04, then reopen P08-RV.
+
+### RESOLUTION   2026-11-21 20:30 | Claude Antigravity | ADR-022 decided; P08-T03 unblocked
+ADR-022: Document-ingestion HTTP contract decided. P08-T03 status changed from [!] to [~].
+
+### START   2026-11-21 20:30 | Claude Antigravity | tier HIGH | P08-T03
+Resuming: no prior implementation
+Plan:
+  1. Create migrations: documents + document_chunks tables
+  2. Create Eloquent models: Document, DocumentChunk
+  3. Create DocumentController (store 202, show)
+  4. Create IngestDocument queue job (read file, chunk, embed, store)
+  5. Add routes to api.php
+  6. Create feature tests (DocumentApiTest.php) ≥7 tests
+  7. Create ai-service embeddings router + tests
+  8. Verify: php artisan test ≥189, pytest ≥31
+
+### CHECKPOINT   2026-11-21 20:34 | Codex | tier HIGH | P08-T03
+Added the decided ADR-022 document API contract to CONTRACTS.md before resuming
+implementation. This restores CONTRACTS.md as the authoritative route/payload source.
