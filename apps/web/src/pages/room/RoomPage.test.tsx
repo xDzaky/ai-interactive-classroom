@@ -91,6 +91,23 @@ vi.mock("@/components/room/GroupSubmitPanel", () => ({
   ),
 }));
 
+// Mock ClassroomTimer — no timers in RoomPage tests
+vi.mock("@/components/room/ClassroomTimer", () => ({
+  ClassroomTimer: () => <div data-testid="classroom-timer" />,
+}));
+
+// Mock RandomPicker — no deps in RoomPage tests
+vi.mock("@/components/room/RandomPicker", () => ({
+  RandomPicker: () => <div data-testid="random-picker" />,
+}));
+
+// Mock GroupGenerator — no React Query in RoomPage tests
+vi.mock("@/components/room/GroupGenerator", () => ({
+  GroupGenerator: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-generator" data-room={roomId} />
+  ),
+}));
+
 // Mock RaiseHandButton — no fetch in RoomPage tests
 vi.mock("@/components/room/RaiseHandButton", () => ({
   RaiseHandButton: () => <button aria-label="Angkat Tangan">✋</button>,

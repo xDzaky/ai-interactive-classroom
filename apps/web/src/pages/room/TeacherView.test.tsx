@@ -75,6 +75,23 @@ vi.mock("@/components/room/GroupWorkspace", () => ({
   ),
 }));
 
+// Mock ClassroomTimer — no timers in TeacherView tests
+vi.mock("@/components/room/ClassroomTimer", () => ({
+  ClassroomTimer: () => <div data-testid="classroom-timer" />,
+}));
+
+// Mock RandomPicker — pure UI, no deps
+vi.mock("@/components/room/RandomPicker", () => ({
+  RandomPicker: () => <div data-testid="random-picker" />,
+}));
+
+// Mock GroupGenerator — no React Query in TeacherView tests
+vi.mock("@/components/room/GroupGenerator", () => ({
+  GroupGenerator: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-generator" data-room={roomId} />
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

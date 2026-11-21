@@ -21,6 +21,9 @@ import { PresenterQueue } from "@/components/room/PresenterQueue";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 import { ActivityBuilder } from "@/components/room/ActivityBuilder";
 import { GroupWorkspace } from "@/components/room/GroupWorkspace";
+import { ClassroomTimer } from "@/components/room/ClassroomTimer";
+import { RandomPicker } from "@/components/room/RandomPicker";
+import { GroupGenerator } from "@/components/room/GroupGenerator";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -204,6 +207,9 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           <PresenterQueue roomId={roomId} authToken={_token || undefined} />
           <ActivityBuilder roomId={roomId} />
           <GroupWorkspace roomId={roomId} />
+          <ClassroomTimer canControl />
+          <RandomPicker participants={[]} />
+          <GroupGenerator roomId={roomId} participants={[]} />
         </aside>
       </div>
 

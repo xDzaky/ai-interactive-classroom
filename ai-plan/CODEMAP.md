@@ -241,3 +241,13 @@ Rules:
 | apps/web/src/pages/room/StudentView.test.tsx | Added vi.mock for GroupSubmitPanel (additive) | — | P06-T04 | LOCKED |
 | apps/web/src/pages/room/RoomPage.test.tsx | Added mocks for GroupWorkspace + GroupSubmitPanel (additive) | — | P06-T04 | LOCKED |
 | apps/web/src/i18n/locales/id.json | Added group.* i18n keys (title, loading, noGroups, create, delete, etc.) | — | P06-T04 | LOCKED |
+| apps/web/src/components/room/ClassroomTimer.tsx | Countdown timer — host sets duration/presets, starts/pauses/resets; aria-live display | ClassroomTimer, ClassroomTimerProps | P06-T05 | LOCKED |
+| apps/web/src/components/room/ClassroomTimer.test.tsx | 5 tests for ClassroomTimer (display, host controls, pause, reset) | — | P06-T05 | LOCKED |
+| apps/web/src/components/room/RandomPicker.tsx | Random participant picker — click picks alias from list with 80ms animation intervals | RandomPicker, RandomPickerProps | P06-T05 | LOCKED |
+| apps/web/src/components/room/RandomPicker.test.tsx | 4 tests for RandomPicker (empty, button, count, click) | — | P06-T05 | LOCKED |
+| apps/web/src/components/room/GroupGenerator.tsx | Auto group generator — host sets N groups, distributes participants round-robin via createGroup+addGroupMember | GroupGenerator, GroupGeneratorProps | P06-T05 | LOCKED |
+| apps/web/src/components/room/GroupGenerator.test.tsx | 4 tests for GroupGenerator (empty, input, button, generate calls) | — | P06-T05 | LOCKED |
+| apps/web/src/pages/room/TeacherView.tsx | Added ClassroomTimer+RandomPicker+GroupGenerator imports + render (additive) | (unchanged exports) | P06-T05 | LOCKED |
+| apps/web/src/pages/room/TeacherView.test.tsx | Added vi.mock for ClassroomTimer+RandomPicker+GroupGenerator (additive) | — | P06-T05 | LOCKED |
+| apps/web/src/pages/room/RoomPage.test.tsx | Added vi.mock for ClassroomTimer+RandomPicker+GroupGenerator (additive) | — | P06-T05 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Added timer.*, picker.*, generator.* i18n keys | — | P06-T05 | LOCKED |

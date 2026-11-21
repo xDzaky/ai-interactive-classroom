@@ -245,5 +245,32 @@
     "leaderRole": "Ketua Kelompok",
     "submitButton": "Kirim Jawaban",
     "submitPlaceholder": "Tulis jawaban kelompok di sini..."
+  },
+  "timer": {
+    "title": "Timer",
+    "remaining": "Sisa waktu",
+    "set": "Atur",
+    "start": "Mulai",
+    "pause": "Jeda",
+    "reset": "Reset",
+    "expired": "Waktu habis!"
+  },
+  "picker": {
+    "title": "Pemilih Acak",
+    "prompt": "Tekan tombol untuk memilih...",
+    "pick": "Pilih Acak",
+    "selected": "Terpilih",
+    "noParticipants": "Belum ada peserta.",
+    "participantCount": "peserta tersedia"
+  },
+  "generator": {
+    "title": "Buat Kelompok Otomatis",
+    "groupCount": "Jumlah kelompok",
+    "groupPrefix": "Kelompok",
+    "preview": "{{participants}} peserta → {{groups}} kelompok (±{{perGroup}} per kelompok)",
+    "generate": "Buat Kelompok",
+    "success": "{{count}} kelompok berhasil dibuat!",
+    "error": "Gagal membuat kelompok otomatis.",
+    "noParticipants": "Belum ada peserta untuk dibagi."
   }
 }

@@ -79,7 +79,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P06-T02 | MID  | deps: T01,P04-T03 | Poll/quiz API (answer key hidden from students)
 - [x] P06-T03 | MID  | deps: T02,P04-T07 | Web: host builder, student responder, results dashboard
 - [x] P06-T04 | HIGH | deps: T01,P04-T08 | Group workspace (own channel + board) + leader submission
-- [~] P06-T05 | LOW  | deps: P04-T07  | Timer, random picker, group generator  <-- Claude Antigravity / HIGH / 2026-11-21 18:00
+- [x] P06-T05 | LOW  | deps: P04-T07  | Timer, random picker, group generator
 - [ ] P06-RV  | HIGH | deps: T01-T05  | Phase review
 
 ## P07 — Replay + offline · `tasks/P07-replay-offline.md`
