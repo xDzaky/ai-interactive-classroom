@@ -4,6 +4,8 @@ import { lazy, Suspense } from "react";
 // Lazy-loaded pages
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage"));
+const CreateRoomPage = lazy(() => import("@/pages/room/CreateRoomPage"));
+const LobbyPage = lazy(() => import("@/pages/room/LobbyPage"));
 const RoomPage = lazy(() => import("@/pages/room/RoomPage"));
 const JoinPage = lazy(() => import("@/pages/room/JoinPage"));
 const ControllerPage = lazy(() =>
@@ -31,6 +33,8 @@ export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/dashboard" replace /> },
   { path: "/login", element: withSuspense(LoginPage) },
   { path: "/dashboard", element: withSuspense(DashboardPage) },
+  { path: "/rooms/create", element: withSuspense(CreateRoomPage) },
+  { path: "/room/:roomId/lobby", element: withSuspense(LobbyPage) },
   { path: "/join", element: withSuspense(JoinPage) },
   { path: "/join/:code", element: withSuspense(JoinPage) },
   { path: "/room/:roomId", element: withSuspense(RoomPage) },

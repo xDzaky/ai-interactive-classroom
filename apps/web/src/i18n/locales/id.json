@@ -42,7 +42,9 @@
     "enterCode": "Masukkan kode room",
     "enterName": "Nama tampilan Anda",
     "joinAsGuest": "Bergabung sebagai tamu",
+    "createRoom": "Buat Room",
     "startRoom": "Mulai Room",
+    "startNow": "Mulai Sekarang",
     "endRoom": "Akhiri Room",
     "participants": "Peserta ({{count}})",
     "raiseHand": "Angkat Tangan",
@@ -54,7 +56,21 @@
     "independentView": "Tampilan Mandiri",
     "lobby": "Ruang Tunggu",
     "live": "Sedang Berlangsung",
-    "ended": "Sudah Berakhir"
+    "ended": "Sudah Berakhir",
+    "status": "Status",
+    "joinCode": "Kode Bergabung",
+    "qrCode": "QR Code untuk bergabung",
+    "regenerateCode": "Perbarui Kode",
+    "notFound": "Room tidak ditemukan",
+    "classroom": "Kelas",
+    "selectClassroom": "— Pilih kelas —",
+    "mode": {
+      "label": "Mode Tampilan",
+      "projector": "Proyektor",
+      "smartDisplay": "Layar Interaktif",
+      "mobileHost": "Host via HP",
+      "group": "Kelompok"
+    }
   },
   "whiteboard": {
     "tools": {

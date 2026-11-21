@@ -394,3 +394,17 @@ Next: P04-T05 (Event ingestion API)
 ### START   2026-11-21 15:33 | Claude Antigravity | tier HIGH | P04-T05
 Resuming: no
 Plan: POST /rooms/{room}/events (seq, idempotency_key, event_type allowlist, actor perm, broadcast), GET /rooms/{room}/events?after={seq}; tests for idempotency + permission
+
+### DONE   2026-11-21 15:36 | P04-T05 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Http/Controllers/Api/V1/RoomEventController.php — store + index (seq, idempotency, ephemeral, broadcast)
+  apps/api/routes/api.php — POST/GET /rooms/{room}/events routes with ParticipantTokenGuard middleware
+  apps/api/tests/Feature/RoomEventTest.php — 11 tests
+Verify evidence:
+  - `php artisan test` → 100/100 PASS
+Next: P04-T06 (Web: create room, lobby, QR)
+
+### START   2026-11-21 15:36 | Claude Antigravity | tier HIGH | P04-T06
+Resuming: no
+Plan: Create rooms.ts API client, CreateRoomPage, LobbyPage (QR), RoomPage routing — web tests with mocked API
