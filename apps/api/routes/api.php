@@ -80,6 +80,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // Current participant (me)
         Route::get('/rooms/{room}/participants/me', [\App\Http\Controllers\Api\V1\RoomController::class, 'participantMe'])
             ->name('rooms.participants.me');
+
+        // Presenter requests — P05-T02
+        Route::post('/rooms/{room}/presenter-requests', [\App\Http\Controllers\Api\V1\PresenterRequestController::class, 'store'])
+            ->name('rooms.presenter-requests.store');
+        Route::get('/rooms/{room}/presenter-requests', [\App\Http\Controllers\Api\V1\PresenterRequestController::class, 'index'])
+            ->name('rooms.presenter-requests.index');
+        Route::patch('/rooms/{room}/presenter-requests/{presenterRequest}', [\App\Http\Controllers\Api\V1\PresenterRequestController::class, 'update'])
+            ->name('rooms.presenter-requests.update');
+        Route::delete('/rooms/{room}/presenter-requests/{presenterRequest}', [\App\Http\Controllers\Api\V1\PresenterRequestController::class, 'destroy'])
+            ->name('rooms.presenter-requests.destroy');
     });
 
     // AI Jobs (implemented in P08)

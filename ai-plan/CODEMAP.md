@@ -165,3 +165,8 @@ Rules:
 | apps/api/database/migrations/2026_11_21_300002_create_room_permissions_table.php | room_permissions migration (uuid pk, room_id, participant_id, permission, granted_by, granted_at, revoked_at) | — | P05-T01 | OK |
 | apps/api/database/migrations/2026_11_21_300003_create_room_devices_table.php | room_devices migration (uuid pk, room_id, device_id, device_name, token_hash, paired_at, revoked_at) | — | P05-T01 | OK |
 | apps/api/tests/Feature/MigrationP05Test.php | 6 schema-shape tests for all 3 P05 tables | — | P05-T01 | OK |
+| apps/api/app/Models/PresenterRequest.php | PresenterRequest Eloquent model | PresenterRequest | P05-T02 | OK |
+| apps/api/app/Models/RoomPermission.php | RoomPermission Eloquent model | RoomPermission | P05-T02 | OK |
+| apps/api/app/Models/RoomDevice.php | RoomDevice Eloquent model | RoomDevice | P05-T02 | OK |
+| apps/api/app/Http/Controllers/Api/V1/PresenterRequestController.php | Presenter request CRUD — POST/GET/PATCH/DELETE /rooms/{room}/presenter-requests | store, index, update, destroy | P05-T02 | OK |
+| apps/api/tests/Feature/PresenterRequestTest.php | 8 feature tests for presenter-requests CRUD (raise hand, approve, reject, revoke, duplicate guard) | — | P05-T02 | OK |

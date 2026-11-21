@@ -533,3 +533,16 @@ Plan:
   3. Server enforcement middleware: check presenter_requests.status=active + scope before mutating whiteboard events
   4. Routes + RoomPolicy additions
   5. Feature tests (happy path + auth + scope enforcement)
+
+### DONE   2026-11-21 16:37 | P05-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Models/PresenterRequest.php — Eloquent model
+  apps/api/app/Models/RoomPermission.php — Eloquent model
+  apps/api/app/Models/RoomDevice.php — Eloquent model
+  apps/api/app/Http/Controllers/Api/V1/PresenterRequestController.php — CRUD (store/index/update/destroy)
+  apps/api/routes/api.php — 4 presenter-request routes under ParticipantTokenGuard
+  apps/api/tests/Feature/PresenterRequestTest.php — 8 tests
+Verify evidence:
+  - `php artisan test` → 121/121 PASS (8 new + 113 existing)
+Next: P05-T03 (Web: Raise Hand, host queue, approve dialog)
