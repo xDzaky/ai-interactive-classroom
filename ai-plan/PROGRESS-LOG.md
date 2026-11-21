@@ -138,3 +138,20 @@ Verify evidence:
   - `pnpm run test:run` → 8/8 PASS (2 test files, 2.06s)
   - `pnpm run build` → pending (running)
 Next eligible task: P02-T04 (Tools: select/transform, pen, eraser, line/arrow, text)
+
+### START   2026-11-21 14:14 | Claude Antigravity | tier HIGH | P02-T04
+Resuming: no
+Plan: Tools state machine — select/transform, pen, eraser, line/arrow, text; useWhiteboardTool hook; pointer events → WhiteboardEvents
+
+### DONE   2026-11-21 14:16 | P02-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/hooks/useWhiteboardTool.ts — tool state machine, 9 tools, pointer events → WhiteboardEvents
+  apps/web/src/hooks/useWhiteboardTool.test.ts — 15 vitest tests
+Verify evidence:
+  - `pnpm run test:run` → 23/23 PASS (3 test files)
+Next eligible task: P02-T05 (Shape builder)
+
+### START   2026-11-21 14:17 | Claude Antigravity | tier HIGH | P02-T05
+Resuming: no
+Plan: Shape builder — ToolBar component, ShapePropertiesPanel, snapping, useShapeBuilder hook
