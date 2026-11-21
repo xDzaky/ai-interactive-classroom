@@ -303,3 +303,7 @@ Verify evidence (all green):
   - apps/ai-service pytest:         5/5 PASS
   - apps/web build: ✓ built in 8.96s, no TS errors
 Next: P04-T01 (rooms, participants migrations)
+
+### START   2026-11-21 15:02 | Claude Antigravity | tier HIGH | P04-T01
+Resuming: no
+Plan: 6 Laravel migrations for rooms, participants, whiteboards, room_events, room_snapshots, audit_logs — exact column names from CONTRACTS.md
