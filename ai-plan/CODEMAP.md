@@ -186,3 +186,11 @@ Rules:
 | apps/web/src/components/room/ConnectDeviceModal.test.tsx | 4 tests for ConnectDeviceModal | — | P05-T06 | LOCKED |
 | apps/web/src/pages/room/TeacherView.tsx | Added ConnectDeviceModal import + deviceModalOpen state + Connect Device button | (unchanged exports) | P05-T06 | LOCKED |
 | apps/web/src/i18n/locales/id.json | Added device.* i18n keys for ConnectDeviceModal | — | P05-T06 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/RoomController.php | Modified end() to cascade-revoke participants/presenter_requests/room_permissions/room_devices | (additive) | P05-T07 | LOCKED |
+| apps/api/app/Models/PresenterRequest.php | Added HasFactory trait | PresenterRequest | P05-T07 | LOCKED |
+| apps/api/app/Models/RoomDevice.php | Added HasFactory trait | RoomDevice | P05-T07 | LOCKED |
+| apps/api/app/Models/RoomPermission.php | Added HasFactory trait | RoomPermission | P05-T07 | LOCKED |
+| apps/api/database/factories/PresenterRequestFactory.php | Factory for PresenterRequest | PresenterRequestFactory | P05-T07 | LOCKED |
+| apps/api/database/factories/RoomPermissionFactory.php | Factory for RoomPermission | RoomPermissionFactory | P05-T07 | LOCKED |
+| apps/api/database/factories/RoomDeviceFactory.php | Factory for RoomDevice | RoomDeviceFactory | P05-T07 | LOCKED |
+| apps/api/tests/Feature/EndRoomCascadeTest.php | 5 tests for cascading revocation when room ends (FR-016) | — | P05-T07 | LOCKED |

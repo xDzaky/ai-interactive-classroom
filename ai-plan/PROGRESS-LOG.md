@@ -641,3 +641,28 @@ Verify evidence:
   - `pnpm run build` → built in 14.08s, no TS errors
 Next: P05-T07 (End room revokes all tokens/permissions/devices)
 
+
+### START   2026-11-21 17:11 | Claude Antigravity | tier HIGH | P05-T07
+Resuming: no
+Plan:
+  1. Modify RoomController::end() — cascade revoke presenter_requests + room_permissions + room_devices
+  2. Add tests for cascading revocation (5+ tests)
+  3. Run php artisan test
+
+
+### DONE   2026-11-21 17:18 | P05-T07 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Http/Controllers/Api/V1/RoomController.php — cascade revoke in end()
+  apps/api/app/Models/PresenterRequest.php — added HasFactory
+  apps/api/app/Models/RoomDevice.php — added HasFactory
+  apps/api/app/Models/RoomPermission.php — added HasFactory
+  apps/api/database/factories/PresenterRequestFactory.php — new
+  apps/api/database/factories/RoomPermissionFactory.php — new
+  apps/api/database/factories/RoomDeviceFactory.php — new
+  apps/api/tests/Feature/EndRoomCascadeTest.php — 5 tests
+Verify evidence:
+  - `php artisan test --filter=EndRoomCascadeTest` → 5/5 PASS
+  - `php artisan test` → 133/133 PASS
+Next: P05-RV (Phase 5 Review)
+

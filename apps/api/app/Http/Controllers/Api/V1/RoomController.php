@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Classroom;
 use App\Models\Participant;
+use App\Models\PresenterRequest;
 use App\Models\Room;
+use App\Models\RoomDevice;
+use App\Models\RoomPermission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -106,6 +109,24 @@ class RoomController extends Controller
         }
 
         $room->update(['status' => 'ended', 'ends_at' => now()]);
+
+        // FR-016: cascade revoke all active participants, presenter requests,
+        // room permissions, and paired devices when the room is ended.
+        Participant::where('room_id', $room->id)
+            ->whereNull('left_at')
+            ->update(['left_at' => now()]);
+
+        PresenterRequest::where('room_id', $room->id)
+            ->whereIn('status', ['requested', 'approved', 'active'])
+            ->update(['status' => 'revoked']);
+
+        RoomPermission::where('room_id', $room->id)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+
+        RoomDevice::where('room_id', $room->id)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
 
         $this->log($room->id, $request->user()->id, 'room.ended');
 
