@@ -95,15 +95,15 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P08-T01 | MID  | deps: P00-T05  | ai-service structure, internal auth, LiteLLM wrapper
 - [x] P08-T02 | HIGH | deps: T01,P03-T01 | Geometry/math service with shared fixtures (contract tests TS↔Python)
 - [x] P08-T03 | HIGH | deps: T01,P01-T03 | Document ingestion + embeddings + pgvector
-- [~] P08-T04 | HIGH | deps: T03      | Scoped retrieval + cited answers  <-- Claude Antigravity / HIGH / 2026-11-21 20:44
+- [x] P08-T04 | HIGH | deps: T03      | Scoped retrieval + cited answers
 - [x] P08-T05 | HIGH | deps: T01,P04-T03 | Laravel AI job layer (202 + job_id, usage log, rate limit)
 - [x] P08-T06 | MID  | deps: T05      | Teacher AI UI: outline/quiz generator with edit+approve
 - [x] P08-T07 | MID  | deps: T04,T05  | Student AI tutor UI (hint-first)
 - [ ] P08-T08 | HIGH | deps: P02-T06,P03-T06 | OPTIONAL: rule-based sketch recognition + clarification UI
-- [ ] P08-RV  | HIGH | deps: T01-T07  | Phase review
+- [x] P08-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P09 — Pilot readiness · `tasks/P09-pilot.md`
-- [ ] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)
+- [~] P09-T01 | HIGH | deps: P05-RV    | Security pass (authz matrix tests, rate limits, headers)  <-- Claude Antigravity / HIGH / 2026-11-21 20:53
 - [ ] P09-T02 | HIGH | deps: P07-RV    | Privacy: retention job, export/erasure, consent notice
 - [ ] P09-T03 | MID  | deps: P07-RV    | Accessibility pass
 - [ ] P09-T04 | MID  | deps: P05-RV    | Playwright multi-context E2E (teacher + student + controller)

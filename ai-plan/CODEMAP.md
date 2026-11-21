@@ -309,3 +309,7 @@ Rules:
 | apps/api/tests/Feature/DocumentApiTest.php | 12 feature tests: auth, tenant isolation, 202, job dispatch, 422, show | — | P08-T03 | LOCKED |
 | apps/ai-service/app/routers/embeddings.py | POST /ai/embeddings/ingest (LiteLLM aembedding) + /extract (pypdf/text decode) | router | P08-T03 | LOCKED |
 | apps/ai-service/tests/test_p08_t03.py | 4 pytest tests: auth, ingest vectors, blank chunk, text extract | — | P08-T03 | LOCKED |
+| apps/ai-service/app/routers/retrieval.py | POST /ai/retrieval/search — cosine sim ranking + LiteLLM cited answer | router | P08-T04 | LOCKED |
+| apps/ai-service/tests/test_p08_t04.py | 6 pytest tests: auth, top-k ranking, answer, 422, LLM failure, cosine helper | — | P08-T04 | LOCKED |
+| apps/api/app/Jobs/CitedAnswerJob.php | Queue job: fetch school-scoped chunks from DB, POST to /ai/retrieval/search, write result | CitedAnswerJob | P08-T04 | LOCKED |
+| apps/api/tests/Feature/CitedAnswerJobTest.php | 6 feature tests: 202, dispatch, retrieval call, tenant isolation, empty docs, failed status | — | P08-T04 | LOCKED |

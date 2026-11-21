@@ -1257,3 +1257,25 @@ Plan:
   2. Add cited_answer AI job type to AiJobController (extend, additive)
   3. Create ai-service tests for retrieval (≥5)
   4. Verify: pytest ≥35, Laravel ≥194
+
+### DONE   2026-11-21 20:50 | P08-T04 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/ai-service/app/routers/retrieval.py — POST /ai/retrieval/search (cosine sim, top-k, cited LLM answer)
+  apps/ai-service/tests/test_p08_t04.py — 6 pytest tests
+  apps/api/app/Jobs/CitedAnswerJob.php — Laravel queue job: fetch school-scoped chunks, call retrieval, write result
+  apps/api/app/Http/Controllers/Api/V1/AiJobController.php — routes cited_answer type to CitedAnswerJob
+  apps/api/app/Models/DocumentChunk.php — fixed fillable column name (text not chunk_text)
+  apps/api/tests/Feature/CitedAnswerJobTest.php — 6 feature tests
+  apps/ai-service/main.py — registered retrieval router
+Verify evidence:
+  - `php artisan test --compact` → 200/200 PASS, 423 assertions
+  - `.venv/bin/python -m pytest tests/ -v` → 36/36 PASS
+Next: P08-RV (phase review)
+
+### START   2026-11-21 20:50 | Claude Antigravity | tier HIGH | P08-RV
+Resuming: no
+Plan:
+  1. Run all 4 suites (php artisan test, pnpm run test:run, pnpm run build, pytest)
+  2. Lock all P08 CODEMAP rows
+  3. Mark P08-RV [x]
