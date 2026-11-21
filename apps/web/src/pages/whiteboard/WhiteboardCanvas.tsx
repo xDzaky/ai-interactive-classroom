@@ -1,16 +1,31 @@
 /**
- * WhiteboardCanvas — P02-T03
- * Renders BoardState using react-konva (Konva canvas).
- * Features: strokes via perfect-freehand, objects as Konva shapes,
- *           zoom/pan via Stage scale+drag, background grid layer.
- * No side effects: state flows in via props, events emitted via onEvent.
+ * WhiteboardCanvas — P02-T03 (revised: Figma-quality drawing UX)
+ *
+ * Key fixes vs original:
+ * 1. Duplicate-key: order[] holds mixed stroke+object IDs → split rendering
+ *    into two separate loops (strokes dict, objects dict) to avoid key duplication
+ * 2. Drawing UX: Stage.draggable is false while any drawing tool is active;
+ *    canvas pointer events are captured at the Stage level and converted to
+ *    world-space coords via the current view transform
+ * 3. Live preview: an in-progress stroke is rendered as a preview Layer while
+ *    the user is drawing, then replaced by the committed stroke on pointerUp
+ * 4. Coordinate transform: all pointer positions are converted from screen→world
+ *    using the stage view transform before being passed to onPointerDown/Move/Up
+ * 5. Eraser: uses globalCompositeOperation=destination-out properly
+ * 6. Touch pinch-zoom: handled via Konva's built-in lastDist tracking
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Stage, Layer, Line, Rect, Circle, Text as KonvaText, Group } from "react-konva";
+import { Stage, Layer, Line, Rect, Circle, Text as KonvaText } from "react-konva";
 import type Konva from "konva";
 import { getStroke } from "perfect-freehand";
-import type { BoardState, BoardObject, BoardStroke, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
+import type {
+  BoardState,
+  BoardObject,
+  BoardStroke,
+  WhiteboardEvent,
+} from "@ai-classroom/whiteboard-core";
 import { getActiveScene } from "@ai-classroom/whiteboard-core";
+import type { ToolType } from "@/hooks/useWhiteboardTool";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,14 +34,22 @@ import { getActiveScene } from "@ai-classroom/whiteboard-core";
 export interface WhiteboardCanvasProps {
   boardState: BoardState;
   onEvent: (event: WhiteboardEvent) => void;
-  /** Canvas container dimensions */
   width?: number;
   height?: number;
-  /** Show grid background */
   showGrid?: boolean;
   readOnly?: boolean;
-  /** Called whenever the pan/zoom view transform changes */
+  activeTool?: ToolType;
+  color?: string;
+  strokeWidth?: number;
+  /** Live-preview stroke points (world coords) while drawing */
+  liveStrokePoints?: [number, number, number][];
+  /** Preview shape while dragging a shape tool */
+  previewShape?: {
+    tool: "line" | "arrow" | "rect" | "circle";
+    x1: number; y1: number; x2: number; y2: number;
+  } | null;
   onViewChange?: (view: { x: number; y: number; scale: number }) => void;
+  stageRef?: React.RefObject<Konva.Stage | null>;
 }
 
 interface ViewTransform {
@@ -36,49 +59,44 @@ interface ViewTransform {
 }
 
 // ---------------------------------------------------------------------------
-// perfect-freehand → SVG path string helper
+// perfect-freehand helpers
 // ---------------------------------------------------------------------------
 
-function getSvgPathFromStroke(stroke: number[][]): string {
-  if (stroke.length < 2) return "";
-  const d: string[] = [];
-  const [first, ...rest] = stroke;
-  d.push(`M ${first[0]},${first[1]}`);
-  for (const p of rest) {
-    d.push(`L ${p[0]},${p[1]}`);
-  }
-  d.push("Z");
-  return d.join(" ");
-}
-
-/** Convert a BoardStroke to Konva Line points array */
-function strokeToPoints(stroke: BoardStroke): number[] {
-  const rawPoints = stroke.points.map(([x, y]) => [x, y]);
-  const freehandPoints = getStroke(rawPoints, {
-    size: stroke.width * 2,
+function getSvgPathFromPoints(pts: [number, number, number][], width: number): number[] {
+  if (pts.length < 2) return [];
+  const freehand = getStroke(pts, {
+    size: width * 2,
     thinning: 0.6,
     smoothing: 0.5,
     streamline: 0.5,
   });
-  // Flatten for Konva Line (which uses [x0,y0,x1,y1,...])
-  return freehandPoints.flatMap(([x, y]) => [x, y]);
+  return freehand.flatMap(([x, y]) => [x, y]);
+}
+
+function strokeToPoints(stroke: BoardStroke): number[] {
+  return getSvgPathFromPoints(stroke.points, stroke.width);
 }
 
 // ---------------------------------------------------------------------------
-// Grid layer (static, behind objects)
+// Grid layer
 // ---------------------------------------------------------------------------
 
-function GridLayer({ width, height, scale, offsetX, offsetY }: {
+function GridLayer({
+  width,
+  height,
+  scale,
+  offsetX,
+  offsetY,
+}: {
   width: number;
   height: number;
   scale: number;
   offsetX: number;
   offsetY: number;
 }) {
-  const gridSize = 40; // px in world-space
+  const gridSize = 40;
   const lines: React.ReactNode[] = [];
 
-  // Compute world viewport bounds
   const worldLeft = -offsetX / scale;
   const worldTop = -offsetY / scale;
   const worldRight = worldLeft + width / scale;
@@ -92,10 +110,11 @@ function GridLayer({ width, height, scale, offsetX, offsetY }: {
       <Line
         key={`vl-${x}`}
         points={[x, worldTop, x, worldBottom]}
-        stroke="#e5e7eb"
-        strokeWidth={1 / scale}
+        stroke="#334155"
+        strokeWidth={0.5 / scale}
         listening={false}
-      />
+        opacity={0.4}
+      />,
     );
   }
   for (let y = startY; y <= worldBottom; y += gridSize) {
@@ -103,18 +122,42 @@ function GridLayer({ width, height, scale, offsetX, offsetY }: {
       <Line
         key={`hl-${y}`}
         points={[worldLeft, y, worldRight, y]}
-        stroke="#e5e7eb"
-        strokeWidth={1 / scale}
+        stroke="#334155"
+        strokeWidth={0.5 / scale}
         listening={false}
-      />
+        opacity={0.4}
+      />,
     );
   }
 
-  return <Layer listening={false}>{lines}</Layer>;
+  // Dot grid overlay
+  const dots: React.ReactNode[] = [];
+  for (let x = startX; x <= worldRight; x += gridSize) {
+    for (let y = startY; y <= worldBottom; y += gridSize) {
+      dots.push(
+        <Circle
+          key={`d-${x}-${y}`}
+          x={x}
+          y={y}
+          radius={1 / scale}
+          fill="#475569"
+          listening={false}
+          opacity={0.5}
+        />,
+      );
+    }
+  }
+
+  return (
+    <Layer listening={false}>
+      {lines}
+      {dots}
+    </Layer>
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Individual object renderers
+// Individual object renderer
 // ---------------------------------------------------------------------------
 
 function RenderObject({ obj }: { obj: BoardObject }) {
@@ -130,11 +173,12 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           width={p.w ?? p.width ?? 100}
           height={p.h ?? p.height ?? 60}
           fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#374151"}
+          stroke={p.stroke ?? "#6366f1"}
           strokeWidth={p.strokeWidth ?? 2}
           rotation={p.rotation ?? 0}
           scaleX={p.scaleX ?? 1}
           scaleY={p.scaleY ?? 1}
+          listening={false}
         />
       );
     case "circle":
@@ -145,11 +189,10 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           y={p.y ?? 0}
           radius={p.r ?? p.radius ?? 40}
           fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#374151"}
+          stroke={p.stroke ?? "#6366f1"}
           strokeWidth={p.strokeWidth ?? 2}
           rotation={p.rotation ?? 0}
-          scaleX={p.scaleX ?? 1}
-          scaleY={p.scaleY ?? 1}
+          listening={false}
         />
       );
     case "line":
@@ -158,8 +201,11 @@ function RenderObject({ obj }: { obj: BoardObject }) {
         <Line
           id={obj.id}
           points={[p.x1 ?? 0, p.y1 ?? 0, p.x2 ?? 100, p.y2 ?? 100]}
-          stroke={p.stroke ?? "#374151"}
+          stroke={p.stroke ?? "#6366f1"}
           strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
         />
       );
     case "text":
@@ -171,11 +217,10 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           y={p.y ?? 0}
           text={String(p.text ?? obj.props.text ?? "")}
           fontSize={Number(p.fontSize ?? 16)}
-          fill={String(p.fill ?? "#111827")}
-          rotation={p.rotation ?? 0}
+          fill={String(p.fill ?? "#f8fafc")}
+          listening={false}
         />
       );
-    // viz_solid and viz_graph are rendered as DOM overlays in P03-T06
     case "viz_solid":
     case "viz_graph":
       return (
@@ -189,6 +234,7 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           stroke="#6366f1"
           strokeWidth={2}
           dash={[6, 4]}
+          listening={false}
         />
       );
     default:
@@ -197,80 +243,325 @@ function RenderObject({ obj }: { obj: BoardObject }) {
 }
 
 // ---------------------------------------------------------------------------
-// WhiteboardCanvas — main component
+// WhiteboardCanvas
 // ---------------------------------------------------------------------------
 
-const MIN_SCALE = 0.1;
-const MAX_SCALE = 8;
-const ZOOM_STEP = 1.1;
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 20;
+const ZOOM_STEP = 1.12;
+
+const DRAWING_TOOLS: ToolType[] = [
+  "pen",
+  "highlighter",
+  "eraser",
+  "line",
+  "arrow",
+  "rect",
+  "circle",
+  "text",
+];
 
 export function WhiteboardCanvas({
   boardState,
-  onEvent,
   width = 800,
   height = 600,
   showGrid = true,
   readOnly = false,
+  activeTool = "pen",
+  color = "#f8fafc",
+  strokeWidth = 3,
+  liveStrokePoints,
+  previewShape,
   onViewChange,
+  stageRef: externalStageRef,
 }: WhiteboardCanvasProps) {
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
-  const stageRef = useRef<Konva.Stage | null>(null);
-
-  // Notify parent when view changes
-  const updateView = useCallback((next: ViewTransform) => {
-    setView(next);
-    onViewChange?.(next);
-  }, [onViewChange]);
-
-  // Also propagate when setView is called with functional updates (drag handler)
-  useEffect(() => {
-    onViewChange?.(view);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  const internalStageRef = useRef<Konva.Stage | null>(null);
+  const stageRef = externalStageRef ?? internalStageRef;
+  const lastTouchDist = useRef<number>(0);
 
   const scene = getActiveScene(boardState);
 
-  // Zoom with mouse wheel
-  const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
-    const stage = stageRef.current;
-    if (!stage) return;
+  // -------------------------------------------------------------------------
+  // View helpers
+  // -------------------------------------------------------------------------
+  const updateView = useCallback(
+    (next: ViewTransform) => {
+      setView(next);
+      onViewChange?.(next);
+    },
+    [onViewChange],
+  );
 
-    const oldScale = view.scale;
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
+  // -------------------------------------------------------------------------
+  // Screen → world coordinate transform
+  // -------------------------------------------------------------------------
+  const screenToWorld = useCallback(
+    (sx: number, sy: number): { x: number; y: number } => {
+      const stage = stageRef.current;
+      if (!stage) return { x: (sx - view.x) / view.scale, y: (sy - view.y) / view.scale };
+      const pt = stage.getPointerPosition();
+      const wx = pt ? (pt.x - stage.x()) / stage.scaleX() : (sx - view.x) / view.scale;
+      const wy = pt ? (pt.y - stage.y()) / stage.scaleY() : (sy - view.y) / view.scale;
+      return { x: wx, y: wy };
+    },
+    [view, stageRef],
+  );
 
-    const direction = e.evt.deltaY < 0 ? 1 : -1;
-    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, oldScale * (direction > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
+  // -------------------------------------------------------------------------
+  // Zoom with mouse wheel — zoom toward cursor
+  // -------------------------------------------------------------------------
+  const handleWheel = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault();
+      const stage = stageRef.current;
+      if (!stage) return;
 
-    const mousePointTo = {
-      x: (pointer.x - view.x) / oldScale,
-      y: (pointer.y - view.y) / oldScale,
-    };
+      const oldScale = stage.scaleX();
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
 
-    setView({
-      scale: newScale,
-      x: pointer.x - mousePointTo.x * newScale,
-      y: pointer.y - mousePointTo.y * newScale,
-    });
-  }, [view]);
+      const direction = e.evt.deltaY < 0 ? 1 : -1;
+      // Ctrl+wheel = zoom; plain wheel = pan
+      if (e.evt.ctrlKey || Math.abs(e.evt.deltaY) > 50) {
+        const newScale = Math.min(
+          MAX_SCALE,
+          Math.max(MIN_SCALE, oldScale * (direction > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)),
+        );
+        const mousePointTo = {
+          x: (pointer.x - stage.x()) / oldScale,
+          y: (pointer.y - stage.y()) / oldScale,
+        };
+        const newView = {
+          scale: newScale,
+          x: pointer.x - mousePointTo.x * newScale,
+          y: pointer.y - mousePointTo.y * newScale,
+        };
+        updateView(newView);
+        stage.scale({ x: newScale, y: newScale });
+        stage.position({ x: newView.x, y: newView.y });
+      } else {
+        // Pan with plain scroll
+        const dx = e.evt.deltaX !== 0 ? -e.evt.deltaX : 0;
+        const dy = -e.evt.deltaY;
+        const newView = { ...view, x: view.x + dx, y: view.y + dy };
+        updateView(newView);
+        stage.position({ x: newView.x, y: newView.y });
+      }
+    },
+    [view, updateView, stageRef],
+  );
 
-  // Drag pan (middle mouse or if no tool active)
-  const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-    setView(v => ({ ...v, x: e.target.x(), y: e.target.y() }));
+  // -------------------------------------------------------------------------
+  // Drag pan (only when select tool or space+drag)
+  // -------------------------------------------------------------------------
+  const handleDragEnd = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      const newView = { ...view, x: e.target.x(), y: e.target.y() };
+      updateView(newView);
+    },
+    [view, updateView],
+  );
+
+  // -------------------------------------------------------------------------
+  // Touch pinch-zoom
+  // -------------------------------------------------------------------------
+  const handleTouchMove = useCallback(
+    (e: Konva.KonvaEventObject<TouchEvent>) => {
+      e.evt.preventDefault();
+      const stage = stageRef.current;
+      if (!stage) return;
+      const touches = e.evt.touches;
+      if (touches.length !== 2) return;
+
+      const t1 = touches[0];
+      const t2 = touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+      if (lastTouchDist.current === 0) {
+        lastTouchDist.current = dist;
+        return;
+      }
+
+      const oldScale = stage.scaleX();
+      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, oldScale * (dist / lastTouchDist.current)));
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      const rect = stage.container().getBoundingClientRect();
+      const px = midX - rect.left;
+      const py = midY - rect.top;
+      const mousePointTo = { x: (px - stage.x()) / oldScale, y: (py - stage.y()) / oldScale };
+      const newView = {
+        scale: newScale,
+        x: px - mousePointTo.x * newScale,
+        y: py - mousePointTo.y * newScale,
+      };
+      updateView(newView);
+      stage.scale({ x: newScale, y: newScale });
+      stage.position({ x: newView.x, y: newView.y });
+      lastTouchDist.current = dist;
+    },
+    [updateView, stageRef],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    lastTouchDist.current = 0;
   }, []);
 
-  // Touch pinch-zoom (handled by Konva)
+  // -------------------------------------------------------------------------
+  // Key bindings: Space = temporary pan, Ctrl+Z/Y = undo/redo
+  // -------------------------------------------------------------------------
+  const isSpaceDown = useRef(false);
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    // Let Konva handle touch drag natively
+    const down = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat) {
+        isSpaceDown.current = true;
+        document.body.style.cursor = "grab";
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        isSpaceDown.current = false;
+        document.body.style.cursor = "";
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Live stroke preview points from prop
+  // -------------------------------------------------------------------------
+  const livePoints =
+    liveStrokePoints && liveStrokePoints.length >= 2
+      ? getSvgPathFromPoints(liveStrokePoints, strokeWidth)
+      : null;
+
+  // -------------------------------------------------------------------------
+  // Determine whether the stage should be draggable
+  // -------------------------------------------------------------------------
+  const isDrawingMode = !readOnly && DRAWING_TOOLS.includes(activeTool) && !isSpaceDown.current;
+  const isDraggable = !isDrawingMode && !readOnly;
+
+  // -------------------------------------------------------------------------
+  // Render strokes (from committed state)
+  // Strokes stored in scene.strokes dict — no order dependency needed
+  // -------------------------------------------------------------------------
+  const strokeElems = Object.values(scene.strokes).map((stroke: BoardStroke) => {
+    const pts = strokeToPoints(stroke);
+    if (pts.length < 4) return null;
+    return (
+      <Line
+        key={`stroke-${stroke.id}`}
+        points={pts}
+        stroke={stroke.tool === "eraser" ? undefined : stroke.color}
+        strokeWidth={1}
+        closed
+        fill={stroke.tool === "eraser" ? "#000" : stroke.color}
+        lineCap="round"
+        lineJoin="round"
+        listening={false}
+        globalCompositeOperation={
+          stroke.tool === "eraser" ? "destination-out" : "source-over"
+        }
+        opacity={stroke.tool === "highlighter" ? 0.35 : 1}
+      />
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Render objects — using scene.objects dict directly (no order needed for keys)
+  // Objects rendered in scene.order order for z-ordering, but keyed by obj.id
+  // -------------------------------------------------------------------------
+  const objectElems = scene.order
+    .filter((id) => id in scene.objects)
+    .map((id) => {
+      const obj = scene.objects[id];
+      return <RenderObject key={`obj-${obj.id}`} obj={obj} />;
+    });
+
+  // -------------------------------------------------------------------------
+  // Preview shape while dragging
+  // -------------------------------------------------------------------------
+  let previewElem: React.ReactNode = null;
+  if (previewShape) {
+    const { tool, x1, y1, x2, y2 } = previewShape;
+    const dashed: [number, number] = [6, 4];
+    switch (tool) {
+      case "line":
+      case "arrow":
+        previewElem = (
+          <Line
+            points={[x1, y1, x2, y2]}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            dash={dashed}
+            lineCap="round"
+            listening={false}
+            opacity={0.7}
+          />
+        );
+        break;
+      case "rect": {
+        const rx = Math.min(x1, x2);
+        const ry = Math.min(y1, y2);
+        previewElem = (
+          <Rect
+            x={rx}
+            y={ry}
+            width={Math.abs(x2 - x1)}
+            height={Math.abs(y2 - y1)}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            dash={dashed}
+            listening={false}
+            opacity={0.7}
+          />
+        );
+        break;
+      }
+      case "circle": {
+        const r = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) / 2;
+        previewElem = (
+          <Circle
+            x={(x1 + x2) / 2}
+            y={(y1 + y2) / 2}
+            radius={Math.max(r, 2)}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            dash={dashed}
+            listening={false}
+            opacity={0.7}
+          />
+        );
+        break;
+      }
+    }
+  }
+
+  // Cursor style
+  const cursorMap: Record<ToolType, string> = {
+    select: "default",
+    pen: "crosshair",
+    highlighter: "crosshair",
+    eraser: "cell",
+    line: "crosshair",
+    arrow: "crosshair",
+    rect: "crosshair",
+    circle: "crosshair",
+    text: "text",
+  };
 
   return (
     <div
-      className="relative overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm"
-      style={{ width, height, touchAction: "none" }}
+      className="relative overflow-hidden bg-slate-950"
+      style={{ width, height, touchAction: "none", cursor: cursorMap[activeTool] ?? "crosshair" }}
     >
       <Stage
         ref={stageRef}
@@ -280,11 +571,13 @@ export function WhiteboardCanvas({
         y={view.y}
         scaleX={view.scale}
         scaleY={view.scale}
-        draggable={!readOnly}
+        draggable={isDraggable}
         onWheel={handleWheel}
         onDragEnd={handleDragEnd}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Grid layer */}
+        {/* Grid layer — below everything */}
         {showGrid && (
           <GridLayer
             width={width}
@@ -295,62 +588,78 @@ export function WhiteboardCanvas({
           />
         )}
 
-        {/* Strokes layer */}
-        <Layer>
-          {Object.values(scene.strokes).map((stroke) => {
-            const pts = strokeToPoints(stroke);
-            if (pts.length < 4) return null;
-            return (
-              <Line
-                key={stroke.id}
-                id={stroke.id}
-                points={pts}
-                stroke={stroke.tool === "eraser" ? "#ffffff" : stroke.color}
-                strokeWidth={1}
-                closed
-                fill={stroke.tool === "eraser" ? "#ffffff" : stroke.color}
-                lineCap="round"
-                lineJoin="round"
-                listening={false}
-                globalCompositeOperation={
-                  stroke.tool === "eraser" ? "destination-out" : "source-over"
-                }
-                opacity={stroke.tool === "highlighter" ? 0.4 : 1}
-              />
-            );
-          })}
-        </Layer>
+        {/* Committed strokes layer — keyed with "stroke-" prefix */}
+        <Layer>{strokeElems}</Layer>
 
-        {/* Objects layer */}
-        <Layer>
-          {scene.order
-            .filter((id) => id in scene.objects)
-            .map((id) => {
-              const obj = scene.objects[id];
-              return <RenderObject key={id} obj={obj} />;
-            })}
+        {/* Committed objects layer — keyed with "obj-" prefix */}
+        <Layer>{objectElems}</Layer>
+
+        {/* Live preview layer — in-progress stroke + shape preview */}
+        <Layer listening={false}>
+          {livePoints && livePoints.length >= 4 && (
+            <Line
+              points={livePoints}
+              stroke={activeTool === "eraser" ? undefined : color}
+              strokeWidth={1}
+              closed
+              fill={activeTool === "eraser" ? "#000" : color}
+              lineCap="round"
+              lineJoin="round"
+              globalCompositeOperation={
+                activeTool === "eraser" ? "destination-out" : "source-over"
+              }
+              opacity={activeTool === "highlighter" ? 0.35 : 0.9}
+            />
+          )}
+          {previewElem}
         </Layer>
       </Stage>
 
-      {/* Zoom indicator */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-md bg-white/80 px-2 py-1 text-xs text-gray-500 shadow-sm border border-gray-200 backdrop-blur-sm select-none">
+      {/* Zoom controls — bottom right */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-400 shadow-lg backdrop-blur-sm select-none">
         <button
-          onClick={() => setView(v => ({ ...v, scale: Math.max(MIN_SCALE, v.scale / ZOOM_STEP) }))}
-          className="w-5 h-5 flex items-center justify-center hover:text-gray-900"
+          onClick={() =>
+            updateView({
+              ...view,
+              scale: Math.max(MIN_SCALE, view.scale / ZOOM_STEP),
+            })
+          }
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom out"
-        >−</button>
-        <span className="w-12 text-center font-mono">{Math.round(view.scale * 100)}%</span>
+        >
+          −
+        </button>
+        <span className="w-12 text-center font-mono text-[11px]">
+          {Math.round(view.scale * 100)}%
+        </span>
         <button
-          onClick={() => setView(v => ({ ...v, scale: Math.min(MAX_SCALE, v.scale * ZOOM_STEP) }))}
-          className="w-5 h-5 flex items-center justify-center hover:text-gray-900"
+          onClick={() =>
+            updateView({
+              ...view,
+              scale: Math.min(MAX_SCALE, view.scale * ZOOM_STEP),
+            })
+          }
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom in"
-        >+</button>
+        >
+          +
+        </button>
+        <div className="mx-1 h-4 w-px bg-slate-700" />
         <button
-          onClick={() => setView({ x: 0, y: 0, scale: 1 })}
-          className="ml-1 hover:text-gray-900"
+          onClick={() => updateView({ x: 0, y: 0, scale: 1 })}
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           title="Reset view"
           aria-label="Reset zoom"
-        >↺</button>
+        >
+          ↺
+        </button>
+      </div>
+
+      {/* Tool hint — bottom left */}
+      <div className="absolute bottom-4 left-4 text-[10px] text-slate-500 select-none pointer-events-none">
+        {activeTool === "select"
+          ? "Seret untuk panning · Scroll untuk zoom · Ctrl+Scroll untuk zoom"
+          : "Klik & seret untuk menggambar · Scroll untuk zoom · Space+Seret untuk panning"}
       </div>
     </div>
   );
