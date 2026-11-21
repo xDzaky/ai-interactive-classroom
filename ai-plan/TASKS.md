@@ -87,8 +87,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P07-T02 | HIGH | deps: T01,P02-T02 | Replay engine (nearest snapshot + events, seek/step/speed)
 - [x] P07-T03 | MID  | deps: T02      | Replay UI (timeline, controls, key-event highlights)
 - [x] P07-T04 | HIGH | deps: P04-T08  | Dexie: drafts + persistent outbox with idempotency keys
-- [~] P07-T05 | HIGH | deps: T04      | Sync states + reconnect flush (saved locally/syncing/synced/needs attention)  — Claude Antigravity HIGH 2026-11-21T18:42
-- [ ] P07-T06 | MID  | deps: P03-T03  | PWA (vite-plugin-pwa/Workbox), lazy loading, low-quality 3D default on weak devices
+- [x] P07-T05 | HIGH | deps: T04      | Sync states + reconnect flush (saved locally/syncing/synced/needs attention)
+- [~] P07-T06 | MID  | deps: P03-T03  | PWA (vite-plugin-pwa/Workbox), lazy loading, low-quality 3D default on weak devices  — Claude Antigravity HIGH 2026-11-21T18:45
 - [ ] P07-RV  | HIGH | deps: T01-T06  | Phase review
 
 ## P08 — AI / RAG · `tasks/P08-ai-rag.md`

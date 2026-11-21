@@ -922,3 +922,22 @@ Plan:
   2. On reconnect: drain outbox (flush pending events via POST /rooms/{room}/events)
   3. Integrates with existing useSyncEngine from P04-T08
   4. 5+ tests
+
+
+### DONE   2026-11-21 19:03 | P07-T05 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/useSyncStatus.ts — sync state machine + reconnect flush
+  apps/web/src/lib/useSyncStatus.test.ts — 6 unit tests
+Verify evidence:
+  - `pnpm run test:run` → 282/282 PASS (42 test files)
+Next: P07-T06 (PWA + vite-plugin-pwa — MID tier)
+
+
+### START   2026-11-21 19:03 | Claude Antigravity | tier HIGH | P07-T06
+Resuming: no
+Plan:
+  1. Add vite-plugin-pwa to apps/web/vite.config.ts (Workbox cache shell + static assets)
+  2. Create apps/web/public/manifest.json — PWA manifest
+  3. Lazy load SolidViewer (React.lazy + Suspense)
+  4. Low-quality 3D on weak devices (navigator.hardwareConcurrency < 4)

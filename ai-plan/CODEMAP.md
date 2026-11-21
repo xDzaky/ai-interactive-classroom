@@ -265,3 +265,7 @@ Rules:
 | apps/web/src/lib/offlineOutbox.ts | Dexie DB: OutboxDatabase, outbox+draft_boards tables, enqueue/getPendingOutbox/markCommitted/pruneCommitted/saveDraftBoard/loadDraftBoard/clearDraftBoard | db, enqueue, getPendingOutbox, markCommitted, pruneCommitted, saveDraftBoard, loadDraftBoard, clearDraftBoard | P07-T04 | OK |
 | apps/web/src/lib/offlineOutbox.test.ts | 7 unit tests for offlineOutbox helpers | — | P07-T04 | OK |
 | apps/web/src/lib/useDraftBoard.ts | Hook: debounced draft board persistence to IndexedDB | useDraftBoard | P07-T04 | OK |
+| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine + reconnect outbox flush | useSyncStatus, SyncState | P07-T05 | OK |
+| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | OK |
+| apps/web/src/lib/useSyncStatus.ts | Hook: sync state machine (saved_locally/syncing/synced/needs_attention) + outbox flush on reconnect | useSyncStatus, SyncState | P07-T05 | OK |
+| apps/web/src/lib/useSyncStatus.test.ts | 6 unit tests for useSyncStatus | — | P07-T05 | OK |
