@@ -28,12 +28,12 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P01-T03 | MID  | deps: T02      | Schools/classrooms API + policies + tenant isolation tests
 - [x] P01-T04 | LOW  | deps: P00-T06  | shared-types: zod schemas for auth/school/classroom/error
 - [x] P01-T05 | MID  | deps: T02,T04,P00-T04 | Web: app shell, routing, API client (CSRF), auth store, i18n(id)
-- [~] P01-T06 | LOW  | deps: T03,T05  | Web: teacher dashboard (list/create classroom)  <-- Claude Antigravity / HIGH / 2026-11-21 13:52
-- [ ] P01-T07 | MID  | deps: T06      | Seeders + Playwright smoke test (login → create classroom)
-- [ ] P01-RV  | HIGH | deps: T01-T07  | Phase review
+- [x] P01-T06 | LOW  | deps: T03,T05  | Web: teacher dashboard (list/create classroom)
+- [x] P01-T07 | MID  | deps: T06      | Seeders + Playwright smoke test (login → create classroom)
+- [x] P01-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P02 — Whiteboard MVP · `tasks/P02-whiteboard.md`
-- [ ] P02-T01 | MID  | deps: P00-T06  | whiteboard-core: board model types + zod schemas + event types
+- [~] P02-T01 | MID  | deps: P00-T06  | whiteboard-core: board model types + zod schemas + event types  <-- Claude Antigravity / HIGH / 2026-11-21 13:57
 - [ ] P02-T02 | HIGH | deps: T01      | whiteboard-core: reducer, inverse events, undo/redo history (pure, tested)
 - [ ] P02-T03 | MID  | deps: T02,P00-T04 | Web: canvas render from state, zoom/pan, grid
 - [ ] P02-T04 | MID  | deps: T03      | Tools: select/transform, pen, eraser, line/arrow, text
