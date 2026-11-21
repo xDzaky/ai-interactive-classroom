@@ -57,3 +57,7 @@ Verify evidence:
 - All ai-plan planning files created
 Notes for next agent: Next task P00-T02 (Docker compose). pnpm 11.5.2 available globally.
 Next eligible task: P00-T02
+
+### START  2026-11-21 12:44 | Gemini 2.5 Pro | tier HIGH | P00-T06
+Resuming: no
+Plan: Create 5 TypeScript packages: shared-types, whiteboard-core, geometry-core, math-core, curriculum-schema
