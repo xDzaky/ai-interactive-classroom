@@ -29,6 +29,8 @@ import { exportStageToPng } from "@/lib/exportPng";
 import type { SolidParams } from "@ai-classroom/geometry-core";
 import type Konva from "konva";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
+import { parsePerfParam, makePerfScene } from "@/dev/perfFixture";
+import { FpsMeter } from "@/dev/FpsMeter";
 
 const SolidViewer = lazy(() =>
   import("@/components/math/SolidViewer").then((m) => ({ default: m.SolidViewer })),
@@ -40,9 +42,13 @@ const GraphViewer = lazy(() =>
 const PERSONAL_ROOM_ID = "personal-sandbox";
 
 export default function PersonalRoomPage() {
-  const [boardState, setBoardState] = useState<BoardState>(() =>
-    createInitialBoardState(PERSONAL_ROOM_ID),
-  );
+  const [boardState, setBoardState] = useState<BoardState>(() => {
+    const perfConfig = parsePerfParam();
+    if (perfConfig) {
+      return makePerfScene({ strokes: perfConfig.strokes, shapes: perfConfig.shapes });
+    }
+    return createInitialBoardState(PERSONAL_ROOM_ID);
+  });
   const [history, setHistory] = useState<WhiteboardHistory>(() => createHistory(100));
 
   // Refs so callbacks never go stale
@@ -120,6 +126,7 @@ export default function PersonalRoomPage() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-white">
+      <FpsMeter />
       {/* Top Navbar */}
       <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 backdrop-blur-md">
         <div className="flex items-center gap-3">

@@ -1408,3 +1408,13 @@ Date: 2026-11-21T17:10:19Z
 ## START — P10-T01 | Locate code, perf harness, baseline
 Date: 2026-11-21T17:43:18Z
 Tier: MID
+
+## DONE — P10-T01 | Locate code, perf harness, baseline
+Date: 2026-11-21T17:50:34Z
+- Scoped audit commands completed
+- Created ai-plan/AUDIT-P10.md tracking route, zoom, grid, strokes, shapes
+- Created apps/web/src/dev/perfFixture.ts (mulberry32 seeded generator for ?perf=<strokes>x<shapes>)
+- Created apps/web/src/dev/FpsMeter.tsx (rAF FPS / avg / p95 frame monitor)
+- Created apps/web/e2e/perf-zoom.spec.ts
+- Created docs/perf/BASELINE.md with baseline measurements and profiler hotspots
+- Verify: tsc clean (0 errors), 333/333 vitest passed

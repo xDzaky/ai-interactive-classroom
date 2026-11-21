@@ -115,6 +115,8 @@ Rules:
 | apps/web/src/pages/whiteboard/WhiteboardCanvas.tsx | Konva Stage canvas: strokes (perfect-freehand), objects, zoom/pan, grid layer | WhiteboardCanvas, WhiteboardCanvasProps | P02-T03 | LOCKED |
 | apps/web/src/hooks/useWhiteboardTool.ts | Tool state machine: 9 tools → WhiteboardEvents on pointer up | useWhiteboardTool, ToolType, ToolState | P02-T04 | LOCKED |
 | apps/web/src/components/whiteboard/ToolBar.tsx | Toolbar UI + ShapePropertiesPanel (accessible, Indonesian labels) | ToolBar, ShapePropertiesPanel | P02-T05 | LOCKED |
+| apps/web/src/dev/perfFixture.ts | Performance fixture generator and URL parser for perf scenes | makePerfScene, parsePerfParam | P10-T01 | OK |
+| apps/web/src/dev/FpsMeter.tsx | Floating rAF FPS and frame time sampler component | FpsMeter | P10-T01 | OK |
 | apps/web/src/lib/snapping.ts | Grid snap, axis constrain, anchor snap pure functions | snapToGrid, snapSize, constrainToAxis, snapToAnchors | P02-T05 | LOCKED |
 | apps/web/src/hooks/usePointerEvents.ts | Unified pointer handler: mouse/pen/touch, palm rejection, pinch-zoom | usePointerEvents, ViewTransform, WorldPoint | P02-T06 | LOCKED |
 | apps/web/src/lib/sceneManager.ts | Scene CRUD, reorder, localStorage, JSON export/import | addScene, removeScene, renameScene, switchScene, exportBoardJson, importBoardJson, saveBoardToLocal, loadBoardFromLocal | P02-T07 | LOCKED |
