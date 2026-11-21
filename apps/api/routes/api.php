@@ -98,5 +98,17 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->name('ai.jobs.store');
         Route::get('/ai/jobs/{job}', [\App\Http\Controllers\Api\V1\AiJobController::class, 'show'])
             ->name('ai.jobs.show');
+
+        // Device pairing — P05-T04 (host: Sanctum; confirm uses token in body)
+        Route::post('/rooms/{room}/devices', [\App\Http\Controllers\Api\V1\DeviceController::class, 'store'])
+            ->name('rooms.devices.store');
+        Route::get('/rooms/{room}/devices', [\App\Http\Controllers\Api\V1\DeviceController::class, 'index'])
+            ->name('rooms.devices.index');
+        Route::delete('/rooms/{room}/devices/{device}', [\App\Http\Controllers\Api\V1\DeviceController::class, 'destroy'])
+            ->name('rooms.devices.destroy');
     });
+
+    // Device confirm — open route (device presents its own token in body/header)
+    Route::post('/rooms/{room}/devices/{device}/confirm', [\App\Http\Controllers\Api\V1\DeviceController::class, 'confirm'])
+        ->name('rooms.devices.confirm');
 });

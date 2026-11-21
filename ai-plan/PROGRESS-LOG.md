@@ -585,3 +585,13 @@ Plan:
   2. Device token: separate HMAC-signed token stored as token_hash in room_devices
   3. Routes under auth:sanctum (host creates pairing) + device-token guard for confirm
   4. Feature tests: initiate, confirm, revoke, list
+
+### DONE   2026-11-21 16:51 | P05-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Http/Controllers/Api/V1/DeviceController.php — device pairing CRUD
+  apps/api/routes/api.php — device routes (POST/GET/DELETE + confirm open route)
+  apps/api/tests/Feature/DevicePairingTest.php — 7 tests
+Verify evidence:
+  - `php artisan test` → 128/128 PASS
+Next: P05-T05 (Web: Mobile Controller app)

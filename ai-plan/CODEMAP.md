@@ -175,3 +175,5 @@ Rules:
 | apps/web/src/components/room/PresenterQueue.tsx | Teacher queue of pending presenter requests + ApproveDialog (scope selector) | PresenterQueue, PresenterQueueProps | P05-T03 | OK |
 | apps/web/src/components/room/RaiseHandButton.test.tsx | 4 tests for RaiseHandButton | — | P05-T03 | OK |
 | apps/web/src/components/room/PresenterQueue.test.tsx | 4 tests for PresenterQueue + ApproveDialog | — | P05-T03 | OK |
+| apps/api/app/Http/Controllers/Api/V1/DeviceController.php | Device pairing CRUD — POST/GET/DELETE /rooms/{room}/devices + confirm | store, index, destroy, confirm | P05-T04 | OK |
+| apps/api/tests/Feature/DevicePairingTest.php | 7 feature tests for device pairing (initiate, confirm, revoke, list) | — | P05-T04 | OK |
