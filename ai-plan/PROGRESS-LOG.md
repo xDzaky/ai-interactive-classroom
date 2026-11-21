@@ -1279,3 +1279,20 @@ Plan:
   1. Run all 4 suites (php artisan test, pnpm run test:run, pnpm run build, pytest)
   2. Lock all P08 CODEMAP rows
   3. Mark P08-RV [x]
+
+### DONE   2026-11-21 20:55 | P08-RV | status [x]
+Agent: Claude Antigravity | tier HIGH
+Verify evidence (all suites):
+  - `php artisan test --compact` → 200/200 PASS, 423 assertions
+  - `.venv/bin/python -m pytest tests/ -v` → 36/36 PASS
+  - `pnpm run test:run` → 321/321 PASS (46 test files)
+  - `pnpm run build` → built in 13s, PWA green (25 precache entries)
+All P08 CODEMAP rows locked. P08 phase complete.
+
+### START   2026-11-21 20:55 | Claude Antigravity | tier HIGH | P09-T01
+Resuming: no
+Plan:
+  1. Create SecurityHeaders middleware (X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy)
+  2. Register globally in bootstrap/app.php
+  3. Write authz matrix tests: 401 without auth, 403 with wrong role for key routes
+  4. Run php artisan test, verify ≥200

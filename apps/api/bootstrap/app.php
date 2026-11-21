@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Security headers on every response
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         // Sanctum SPA cookie auth — stateful domains
         $middleware->statefulApi();
     })
