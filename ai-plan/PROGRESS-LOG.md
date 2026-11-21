@@ -677,3 +677,21 @@ Phase 5 Review Results:
 All P05 CODEMAP rows LOCKED. TASKS P05-T01..T07 + P05-RV all [x].
 Next: P06-T01 (Migrations: lesson_sessions, activities, questions, answers, room_groups, group_members, group_submissions)
 
+
+### START   2026-11-21 17:21 | Claude Antigravity | tier HIGH | P06-T01
+Resuming: no
+Plan:
+  1. Create 7 migrations (400001-400007): lesson_sessions, activities, activity_questions, activity_answers, room_groups, group_members, group_submissions
+  2. Create MigrationP06Test.php — schema-shape tests
+  3. Run php artisan test
+
+
+### DONE   2026-11-21 17:22 | P06-T01 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  7 migration files (400001-400007): lesson_sessions, activities, activity_questions, activity_answers, room_groups, group_members, group_submissions
+  apps/api/tests/Feature/MigrationP06Test.php — 14 schema-shape tests
+Verify evidence:
+  - `php artisan test` → 147/147 PASS
+Next: P06-T02 (Poll/quiz API — answer key hidden from students)
+

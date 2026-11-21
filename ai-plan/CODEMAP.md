@@ -194,3 +194,11 @@ Rules:
 | apps/api/database/factories/RoomPermissionFactory.php | Factory for RoomPermission | RoomPermissionFactory | P05-T07 | LOCKED |
 | apps/api/database/factories/RoomDeviceFactory.php | Factory for RoomDevice | RoomDeviceFactory | P05-T07 | LOCKED |
 | apps/api/tests/Feature/EndRoomCascadeTest.php | 5 tests for cascading revocation when room ends (FR-016) | — | P05-T07 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400001_create_lesson_sessions_table.php | lesson_sessions migration (uuid pk, room_id, started_at, ended_at) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400002_create_activities_table.php | activities migration (uuid pk, room_id, lesson_session_id, type enum, title, config json, status enum) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400003_create_activity_questions_table.php | activity_questions migration (uuid pk, activity_id, body, options json, answer_key json, sort_order) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400004_create_activity_answers_table.php | activity_answers migration (uuid pk, activity_id, question_id, participant_id, response json, submitted_at) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400005_create_room_groups_table.php | room_groups migration (uuid pk, room_id, name, whiteboard_id) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400006_create_group_members_table.php | group_members migration (uuid pk, group_id, participant_id, is_leader) | — | P06-T01 | LOCKED |
+| apps/api/database/migrations/2026_11_21_400007_create_group_submissions_table.php | group_submissions migration (uuid pk, group_id, activity_id, content json, submitted_by, submitted_at) | — | P06-T01 | LOCKED |
+| apps/api/tests/Feature/MigrationP06Test.php | 14 schema-shape tests for all 7 P06 tables | — | P06-T01 | LOCKED |
