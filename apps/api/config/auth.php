@@ -42,6 +42,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Custom token guard for participant tokens (Reverb channel auth)
+        'participant' => [
+            'driver' => 'participant',
+            'provider' => 'users', // provider required by Laravel; guard ignores it
+        ],
     ],
 
     /*

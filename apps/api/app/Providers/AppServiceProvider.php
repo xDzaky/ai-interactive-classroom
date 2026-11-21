@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Auth\ParticipantGuard;
 use App\Models\Classroom;
 use App\Models\Room;
 use App\Models\School;
 use App\Policies\ClassroomPolicy;
 use App\Policies\RoomPolicy;
 use App\Policies\SchoolPolicy;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,5 +26,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(School::class, SchoolPolicy::class);
         Gate::policy(Classroom::class, ClassroomPolicy::class);
         Gate::policy(Room::class, RoomPolicy::class);
+
+        // Register participant token guard for Reverb channel auth
+        Auth::extend('participant', function ($app, string $name, array $config) {
+            return new ParticipantGuard($app['request']);
+        });
     }
 }
