@@ -1,0 +1,88 @@
+# =============================================================================
+# AI Interactive Classroom — .gitignore
+# =============================================================================
+
+# Environment files — NEVER commit secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# =============================================================================
+# Node / pnpm
+# =============================================================================
+node_modules/
+dist/
+.pnpm-store/
+pnpm-debug.log*
+
+# Vite
+.vite/
+apps/web/dist/
+apps/web/.vite/
+
+# TypeScript
+*.tsbuildinfo
+packages/*/dist/
+
+# Testing
+coverage/
+.vitest/
+
+# =============================================================================
+# PHP / Laravel
+# =============================================================================
+apps/api/vendor/
+apps/api/bootstrap/cache/*.php
+apps/api/.env
+apps/api/storage/logs/*.log
+apps/api/storage/framework/cache/
+apps/api/storage/framework/sessions/
+apps/api/storage/framework/views/
+apps/api/storage/app/public/
+!apps/api/storage/app/.gitignore
+!apps/api/storage/framework/.gitignore
+!apps/api/storage/logs/.gitignore
+apps/api/database/database.sqlite
+apps/api/.phpunit.result.cache
+apps/api/composer.lock
+
+# =============================================================================
+# Python / AI service
+# =============================================================================
+apps/ai-service/.venv/
+apps/ai-service/__pycache__/
+apps/ai-service/**/__pycache__/
+apps/ai-service/*.pyc
+apps/ai-service/.pytest_cache/
+apps/ai-service/htmlcov/
+apps/ai-service/.env
+
+# uv
+.uv/
+
+# =============================================================================
+# IDE
+# =============================================================================
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Docker
+# =============================================================================
+infra/data/
+
+# =============================================================================
+# Misc
+# =============================================================================
+*.zip
+*.bak
+*.orig
+
+# Keep these:
+!.gitkeep
+!.gitignore
