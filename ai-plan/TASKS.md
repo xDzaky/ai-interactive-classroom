@@ -115,7 +115,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 ---
 
 ## P10 — Whiteboard performance + shape recognition v2 · `tasks/P10-whiteboard-perf-shape.md`
-- [ ] P10-T01 | MID  | deps: P09-RV | Locate code, build perf harness (fixtures, FPS meter), record baseline
+- [~] P10-T01 | MID  | deps: P09-RV | Locate code, build perf harness (fixtures, FPS meter), record baseline (claimed by MID 2026-11-22T00:43:00Z)
 - [ ] P10-T02 | MID  | deps: T01    | Diagnose root cause by experiments (evidence before fixes)
 - [ ] P10-T03 | MID  | deps: T02    | Imperative viewport controller (zoom/pan without React re-render)
 - [ ] P10-T04 | MID  | deps: T02    | Grid as CSS background + adaptive spacing (no per-line nodes)

@@ -1404,3 +1404,7 @@ Date: 2026-11-21T17:10:19Z
 - Updated ToolBar with all math shape tools
 - Added unit tests for rendering all new shapes in WhiteboardCanvas.test.tsx (332/332 tests passed)
 - Vite production build clean (0 errors)
+
+## START — P10-T01 | Locate code, perf harness, baseline
+Date: 2026-11-21T17:43:18Z
+Tier: MID
