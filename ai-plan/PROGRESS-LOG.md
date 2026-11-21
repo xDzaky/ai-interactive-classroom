@@ -524,3 +524,12 @@ Changed files:
 Verify evidence:
   - `php artisan test` → 113/113 PASS (6 new + 107 existing)
 Next: P05-T02 (Presenter workflow API + server enforcement)
+
+### START   2026-11-21 16:29 | Claude Antigravity | tier HIGH | P05-T02
+Resuming: no
+Plan:
+  1. PresenterRequest + RoomPermission + RoomDevice models (Eloquent)
+  2. PresenterRequestController — POST/GET/PATCH/DELETE /rooms/{room}/presenter-requests
+  3. Server enforcement middleware: check presenter_requests.status=active + scope before mutating whiteboard events
+  4. Routes + RoomPolicy additions
+  5. Feature tests (happy path + auth + scope enforcement)
