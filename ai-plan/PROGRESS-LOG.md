@@ -577,3 +577,11 @@ Verify evidence:
   - `pnpm run build` → ✓ built in 14.28s
 Key fix: vi.mock() factory hoisting — MOCK_REQUESTS must be inlined, not referenced from top-level variable
 Next: P05-T04 (Device pairing API)
+
+### START   2026-11-21 16:49 | Claude Antigravity | tier HIGH | P05-T04
+Resuming: no
+Plan:
+  1. DeviceController — POST /rooms/{room}/devices (initiate pair), POST /devices/{deviceId}/confirm (QR confirm), DELETE /devices/{deviceId} (revoke), GET /devices (list)
+  2. Device token: separate HMAC-signed token stored as token_hash in room_devices
+  3. Routes under auth:sanctum (host creates pairing) + device-token guard for confirm
+  4. Feature tests: initiate, confirm, revoke, list
