@@ -123,3 +123,7 @@ Verify evidence:
   - `pnpm run test` → 22/22 PASS (1 test file, 1.11s)
   - `pnpm -r --filter './packages/**' build` → all 5 packages: Done (tsc)
 Next eligible task: P02-T03 (Web: canvas render from state, zoom/pan, grid)
+
+### START   2026-11-21 14:07 | Claude Antigravity | tier HIGH | P02-T03
+Resuming: no
+Plan: Web canvas render from state, zoom/pan, grid — WhiteboardCanvas.tsx using Konva/react-konva + perfect-freehand
