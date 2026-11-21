@@ -181,3 +181,17 @@ Verify evidence:
 ### START   2026-11-21 14:22 | Claude Antigravity | tier HIGH | P02-T07
 Resuming: no
 Plan: Scenes (slides), local JSON save/load, useSceneManager hook
+
+### DONE   2026-11-21 14:23 | P02-T07 + P02-T08 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/sceneManager.ts — addScene, removeScene, renameScene, switchScene, reorderScenes, exportBoardJson, importBoardJson, localStorage save/load
+  apps/web/src/lib/sceneManager.test.ts — 17 tests
+  apps/web/src/lib/exportPng.ts — exportStageToPng, exportStageToBlob
+  apps/web/src/lib/exportPng.test.ts — 6 tests
+Verify evidence:
+  - `pnpm run test:run` → 81/81 PASS (8 test files)
+
+### START   2026-11-21 14:24 | Claude Antigravity | tier HIGH | P02-RV
+Resuming: no
+Plan: Phase 2 review — run all verify commands, update CODEMAP

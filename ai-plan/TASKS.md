@@ -39,9 +39,9 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P02-T04 | MID  | deps: T03      | Tools: select/transform, pen, eraser, line/arrow, text
 - [x] P02-T05 | MID  | deps: T04      | Shape builder: click-create, drag-resize, numeric panel, snapping
 - [x] P02-T06 | MID  | deps: T04      | Pointer Events layer: mouse/pen/touch, palm rejection, pinch zoom
-- [~] P02-T07 | MID  | deps: T05      | Layers, grouping, scenes (slides), local JSON save/load  <-- Claude Antigravity / HIGH / 2026-11-21 14:22
-- [ ] P02-T08 | LOW  | deps: T03      | Export active scene to PNG
-- [ ] P02-RV  | HIGH | deps: T01-T08  | Phase review
+- [x] P02-T07 | MID  | deps: T05      | Layers, grouping, scenes (slides), local JSON save/load
+- [x] P02-T08 | LOW  | deps: T03      | Export active scene to PNG
+- [~] P02-RV  | HIGH | deps: T01-T08  | Phase review  <-- Claude Antigravity / HIGH / 2026-11-21 14:24
 
 ## P03 — Math visualization · `tasks/P03-math-viz.md`
 - [ ] P03-T01 | MID  | deps: P00-T06  | geometry-core: solid formulas + shared fixtures + tests
