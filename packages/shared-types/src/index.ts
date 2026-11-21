@@ -261,3 +261,34 @@ export type PaginatedResponse<T> = {
     total: number;
   };
 };
+
+// ---------------------------------------------------------------------------
+// P01-T04: API response wrappers for auth/school/classroom endpoints
+// ---------------------------------------------------------------------------
+
+/** POST /api/v1/auth/login → {user, token} */
+export const LoginResponseSchema = z.object({
+  user: UserSchema,
+  token: z.string(),
+});
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+/** GET /api/v1/auth/me → {user} */
+export const MeResponseSchema = z.object({
+  user: UserSchema,
+});
+export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+/** Non-paginated list response wrapper */
+export const ListResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.object({ data: z.array(itemSchema) });
+export type ListResponse<T> = { data: T[] };
+
+/** Single-item response wrapper */
+export const ItemResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.object({ data: itemSchema });
+export type ItemResponse<T> = { data: T };
+
+/** Logout response */
+export const LogoutResponseSchema = z.object({ message: z.string() });
+export type LogoutResponse = z.infer<typeof LogoutResponseSchema>;

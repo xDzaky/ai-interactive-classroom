@@ -1,14 +1,16 @@
 /**
  * Auth store — Zustand.
- * Stores the authenticated user and provides login/logout actions.
+ * Stores the authenticated user + Bearer token and provides login/logout/fetchMe actions.
+ * Token is persisted to localStorage and injected into Axios via api.ts interceptor.
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@ai-classroom/shared-types";
-import api, { initCsrf } from "@/lib/api";
+import api from "@/lib/api";
 
 interface AuthState {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 
@@ -20,8 +22,9 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
+      token: null,
       isLoading: false,
       isAuthenticated: false,
 
@@ -30,33 +33,39 @@ export const useAuthStore = create<AuthState>()(
       fetchMe: async () => {
         try {
           set({ isLoading: true });
-          const { data } = await api.get<User>("/api/v1/auth/me");
-          set({ user: data, isAuthenticated: true });
+          const { data } = await api.get<{ user: User }>("/api/v1/auth/me");
+          set({ user: data.user, isAuthenticated: true });
         } catch {
-          set({ user: null, isAuthenticated: false });
+          set({ user: null, token: null, isAuthenticated: false });
         } finally {
           set({ isLoading: false });
         }
       },
 
       login: async (email, password) => {
-        await initCsrf();
-        const { data } = await api.post<{ user: User }>("/api/v1/auth/login", {
-          email,
-          password,
-        });
-        set({ user: data.user, isAuthenticated: true });
+        const { data } = await api.post<{ user: User; token: string }>(
+          "/api/v1/auth/login",
+          { email, password }
+        );
+        set({ user: data.user, token: data.token, isAuthenticated: true });
       },
 
       logout: async () => {
-        await api.post("/api/v1/auth/logout");
-        set({ user: null, isAuthenticated: false });
-        get().setUser(null);
+        try {
+          await api.post("/api/v1/auth/logout");
+        } catch {
+          // ignore errors on logout
+        }
+        set({ user: null, token: null, isAuthenticated: false });
       },
     }),
     {
       name: "auth-storage",
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
-    },
-  ),
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
 );
