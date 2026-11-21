@@ -2,12 +2,8 @@
  * PersonalRoomPage — Guest whiteboard sandbox (no login required)
  * URL: /whiteboard | /sandbox | /room/personal
  *
- * Drawing UX: Figma-style
- * - Pointer events captured at canvas level, converted to world coords
- * - Live preview while drawing (stroke + shape ghost)
- * - Undo/Redo via Ctrl+Z / Ctrl+Y + toolbar buttons
- * - Select tool enables pan; all other tools enable drawing
- * - Scroll = pan, Ctrl+Scroll = zoom (like Figma/Canva)
+ * All pointer/drawing logic is now INSIDE WhiteboardCanvas.
+ * This page only manages board state, history, and modals.
  */
 import {
   useState,
@@ -16,27 +12,24 @@ import {
   useEffect,
   lazy,
   Suspense,
-  type PointerEvent,
 } from "react";
 import { Link } from "react-router-dom";
 import {
   createInitialBoardState,
-  applyEvent,
 } from "@ai-classroom/whiteboard-core";
-import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
+import type { BoardState } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
-import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { exportStageToPng } from "@/lib/exportPng";
 import type { SolidParams } from "@ai-classroom/geometry-core";
 import type Konva from "konva";
 import {
   createHistory,
-  pushHistory,
   undo as historyUndo,
   redo as historyRedo,
 } from "@ai-classroom/whiteboard-core";
 import type { WhiteboardHistory } from "@ai-classroom/whiteboard-core";
+import type { ToolType } from "@/hooks/useWhiteboardTool";
 
 // Lazy-load heavier 3D & 2D Math visualization engines
 const SolidViewer = lazy(() =>
@@ -55,16 +48,12 @@ export default function PersonalRoomPage() {
   );
   const [history, setHistory] = useState<WhiteboardHistory>(() => createHistory(100));
 
-  const seqRef = useRef(0);
-  const stageRef = useRef<Konva.Stage | null>(null);
+  // Tool state (synced from WhiteboardCanvas via callbacks)
+  const [activeTool, setActiveTool] = useState<ToolType>("pen");
+  const [color, setColor] = useState("#f8fafc");
+  const [strokeWidth, setStrokeWidth] = useState(3);
 
-  // Live stroke preview while drawing
-  const [liveStrokePoints, setLiveStrokePoints] = useState<[number, number, number][]>([]);
-  // Live shape preview while dragging shape tools
-  const [previewShape, setPreviewShape] = useState<{
-    tool: "line" | "arrow" | "rect" | "circle";
-    x1: number; y1: number; x2: number; y2: number;
-  } | null>(null);
+  const stageRef = useRef<Konva.Stage | null>(null);
 
   // Modals for 3D & 2D Math tools
   const [show3dModal, setShow3dModal] = useState(false);
@@ -80,7 +69,7 @@ export default function PersonalRoomPage() {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   useEffect(() => {
     function update() {
-      const toolbarW = 64;
+      const toolbarW = 56;
       const headerH = 56;
       const w = window.innerWidth - toolbarW;
       const h = window.innerHeight - headerH;
@@ -92,146 +81,14 @@ export default function PersonalRoomPage() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Board event handler — commit to state + history
+  // Board state handler — called by WhiteboardCanvas on each committed event
   // -------------------------------------------------------------------------
-  const handleEvent = useCallback((event: WhiteboardEvent) => {
-    // Ephemeral events (cursor moves) don't go into history
-    if (
-      event.event_type === "device.pointer.moved" ||
-      event.event_type === "device.action"
-    ) {
-      return;
-    }
-    setHistory((h) => {
-      const result = pushHistory(boardState, h, event);
-      setBoardState(result.state);
-      return result.history;
-    });
-  }, [boardState]);
-
-  const {
-    toolState,
-    setTool,
-    setColor,
-    setStrokeWidth,
-    onPointerDown,
-    onPointerMove,
-    onPointerUp,
-  } = useWhiteboardTool(handleEvent, seqRef);
+  const handleBoardStateChange = useCallback((newState: BoardState) => {
+    setBoardState(newState);
+  }, []);
 
   // -------------------------------------------------------------------------
-  // Convert stage pointer event to world coordinates
-  // -------------------------------------------------------------------------
-  const toWorld = useCallback(
-    (e: PointerEvent<HTMLDivElement>): { x: number; y: number; pressure: number } => {
-      const stage = stageRef.current;
-      if (!stage) {
-        return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, pressure: e.pressure };
-      }
-      // Stage position and scale
-      const sx = stage.x();
-      const sy = stage.y();
-      const sc = stage.scaleX();
-      // Get position relative to canvas container
-      const rect = (e.target as HTMLElement).closest("canvas")?.getBoundingClientRect()
-        ?? stage.container().getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      return {
-        x: (cx - sx) / sc,
-        y: (cy - sy) / sc,
-        pressure: e.pressure,
-      };
-    },
-    [],
-  );
-
-  // -------------------------------------------------------------------------
-  // Pointer handlers
-  // -------------------------------------------------------------------------
-  const isPointerDown = useRef(false);
-
-  const handlePointerDown = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      // Only handle left button
-      if (e.button !== 0) return;
-      // Ignore clicks on toolbar or header
-      if ((e.target as HTMLElement).closest("[data-toolbar]")) return;
-
-      isPointerDown.current = true;
-      const pt = toWorld(e);
-      onPointerDown(pt, PERSONAL_ROOM_ID, GUEST_ID);
-
-      // Start live preview for freehand tools
-      const tool = toolState.activeTool;
-      if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
-        setLiveStrokePoints([[pt.x, pt.y, pt.pressure || 0.5]]);
-      }
-    },
-    [toWorld, onPointerDown, toolState.activeTool],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      if (!isPointerDown.current) return;
-      const pt = toWorld(e);
-      onPointerMove(pt, PERSONAL_ROOM_ID, GUEST_ID);
-
-      const tool = toolState.activeTool;
-      if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
-        setLiveStrokePoints((prev) => [...prev, [pt.x, pt.y, pt.pressure || 0.5]]);
-      } else if (
-        tool === "line" || tool === "arrow" || tool === "rect" || tool === "circle"
-      ) {
-        // Retrieve drag start from the hook's internal ref via the last committed info
-        // We track it here independently
-        setPreviewShape((prev) =>
-          prev
-            ? { ...prev, x2: pt.x, y2: pt.y }
-            : null,
-        );
-      }
-    },
-    [toWorld, onPointerMove, toolState.activeTool],
-  );
-
-  const handlePointerUp = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      if (!isPointerDown.current) return;
-      isPointerDown.current = false;
-      const pt = toWorld(e);
-      const ev = onPointerUp(pt, PERSONAL_ROOM_ID, GUEST_ID);
-      if (ev) {
-        // applyEvent to boardState for committed shapes (hook handles via handleEvent callback)
-        // But we also need to apply the event since handleEvent does it via pushHistory
-        // The hook calls onEvent(committed) which triggers handleEvent
-      }
-      setLiveStrokePoints([]);
-      setPreviewShape(null);
-    },
-    [toWorld, onPointerUp],
-  );
-
-  // Track drag start for shape preview
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-  const handlePointerDownWithDragStart = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      handlePointerDown(e);
-      const pt = toWorld(e);
-      dragStart.current = { x: pt.x, y: pt.y };
-      const tool = toolState.activeTool;
-      if (tool === "line" || tool === "arrow" || tool === "rect" || tool === "circle") {
-        setPreviewShape({
-          tool: tool as "line" | "arrow" | "rect" | "circle",
-          x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
-        });
-      }
-    },
-    [handlePointerDown, toWorld, toolState.activeTool],
-  );
-
-  // -------------------------------------------------------------------------
-  // Undo / Redo
+  // Undo / Redo (passed down to WhiteboardCanvas)
   // -------------------------------------------------------------------------
   const handleUndo = useCallback(() => {
     setHistory((h) => {
@@ -248,25 +105,6 @@ export default function PersonalRoomPage() {
       return result.history;
     });
   }, [boardState]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      }
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        (e.key === "y" || (e.key === "z" && e.shiftKey))
-      ) {
-        e.preventDefault();
-        handleRedo();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [handleUndo, handleRedo]);
 
   // -------------------------------------------------------------------------
   // Board actions
@@ -372,15 +210,15 @@ export default function PersonalRoomPage() {
         {/* Left: Toolbar */}
         <aside
           data-toolbar
-          className="flex shrink-0 items-start justify-center border-r border-slate-800 bg-slate-900/90 p-2"
+          className="flex shrink-0 items-start justify-center border-r border-slate-800 bg-slate-900/90 p-1.5"
           aria-label="Toolbar Gambar"
           style={{ zIndex: 10 }}
         >
           <ToolBar
-            activeTool={toolState.activeTool}
-            color={toolState.color}
-            strokeWidth={toolState.strokeWidth}
-            onToolChange={setTool}
+            activeTool={activeTool}
+            color={color}
+            strokeWidth={strokeWidth}
+            onToolChange={setActiveTool}
             onColorChange={setColor}
             onStrokeWidthChange={setStrokeWidth}
             onUndo={handleUndo}
@@ -390,28 +228,30 @@ export default function PersonalRoomPage() {
           />
         </aside>
 
-        {/* Center: Canvas — pointer events captured here */}
+        {/* Center: Canvas — all events handled internally */}
         <main
           className="relative flex-1 overflow-hidden"
           aria-label="Papan tulis pribadi"
-          onPointerDown={handlePointerDownWithDragStart}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          style={{ touchAction: "none" }}
         >
           <WhiteboardCanvas
             boardState={boardState}
-            onEvent={handleEvent}
+            onBoardStateChange={handleBoardStateChange}
+            roomId={PERSONAL_ROOM_ID}
+            actorId={GUEST_ID}
             width={canvasSize.width}
             height={canvasSize.height}
             showGrid={true}
             readOnly={false}
-            activeTool={toolState.activeTool}
-            color={toolState.color}
-            strokeWidth={toolState.strokeWidth}
-            liveStrokePoints={liveStrokePoints}
-            previewShape={previewShape}
+            activeTool={activeTool}
+            color={color}
+            strokeWidth={strokeWidth}
+            onToolChange={setActiveTool}
+            onColorChange={setColor}
+            onStrokeWidthChange={setStrokeWidth}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={history.past.length > 0}
+            canRedo={history.future.length > 0}
             stageRef={stageRef}
           />
         </main>

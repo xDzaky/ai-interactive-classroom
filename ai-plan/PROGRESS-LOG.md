@@ -1352,3 +1352,27 @@ Verify evidence (all 4 suites):
   - `pnpm run build` → built in 12.94s, PWA green (25 precache entries)
 Playwright E2E: 7 tests listed (skipped without live server — guard: PLAYWRIGHT_RUN=true)
 All P09 CODEMAP rows locked. ENTIRE PROJECT P00–P09 COMPLETE.
+
+---
+## [DONE] 2026-11-21T22:31 — React 19 R3F polyfill + test fixes + DB seed
+
+**Agent**: HIGH-tier (Antigravity)
+**Task**: Fix ReactCurrentOwner crash + login 422 + test failures
+
+### What was done
+1. Created `apps/web/src/react19-compat.ts` — polyfills `React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` for @react-three/fiber v8 compatibility with React 19
+2. Updated `apps/web/src/main.tsx` — imports polyfill first, wraps app in `ErrorBoundary`
+3. Rewrote `apps/web/src/router/index.tsx` — nested routes with `errorElement: <RouteError />`, all pages lazy-loaded with `<Suspense>`
+4. Updated `apps/web/src/pages/room/PersonalRoomPage.tsx` — `SolidViewer` and `GraphViewer` now `lazy()` loaded with `<Suspense>` fallback to defer R3F module initialization
+5. Fixed `apps/web/src/pages/room/RoomPage.tsx` — guarded `localStorage.getItem` with `typeof localStorage !== 'undefined'` check
+6. Fixed `apps/web/src/test/setup.ts` — added `localStorage` polyfill mock + `beforeEach` clear
+7. Fixed `apps/web/src/pages/room/RoomPage.test.tsx` — guarded `localStorage.clear()` call
+8. Re-seeded SQLite DB: `teacher@demo.test / password123` now active
+
+### Verify results
+- TypeScript: **0 errors**
+- Vite build: **green (16.39s)**
+- Vitest: **331/331 PASS (49 files)**
+- DB seed: `teacher@demo.test / password123` ✅
+- Git commit: `87d00c6` pushed to `main`
+

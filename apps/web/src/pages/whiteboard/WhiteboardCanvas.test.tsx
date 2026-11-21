@@ -3,7 +3,7 @@
  * Konva requires a real canvas context; we mock react-konva components
  * so tests run in jsdom without the 'canvas' npm package.
  */
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 // ---------------------------------------------------------------------------
@@ -24,11 +24,22 @@ vi.mock("react-konva", () => {
     Line: makeEl("line-mock"),
     Rect: makeEl("rect-mock"),
     Circle: makeEl("circle-mock"),
+    Arrow: makeEl("arrow-mock"),
     Text: makeEl("text-mock"),
     Group: ({ children }: { children: React.ReactNode }) =>
       React.createElement("div", null, children),
   };
 });
+
+// Mock konva default import
+vi.mock("konva", () => ({
+  default: {
+    Line: class { addTo() {} },
+    Rect: class { addTo() {} },
+    Circle: class { addTo() {} },
+    Arrow: class { addTo() {} },
+  },
+}));
 
 // Mock perfect-freehand
 vi.mock("perfect-freehand", () => ({
@@ -49,21 +60,21 @@ describe("WhiteboardCanvas", () => {
 
   it("renders without crashing", () => {
     const { container } = render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     expect(container.firstChild).toBeTruthy();
   });
 
   it("shows zoom percentage indicator at 100% initially", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     expect(screen.getByText("100%")).toBeTruthy();
   });
 
   it("renders zoom in and zoom out buttons with aria-labels", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     expect(screen.getByLabelText("Zoom in")).toBeTruthy();
     expect(screen.getByLabelText("Zoom out")).toBeTruthy();
@@ -72,7 +83,7 @@ describe("WhiteboardCanvas", () => {
 
   it("zoom in button increments zoom level", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     const zoomIn = screen.getByLabelText("Zoom in");
     fireEvent.click(zoomIn);
@@ -83,12 +94,12 @@ describe("WhiteboardCanvas", () => {
 
   it("zoom out button decrements zoom level after zoom in", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     fireEvent.click(screen.getByLabelText("Zoom in"));
     fireEvent.click(screen.getByLabelText("Zoom in"));
     fireEvent.click(screen.getByLabelText("Zoom out"));
-    // Should be between 100% and 120%
+    // Should be between 100% and 130%
     const val = parseInt(screen.getByText(/\d+%/).textContent ?? "0", 10);
     expect(val).toBeGreaterThan(100);
     expect(val).toBeLessThan(130);
@@ -96,7 +107,7 @@ describe("WhiteboardCanvas", () => {
 
   it("reset button returns to 100%", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     fireEvent.click(screen.getByLabelText("Zoom in"));
     fireEvent.click(screen.getByLabelText("Zoom in"));
@@ -106,8 +117,16 @@ describe("WhiteboardCanvas", () => {
 
   it("renders konva stage div", () => {
     render(
-      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} />
+      <WhiteboardCanvas boardState={state} onBoardStateChange={noop} width={400} height={300} />
     );
     expect(screen.getByTestId("konva-stage")).toBeTruthy();
+  });
+
+  // Legacy API: onEvent prop still works for read-only views
+  it("accepts legacy onEvent prop without crashing", () => {
+    const { container } = render(
+      <WhiteboardCanvas boardState={state} onEvent={noop} width={400} height={300} readOnly />
+    );
+    expect(container.firstChild).toBeTruthy();
   });
 });
