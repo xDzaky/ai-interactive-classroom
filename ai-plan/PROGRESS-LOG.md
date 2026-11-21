@@ -211,3 +211,17 @@ Full P02 verification:
 ### START   2026-11-21 14:30 | Claude Antigravity | tier HIGH | P03-T01
 Resuming: no
 Plan: geometry-core — solid formulas for 6 solids, shared fixture JSON, full tests
+
+### DONE   2026-11-21 14:31 | P03-T01 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  packages/geometry-core/src/index.ts — 8 solids (cube, cuboid, sphere, cylinder, cone, pyramid, prism, torus), validation, GEOMETRY_FIXTURES shared with Python
+  packages/geometry-core/src/index.test.ts — 25 tests
+Verify evidence:
+  - `pnpm run test` → 25/25 PASS
+  - `pnpm run build` → Done (tsc)
+Next: P03-T02 (Three.js geometry builders)
+
+### START   2026-11-21 14:32 | Claude Antigravity | tier HIGH | P03-T02
+Resuming: no
+Plan: Web Three.js geometry builders — one function per solid, bounding box computation
