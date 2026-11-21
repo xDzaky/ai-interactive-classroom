@@ -882,3 +882,22 @@ Plan:
   1. ReplayViewer.tsx — timeline scrubber, play/pause, speed selector (1x/2x/4x), key-event highlights
   2. Add /rooms/:id/replay route in apps/web/src/router/index.tsx
   3. 4+ component tests
+
+
+### DONE   2026-11-21 18:32 | P07-T03 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/pages/room/ReplayViewer.tsx — timeline scrubber, play/pause, speed selector
+  apps/web/src/pages/room/ReplayViewer.test.tsx — 6 component tests
+  apps/web/src/router/index.tsx — added /room/:roomId/replay route
+Verify evidence:
+  - `pnpm run test:run` → 269/269 PASS (40 test files)
+Next: P07-T04 (Dexie outbox — HIGH tier)
+
+
+### START   2026-11-21 18:33 | Claude Antigravity | tier HIGH | P07-T04
+Resuming: no
+Plan:
+  1. Create apps/web/src/lib/offlineOutbox.ts — Dexie DB, outbox table
+  2. Create apps/web/src/lib/useDraftBoard.ts — save/load draft board to IndexedDB
+  3. 5+ unit tests

@@ -12,6 +12,7 @@ const ControllerPage = lazy(() =>
   import("@/pages/room/ControllerPage").then((m) => ({ default: m.ControllerPage })),
 );
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
+const ReplayViewer = lazy(() => import("@/pages/room/ReplayViewer"));
 
 function PageLoader() {
   return (
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
   { path: "/join", element: withSuspense(JoinPage) },
   { path: "/join/:code", element: withSuspense(JoinPage) },
   { path: "/room/:roomId", element: withSuspense(RoomPage) },
+  { path: "/room/:roomId/replay", element: withSuspense(ReplayViewer) },
   { path: "/controller", element: withSuspense(ControllerPage) },
   { path: "*", element: withSuspense(NotFoundPage) },
 ]);

@@ -260,3 +260,5 @@ Rules:
 | apps/web/src/hooks/useSnapshot.test.ts | 5 tests for useSnapshot hook | — | P07-T01 | LOCKED |
 | apps/web/src/lib/replayEngine.ts | Pure TS replay engine: seek/step/setSpeed using snapshots + events | createReplayEngine | P07-T02 | OK |
 | apps/web/src/lib/replayEngine.test.ts | 7 unit tests for replayEngine | — | P07-T02 | OK |
+| apps/web/src/pages/room/ReplayViewer.tsx | Replay UI: timeline scrubber, play/pause, speed selector | default ReplayViewer | P07-T03 | OK |
+| apps/web/src/pages/room/ReplayViewer.test.tsx | 6 component tests for ReplayViewer | — | P07-T03 | OK |
