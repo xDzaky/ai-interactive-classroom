@@ -1050,3 +1050,27 @@ Plan:
   4. Add rate limiting: 20 AI jobs per hour per user
   5. Write Laravel feature tests (≥7 tests)
   6. Run php artisan test → ≥180 tests
+
+
+### DONE   2026-11-21 19:38 | P08-T05 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/api/database/migrations/2026_11_21_500001_create_ai_jobs_table.php — ai_jobs + ai_usage_logs tables
+  apps/api/app/Models/AiJob.php — AiJob Eloquent model
+  apps/api/app/Models/AiUsageLog.php — AiUsageLog append-only model
+  apps/api/app/Http/Controllers/Api/V1/AiJobController.php — store (202+job_id, rate limit 20/hr) + show
+  apps/api/app/Jobs/AiJob.php — Laravel queue job dispatching to ai-service
+  apps/api/tests/Feature/AiJobApiTest.php — 9 feature tests
+Verify evidence:
+  - `php artisan test` → 182/182 PASS (173 old + 9 new)
+Next: P08-T06 (Teacher AI UI)
+
+
+### START   2026-11-21 19:38 | Claude Antigravity | tier HIGH | P08-T06
+Resuming: no
+Plan:
+  1. Create apps/web/src/pages/room/TeacherAiPanel.tsx — outline/quiz generator with edit+approve
+  2. Add i18n keys for AI panel (id.json)
+  3. Wire to POST /ai/jobs endpoint (useAiJob hook)
+  4. 4+ component tests
+  5. Run vitest ≥ 305 tests

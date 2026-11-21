@@ -280,7 +280,13 @@ Rules:
 | apps/ai-service/app/routers/jobs.py | POST /ai/jobs (202) + GET /ai/jobs/{id} | router | P08-T01 | LOCKED |
 | apps/ai-service/main.py | FastAPI app entrypoint + /health | app | P08-T01 | LOCKED |
 | apps/ai-service/tests/test_p08_t01.py | 7 pytest tests: auth, job store, LiteLLM mock | — | P08-T01 | LOCKED |
-| apps/ai-service/app/routers/geometry.py | POST /ai/geometry/solve — deterministic geometry solver (8 solid types) | router | P08-T02 | OK |
-| apps/ai-service/tests/fixtures/geometry_cases.json | Shared fixture: 8 geometry contract test cases (TS+Python) | — | P08-T02 | OK |
-| apps/ai-service/tests/test_p08_t02.py | 14 contract tests: geometry solver vs fixtures + edge cases | — | P08-T02 | OK |
-| apps/web/src/lib/geometry.contract.test.ts | TS contract tests: computeGeometry vs CONTRACT_CASES (17 tests) | — | P08-T02 | OK |
+| apps/ai-service/app/routers/geometry.py | POST /ai/geometry/solve — deterministic geometry solver (8 solid types) | router | P08-T02 | LOCKED |
+| apps/ai-service/tests/fixtures/geometry_cases.json | Shared fixture: 8 geometry contract test cases (TS+Python) | — | P08-T02 | LOCKED |
+| apps/ai-service/tests/test_p08_t02.py | 14 contract tests: geometry solver vs fixtures + edge cases | — | P08-T02 | LOCKED |
+| apps/web/src/lib/geometry.contract.test.ts | TS contract tests: computeGeometry vs CONTRACT_CASES (17 tests) | — | P08-T02 | LOCKED |
+| apps/api/database/migrations/2026_11_21_500001_create_ai_jobs_table.php | ai_jobs + ai_usage_logs migrations | — | P08-T05 | OK |
+| apps/api/app/Models/AiJob.php | AiJob Eloquent model (uuid, fillable, casts) | AiJob | P08-T05 | OK |
+| apps/api/app/Models/AiUsageLog.php | AiUsageLog append-only model | AiUsageLog | P08-T05 | OK |
+| apps/api/app/Http/Controllers/Api/V1/AiJobController.php | store (202+job_id, rate limit 20/hr) + show (own job, 403 for others) | store, show | P08-T05 | OK |
+| apps/api/app/Jobs/AiJob.php | Laravel queue job: dispatch to ai-service, poll, write result+usage log | AiJob | P08-T05 | OK |
+| apps/api/tests/Feature/AiJobApiTest.php | 9 feature tests: 202, auth, rate limit, 403, 404, done result | — | P08-T05 | OK |
