@@ -783,3 +783,15 @@ Verify evidence:
   - `pnpm run build` → ✓ built in 14.08s
 Next: P06-T05 (Timer, random picker, group generator) — LOW tier
 
+
+### START   2026-11-21 18:00 | Claude Antigravity | tier HIGH | P06-T05
+Resuming: no
+Plan:
+  1. ClassroomTimer.tsx — countdown timer (host sets seconds, starts, pauses, resets; students see read-only via useQuery polling or store)
+  2. RandomPicker.tsx — random participant picker (host clicks, random alias highlighted)
+  3. GroupGenerator.tsx — host sets group count, distributes participants evenly, calls createGroup + addGroupMember for each
+  4. i18n keys for timer.*, picker.*, generator.*
+  5. Wire all 3 into TeacherView sidebar
+  6. Tests for all 3 components (pure logic + render)
+  Note: Timer is UI-only (no backend persistence needed for P06); RandomPicker is pure client; GroupGenerator calls existing groups API
+
