@@ -1,15 +1,15 @@
 /**
  * WhiteboardCanvas — Figma-quality drawing engine
  *
- * Key architecture:
- * 1. ALL pointer events handled inside this component (no parent div needed)
- * 2. Live preview uses IMPERATIVE Konva layer — zero React setState on pointer move
- *    → eliminates drawing lag completely
- * 3. Sketch recognition (pen → rect/circle/line snapping)
- * 4. Perfect-freehand for pen strokes with pressure simulation
- * 5. Eraser tool support
- * 6. Zoom toward cursor, pan with scroll/space-drag
- * 7. Touch pinch-zoom support
+ * Architecture (no infinite loop):
+ * - Props (activeTool, color, strokeWidth) are stored in refs → used directly in
+ *   pointer handlers WITHOUT any useEffect sync. This eliminates the
+ *   "Maximum update depth exceeded" loop.
+ * - Live preview uses IMPERATIVE Konva layer (previewLayerRef.batchDraw()) →
+ *   zero React setState on pointer move → no drawing lag.
+ * - Stroke accumulation lives in plain refs (strokePointsRef, dragStartRef) →
+ *   no React state involved until the stroke is committed.
+ * - Sketch recognition fires on pointerUp for pen tool.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Stage, Layer, Line, Rect, Circle, Text as KonvaText, Arrow } from "react-konva";
@@ -21,16 +21,8 @@ import type {
   BoardStroke,
   WhiteboardEvent,
 } from "@ai-classroom/whiteboard-core";
-import { getActiveScene } from "@ai-classroom/whiteboard-core";
+import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
-import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
-import {
-  createHistory,
-  pushHistory,
-  undo as historyUndo,
-  redo as historyRedo,
-} from "@ai-classroom/whiteboard-core";
-import type { WhiteboardHistory } from "@ai-classroom/whiteboard-core";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,7 +31,7 @@ import type { WhiteboardHistory } from "@ai-classroom/whiteboard-core";
 export interface WhiteboardCanvasProps {
   boardState: BoardState;
   onBoardStateChange?: (state: BoardState) => void;
-  /** @deprecated Use onBoardStateChange instead — kept for backward compat */
+  /** @deprecated backward-compat — callers that only have onEvent still work */
   onEvent?: (event: WhiteboardEvent) => void;
   roomId?: string;
   actorId?: string;
@@ -48,7 +40,6 @@ export interface WhiteboardCanvasProps {
   showGrid?: boolean;
   readOnly?: boolean;
   stageRef?: React.RefObject<Konva.Stage | null>;
-  // Toolbar control
   activeTool?: ToolType;
   color?: string;
   strokeWidth?: number;
@@ -81,8 +72,8 @@ function getSvgPathPoints(
     thinning: 0.55,
     smoothing: 0.5,
     streamline: 0.45,
-    easing: (t) => Math.sin((t * Math.PI) / 2),
-    simulatePressure: pts[0][2] < 0.1, // simulate if no pressure data
+    easing: (t: number) => Math.sin((t * Math.PI) / 2),
+    simulatePressure: pts[0][2] < 0.1,
   });
   return freehand.flatMap(([x, y]) => [x, y]);
 }
@@ -99,7 +90,8 @@ type RecognizedShape =
   | { type: "none" }
   | { type: "line"; x1: number; y1: number; x2: number; y2: number }
   | { type: "rect"; x: number; y: number; w: number; h: number }
-  | { type: "circle"; cx: number; cy: number; r: number };
+  | { type: "circle"; cx: number; cy: number; r: number }
+  | { type: "triangle"; x1: number; y1: number; x2: number; y2: number; x3: number; y3: number };
 
 function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   if (pts.length < 4) return { type: "none" };
@@ -113,7 +105,6 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   const bboxW = maxX - minX;
   const bboxH = maxY - minY;
 
-  // Too small — not a shape
   if (bboxW < 8 && bboxH < 8) return { type: "none" };
 
   const first = pts[0];
@@ -129,9 +120,8 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
     );
   }, 0);
 
-  // --- Line detection: straightness ratio ---
+  // --- Line ---
   const maxDeviation = pts.reduce((max, p) => {
-    // Distance from point to line(first→last)
     if (strokeLen < 1) return max;
     const d =
       Math.abs(
@@ -144,16 +134,10 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   }, 0);
 
   if (maxDeviation / Math.max(strokeLen, 1) < 0.08 && strokeLen > 20) {
-    return {
-      type: "line",
-      x1: first[0],
-      y1: first[1],
-      x2: last[0],
-      y2: last[1],
-    };
+    return { type: "line", x1: first[0], y1: first[1], x2: last[0], y2: last[1] };
   }
 
-  // --- Circle detection ---
+  // --- Circle ---
   const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
   const radii = pts.map((p) =>
@@ -175,8 +159,7 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
     return { type: "circle", cx, cy, r: avgR };
   }
 
-  // --- Rectangle detection ---
-  // Check if path ratio to bbox perimeter is reasonable (strokes that trace a rect)
+  // --- Rectangle ---
   const bboxPerimeter = 2 * (bboxW + bboxH);
   const isClosed2 = startEndDist < Math.min(bboxW, bboxH) * 0.5;
 
@@ -188,6 +171,29 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
     bboxH > 15
   ) {
     return { type: "rect", x: minX, y: minY, w: bboxW, h: bboxH };
+  }
+
+  // --- Triangle: 3 roughly straight segments forming a closed loop ---
+  if (isClosed2 && pts.length > 10) {
+    // Find the two points farthest from the centroid baseline
+    // Simple: split path into 3 roughly equal segments, take endpoints as vertices
+    const n = pts.length;
+    const p0 = pts[0];
+    const p1 = pts[Math.floor(n / 3)];
+    const p2 = pts[Math.floor((2 * n) / 3)];
+    // Check that sides are roughly straight
+    const side1Len = Math.sqrt(Math.pow(p1[0]-p0[0],2)+Math.pow(p1[1]-p0[1],2));
+    const side2Len = Math.sqrt(Math.pow(p2[0]-p1[0],2)+Math.pow(p2[1]-p1[1],2));
+    const side3Len = Math.sqrt(Math.pow(p0[0]-p2[0],2)+Math.pow(p0[1]-p2[1],2));
+    const perimeter = side1Len + side2Len + side3Len;
+    if (perimeter > 30 && pathLen / perimeter < 1.6 && pathLen / perimeter > 0.5) {
+      return {
+        type: "triangle",
+        x1: p0[0], y1: p0[1],
+        x2: p1[0], y2: p1[1],
+        x3: p2[0], y3: p2[1],
+      };
+    }
   }
 
   return { type: "none" };
@@ -244,7 +250,6 @@ function GridLayer({
     );
   }
 
-  // Dot grid overlay
   const dots: React.ReactNode[] = [];
   for (let x = startX; x <= worldRight; x += gridSize) {
     for (let y = startY; y <= worldBottom; y += gridSize) {
@@ -305,6 +310,20 @@ function RenderObject({ obj }: { obj: BoardObject }) {
           listening={false}
         />
       );
+    case "triangle":
+      return (
+        <Line
+          id={obj.id}
+          points={[p.x1 ?? 0, p.y1 ?? 0, p.x2 ?? 50, p.y2 ?? 80, p.x3 ?? 100, p.y3 ?? 0]}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={p.strokeWidth ?? 2}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+        />
+      );
     case "arrow":
       return (
         <Arrow
@@ -356,135 +375,80 @@ function RenderObject({ obj }: { obj: BoardObject }) {
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 20;
 const ZOOM_STEP = 1.12;
-const PERSONAL_ROOM_ID = "personal-sandbox";
-const GUEST_ID = "guest-me";
+const DEFAULT_ROOM_ID = "personal-sandbox";
+const DEFAULT_ACTOR_ID = "guest-me";
+
+function uid() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 export function WhiteboardCanvas({
   boardState,
-  onBoardStateChange: _onBoardStateChange,
+  onBoardStateChange,
   onEvent: legacyOnEvent,
-  roomId = PERSONAL_ROOM_ID,
-  actorId = GUEST_ID,
+  roomId = DEFAULT_ROOM_ID,
+  actorId = DEFAULT_ACTOR_ID,
   width = 800,
   height = 600,
   showGrid = true,
   readOnly = false,
   stageRef: externalStageRef,
-  activeTool: externalActiveTool,
-  color: externalColor,
-  strokeWidth: externalStrokeWidth,
-  onToolChange,
-  onColorChange,
-  onStrokeWidthChange,
-  onUndo: externalUndo,
-  onRedo: externalRedo,
+  activeTool = "pen",
+  color = "#f8fafc",
+  strokeWidth = 3,
   canUndo,
   canRedo,
+  onUndo,
+  onRedo,
 }: WhiteboardCanvasProps) {
-  // Support both new API (onBoardStateChange) and legacy API (onEvent)
-  const onBoardStateChange = _onBoardStateChange ?? (() => {});
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
-  const lastTouchDist = useRef<number>(0);
   const previewLayerRef = useRef<Konva.Layer | null>(null);
+  const lastTouchDist = useRef<number>(0);
 
-  // Imperative refs for drawing — NEVER trigger React re-render on move
+  // ---------------------------------------------------------------------------
+  // KEY FIX: Store mutable tool/color/strokeWidth in refs — NO useEffect sync.
+  // Pointer handlers always read the latest value from refs without causing
+  // re-renders or dependency cycles.
+  // ---------------------------------------------------------------------------
+  const activeToolRef = useRef<ToolType>(activeTool);
+  activeToolRef.current = activeTool; // updated every render, no effect needed
+
+  const colorRef = useRef<string>(color);
+  colorRef.current = color;
+
+  const strokeWidthRef = useRef<number>(strokeWidth);
+  strokeWidthRef.current = strokeWidth;
+
+  // Drawing state refs — no React state, no re-renders during drawing
   const isPointerDown = useRef(false);
   const livePointsRef = useRef<[number, number, number][]>([]);
   const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const activeIdRef = useRef<string>("");
 
-  // Internal history state (if no external handler)
-  const seqRef = useRef(0);
-  const [history, setHistory] = useState<WhiteboardHistory>(() =>
-    createHistory(100),
-  );
+  const scene = getActiveScene(boardState);
 
-  const handleEvent = useCallback(
+  // ---------------------------------------------------------------------------
+  // Commit event (dispatch to board state)
+  // ---------------------------------------------------------------------------
+  const commitEvent = useCallback(
     (event: WhiteboardEvent) => {
-      if (
-        event.event_type === "device.pointer.moved" ||
-        event.event_type === "device.action"
-      )
-        return;
-      // Support legacy onEvent callback
       if (legacyOnEvent) {
         legacyOnEvent(event);
         return;
       }
-      setHistory((h) => {
-        const result = pushHistory(boardState, h, event);
-        onBoardStateChange(result.state);
-        return result.history;
-      });
+      if (onBoardStateChange) {
+        const [newState] = applyEvent(boardState, event);
+        onBoardStateChange(newState);
+      }
     },
-    [boardState, onBoardStateChange, legacyOnEvent],
+    [legacyOnEvent, onBoardStateChange, boardState],
   );
 
-  const { toolState, setTool, setColor, setStrokeWidth, onPointerDown, onPointerMove, onPointerUp } =
-    useWhiteboardTool(handleEvent, seqRef);
-
-  const activeTool = externalActiveTool ?? toolState.activeTool;
-  const color = externalColor ?? toolState.color;
-  const strokeWidth = externalStrokeWidth ?? toolState.strokeWidth;
-
-  // Sync external tool controls
-  useEffect(() => {
-    if (externalActiveTool && externalActiveTool !== toolState.activeTool) {
-      setTool(externalActiveTool);
-    }
-  }, [externalActiveTool, toolState.activeTool, setTool]);
-  useEffect(() => {
-    if (externalColor && externalColor !== toolState.color) {
-      setColor(externalColor);
-    }
-  }, [externalColor, toolState.color, setColor]);
-  useEffect(() => {
-    if (externalStrokeWidth && externalStrokeWidth !== toolState.strokeWidth) {
-      setStrokeWidth(externalStrokeWidth);
-    }
-  }, [externalStrokeWidth, toolState.strokeWidth, setStrokeWidth]);
-
-  // Notify parent of tool changes
-  useEffect(() => {
-    onToolChange?.(toolState.activeTool);
-  }, [toolState.activeTool, onToolChange]);
-  useEffect(() => {
-    onColorChange?.(toolState.color);
-  }, [toolState.color, onColorChange]);
-
-  const handleUndo = useCallback(() => {
-    if (externalUndo) {
-      externalUndo();
-      return;
-    }
-    setHistory((h) => {
-      const result = historyUndo(boardState, h);
-      onBoardStateChange(result.state);
-      return result.history;
-    });
-  }, [externalUndo, boardState, onBoardStateChange]);
-
-  const handleRedo = useCallback(() => {
-    if (externalRedo) {
-      externalRedo();
-      return;
-    }
-    setHistory((h) => {
-      const result = historyRedo(boardState, h);
-      onBoardStateChange(result.state);
-      return result.history;
-    });
-  }, [externalRedo, boardState, onBoardStateChange]);
-
-  const isUndoable = canUndo ?? history.past.length > 0;
-  const isRedoable = canRedo ?? history.future.length > 0;
-
-  const scene = getActiveScene(boardState);
-
-  // -------------------------------------------------------------------------
-  // Keyboard shortcuts
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Keyboard shortcuts (Ctrl+Z/Y, Space)
+  // ---------------------------------------------------------------------------
   const isSpaceDown = useRef(false);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -494,14 +458,14 @@ export function WhiteboardCanvas({
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
-        handleUndo();
+        onUndo?.();
       }
       if (
         (e.ctrlKey || e.metaKey) &&
         (e.key === "y" || (e.key === "z" && e.shiftKey))
       ) {
         e.preventDefault();
-        handleRedo();
+        onRedo?.();
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -516,11 +480,11 @@ export function WhiteboardCanvas({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [handleUndo, handleRedo]);
+  }, [onUndo, onRedo]);
 
-  // -------------------------------------------------------------------------
-  // World coordinate transform
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // World coord helper
+  // ---------------------------------------------------------------------------
   const getWorldPos = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return null;
@@ -532,15 +496,17 @@ export function WhiteboardCanvas({
     };
   }, [stageRef]);
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Imperative preview layer — redraws WITHOUT React setState
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const drawLivePreview = useCallback(() => {
     const layer = previewLayerRef.current;
     if (!layer) return;
     layer.destroyChildren();
 
-    const tool = activeTool;
+    const tool = activeToolRef.current;
+    const col = colorRef.current;
+    const sw = strokeWidthRef.current;
     const pts = livePointsRef.current;
     const start = shapeStartRef.current;
 
@@ -548,27 +514,27 @@ export function WhiteboardCanvas({
       (tool === "pen" || tool === "highlighter" || tool === "eraser") &&
       pts.length >= 2
     ) {
-      const konvaPoints = getSvgPathPoints(pts, strokeWidth);
+      const konvaPoints = getSvgPathPoints(pts, sw);
       if (konvaPoints.length >= 4) {
-        const line = new Konva.Line({
-          points: konvaPoints,
-          fill:
-            tool === "eraser"
-              ? "rgba(100,100,100,0.4)"
-              : tool === "highlighter"
-                ? color + "88"
-                : color,
-          stroke: undefined,
-          closed: true,
-          lineCap: "round",
-          lineJoin: "round",
-          opacity: tool === "highlighter" ? 0.5 : 0.85,
-          listening: false,
-        });
-        layer.add(line);
+        layer.add(
+          new Konva.Line({
+            points: konvaPoints,
+            fill:
+              tool === "eraser"
+                ? "rgba(100,100,100,0.4)"
+                : tool === "highlighter"
+                  ? col + "88"
+                  : col,
+            closed: true,
+            lineCap: "round",
+            lineJoin: "round",
+            opacity: tool === "highlighter" ? 0.5 : 0.85,
+            listening: false,
+          }),
+        );
       }
     } else if (
-      (tool === "line" || tool === "arrow" || tool === "rect" || tool === "circle") &&
+      (tool === "line" || tool === "arrow" || tool === "rect" || tool === "circle" || tool === "triangle") &&
       start &&
       pts.length >= 1
     ) {
@@ -581,8 +547,8 @@ export function WhiteboardCanvas({
         layer.add(
           new Konva.Line({
             points: [start.x, start.y, x2, y2],
-            stroke: color,
-            strokeWidth,
+            stroke: col,
+            strokeWidth: sw,
             dash: dashed,
             lineCap: "round",
             opacity: 0.8,
@@ -593,9 +559,9 @@ export function WhiteboardCanvas({
         layer.add(
           new Konva.Arrow({
             points: [start.x, start.y, x2, y2],
-            stroke: color,
-            fill: color,
-            strokeWidth,
+            stroke: col,
+            fill: col,
+            strokeWidth: sw,
             pointerLength: 10,
             pointerWidth: 8,
             dash: dashed,
@@ -610,8 +576,8 @@ export function WhiteboardCanvas({
             y: Math.min(start.y, y2),
             width: Math.abs(x2 - start.x),
             height: Math.abs(y2 - start.y),
-            stroke: color,
-            strokeWidth,
+            stroke: col,
+            strokeWidth: sw,
             fill: "transparent",
             dash: dashed,
             opacity: 0.8,
@@ -626,11 +592,34 @@ export function WhiteboardCanvas({
             x: (start.x + x2) / 2,
             y: (start.y + y2) / 2,
             radius: Math.max(r, 2),
-            stroke: color,
-            strokeWidth,
+            stroke: col,
+            strokeWidth: sw,
             fill: "transparent",
             dash: dashed,
             opacity: 0.8,
+            listening: false,
+          }),
+        );
+      } else if (tool === "triangle") {
+        const h = Math.abs(y2 - start.y);
+        const side = h > 0 ? h / (Math.sqrt(3) / 2) : Math.abs(x2 - start.x);
+        const mx = (start.x + x2) / 2;
+        const baseY = y2 > start.y ? start.y + h : start.y - h;
+        layer.add(
+          new Konva.Line({
+            points: [
+              mx, start.y,
+              mx - side / 2, baseY,
+              mx + side / 2, baseY,
+            ],
+            closed: true,
+            stroke: col,
+            strokeWidth: sw,
+            fill: "transparent",
+            dash: dashed,
+            opacity: 0.8,
+            lineCap: "round",
+            lineJoin: "round",
             listening: false,
           }),
         );
@@ -638,7 +627,7 @@ export function WhiteboardCanvas({
     }
 
     layer.batchDraw();
-  }, [activeTool, color, strokeWidth]);
+  }, []); // no deps — reads from refs which are always current
 
   const clearLivePreview = useCallback(() => {
     const layer = previewLayerRef.current;
@@ -647,9 +636,9 @@ export function WhiteboardCanvas({
     layer.batchDraw();
   }, []);
 
-  // -------------------------------------------------------------------------
-  // Konva Stage pointer events (all inside canvas)
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Pointer down
+  // ---------------------------------------------------------------------------
   const handleStagePointerDown = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       if (readOnly) return;
@@ -659,120 +648,108 @@ export function WhiteboardCanvas({
       if (!pos) return;
 
       isPointerDown.current = true;
-      const pressure = (e.evt as PointerEvent).pressure || 0.5;
-      const pt = { x: pos.x, y: pos.y, pressure };
+      activeIdRef.current = uid();
+      const pressure = e.evt.pressure || 0.5;
+      const tool = activeToolRef.current;
 
-      onPointerDown(pt, roomId, actorId);
-
-      const tool = activeTool;
       if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
         livePointsRef.current = [[pos.x, pos.y, pressure]];
       } else if (
         tool === "line" ||
         tool === "arrow" ||
         tool === "rect" ||
-        tool === "circle"
+        tool === "circle" ||
+        tool === "triangle"
       ) {
         shapeStartRef.current = { x: pos.x, y: pos.y };
         livePointsRef.current = [[pos.x, pos.y, 0.5]];
       }
     },
-    [readOnly, getWorldPos, onPointerDown, roomId, actorId, activeTool],
+    [readOnly, getWorldPos],
   );
 
+  // ---------------------------------------------------------------------------
+  // Pointer move — imperative only, zero setState
+  // ---------------------------------------------------------------------------
   const handleStagePointerMove = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       if (!isPointerDown.current || readOnly) return;
-
       const pos = getWorldPos();
       if (!pos) return;
-
-      const pressure = (e.evt as PointerEvent).pressure || 0.5;
-      const pt = { x: pos.x, y: pos.y, pressure };
-
-      onPointerMove(pt, roomId, actorId);
-
+      const pressure = e.evt.pressure || 0.5;
       livePointsRef.current.push([pos.x, pos.y, pressure]);
-
-      // IMPERATIVE redraw — zero React setState
       drawLivePreview();
     },
-    [readOnly, getWorldPos, onPointerMove, roomId, actorId, drawLivePreview],
+    [readOnly, getWorldPos, drawLivePreview],
   );
 
+  // ---------------------------------------------------------------------------
+  // Pointer up — commit stroke/shape
+  // ---------------------------------------------------------------------------
   const handleStagePointerUp = useCallback(
-    (e: Konva.KonvaEventObject<PointerEvent>) => {
-      if (!isPointerDown.current || readOnly) return;
+    (_e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (!isPointerDown.current || readOnly) {
+        clearLivePreview();
+        return;
+      }
       isPointerDown.current = false;
 
       const pos = getWorldPos();
-      if (!pos) {
-        clearLivePreview();
-        livePointsRef.current = [];
-        shapeStartRef.current = null;
-        return;
-      }
-
-      const pressure = (e.evt as PointerEvent).pressure || 0.5;
       const pts = livePointsRef.current;
+      const tool = activeToolRef.current;
+      const col = colorRef.current;
+      const sw = strokeWidthRef.current;
+      const id = activeIdRef.current;
+      const start = shapeStartRef.current;
 
-      // Try sketch recognition for pen tool
-      const tool = activeTool;
+      clearLivePreview();
+      livePointsRef.current = [];
+      shapeStartRef.current = null;
+
+      if (!pos) return;
+
+      // Sketch recognition for pen
       if (tool === "pen" && pts.length >= 4) {
         const recognized = recognizeShape(pts);
         if (recognized.type !== "none") {
-          // Override: emit recognized shape object instead of freehand stroke
-          clearLivePreview();
-          livePointsRef.current = [];
-          shapeStartRef.current = null;
-
-          const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
           if (recognized.type === "line") {
-            handleEvent({
+            commitEvent({
               event_type: "object.created",
               payload: {
                 id,
                 object_type: "line",
-                props: {
-                  x1: recognized.x1,
-                  y1: recognized.y1,
-                  x2: recognized.x2,
-                  y2: recognized.y2,
-                  stroke: color,
-                  strokeWidth,
-                },
+                props: { x1: recognized.x1, y1: recognized.y1, x2: recognized.x2, y2: recognized.y2, stroke: col, strokeWidth: sw },
               },
             });
           } else if (recognized.type === "rect") {
-            handleEvent({
+            commitEvent({
               event_type: "object.created",
               payload: {
                 id,
                 object_type: "rect",
-                props: {
-                  x: recognized.x,
-                  y: recognized.y,
-                  w: recognized.w,
-                  h: recognized.h,
-                  stroke: color,
-                  strokeWidth,
-                  fill: "transparent",
-                },
+                props: { x: recognized.x, y: recognized.y, w: recognized.w, h: recognized.h, stroke: col, strokeWidth: sw, fill: "transparent" },
               },
             });
           } else if (recognized.type === "circle") {
-            handleEvent({
+            commitEvent({
               event_type: "object.created",
               payload: {
                 id,
                 object_type: "circle",
+                props: { x: recognized.cx, y: recognized.cy, r: recognized.r, stroke: col, strokeWidth: sw, fill: "transparent" },
+              },
+            });
+          } else if (recognized.type === "triangle") {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: "triangle",
                 props: {
-                  x: recognized.cx,
-                  y: recognized.cy,
-                  r: recognized.r,
-                  stroke: color,
-                  strokeWidth,
-                  fill: "transparent",
+                  x1: recognized.x1, y1: recognized.y1,
+                  x2: recognized.x2, y2: recognized.y2,
+                  x3: recognized.x3, y3: recognized.y3,
+                  stroke: col, strokeWidth: sw, fill: "transparent",
                 },
               },
             });
@@ -781,31 +758,87 @@ export function WhiteboardCanvas({
         }
       }
 
-      // Normal commit
-      const pt = { x: pos.x, y: pos.y, pressure };
-      onPointerUp(pt, roomId, actorId);
+      // Freehand stroke
+      if (
+        (tool === "pen" || tool === "highlighter" || tool === "eraser") &&
+        pts.length >= 2
+      ) {
+        const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
+        commitEvent({
+          event_type: "stroke.committed",
+          payload: {
+            id,
+            points: allPts,
+            color: tool === "eraser" ? "#0f172a" : col,
+            width: sw,
+            tool,
+          },
+        });
+        return;
+      }
 
-      clearLivePreview();
-      livePointsRef.current = [];
-      shapeStartRef.current = null;
+      // Shape tools
+      if (!start) return;
+
+      if (tool === "line" || tool === "arrow") {
+        commitEvent({
+          event_type: "object.created",
+          payload: {
+            id,
+            object_type: tool,
+            props: { x1: start.x, y1: start.y, x2: pos.x, y2: pos.y, stroke: col, strokeWidth: sw },
+          },
+        });
+      } else if (tool === "rect") {
+        const x = Math.min(start.x, pos.x);
+        const y = Math.min(start.y, pos.y);
+        commitEvent({
+          event_type: "object.created",
+          payload: {
+            id,
+            object_type: "rect",
+            props: { x, y, w: Math.abs(pos.x - start.x), h: Math.abs(pos.y - start.y), stroke: col, strokeWidth: sw, fill: "transparent" },
+          },
+        });
+      } else if (tool === "circle") {
+        const r =
+          Math.sqrt(Math.pow(pos.x - start.x, 2) + Math.pow(pos.y - start.y, 2)) / 2;
+        commitEvent({
+          event_type: "object.created",
+          payload: {
+            id,
+            object_type: "circle",
+            props: { x: (start.x + pos.x) / 2, y: (start.y + pos.y) / 2, r: Math.max(r, 2), stroke: col, strokeWidth: sw, fill: "transparent" },
+          },
+        });
+      } else if (tool === "triangle") {
+        const h = Math.abs(pos.y - start.y);
+        const side = h > 0 ? h / (Math.sqrt(3) / 2) : Math.abs(pos.x - start.x);
+        const mx = (start.x + pos.x) / 2;
+        const baseY = pos.y > start.y ? start.y + h : start.y - h;
+        if (h > 5 || Math.abs(pos.x - start.x) > 5) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: "triangle",
+              props: {
+                x1: mx, y1: start.y,
+                x2: mx - side / 2, y2: baseY,
+                x3: mx + side / 2, y3: baseY,
+                stroke: col, strokeWidth: sw, fill: "transparent",
+              },
+            },
+          });
+        }
+      }
     },
-    [
-      readOnly,
-      getWorldPos,
-      activeTool,
-      color,
-      strokeWidth,
-      onPointerUp,
-      roomId,
-      actorId,
-      clearLivePreview,
-      handleEvent,
-    ],
+    [readOnly, getWorldPos, clearLivePreview, commitEvent],
   );
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Zoom with mouse wheel
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -847,16 +880,19 @@ export function WhiteboardCanvas({
     [stageRef],
   );
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Drag pan (select tool)
-  // -------------------------------------------------------------------------
-  const handleDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-    setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
-  }, []);
+  // ---------------------------------------------------------------------------
+  const handleDragEnd = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
+    },
+    [],
+  );
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Touch pinch-zoom
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const handleTouchMove = useCallback(
     (e: Konva.KonvaEventObject<TouchEvent>) => {
       e.evt.preventDefault();
@@ -905,9 +941,9 @@ export function WhiteboardCanvas({
     lastTouchDist.current = 0;
   }, []);
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Render strokes
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const strokeElems = Object.values(scene.strokes).map((stroke: BoardStroke) => {
     const pts = strokeToPoints(stroke);
     if (pts.length < 4) return null;
@@ -915,7 +951,6 @@ export function WhiteboardCanvas({
       <Line
         key={`stroke-${stroke.id}`}
         points={pts}
-        stroke={undefined}
         strokeWidth={1}
         closed
         fill={
@@ -935,9 +970,9 @@ export function WhiteboardCanvas({
     );
   });
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Render objects
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const objectElems = scene.order
     .filter((id) => id in scene.objects)
     .map((id) => {
@@ -945,9 +980,9 @@ export function WhiteboardCanvas({
       return <RenderObject key={`obj-${obj.id}`} obj={obj} />;
     });
 
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Cursor
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   const cursorMap: Record<ToolType, string> = {
     select: "default",
     pen: "crosshair",
@@ -957,6 +992,7 @@ export function WhiteboardCanvas({
     arrow: "crosshair",
     rect: "crosshair",
     circle: "crosshair",
+    triangle: "crosshair",
     text: "text",
   };
 
@@ -991,7 +1027,6 @@ export function WhiteboardCanvas({
         onPointerUp={handleStagePointerUp}
         onPointerLeave={handleStagePointerUp}
       >
-        {/* Grid */}
         {showGrid && (
           <GridLayer
             width={width}
@@ -1001,78 +1036,50 @@ export function WhiteboardCanvas({
             offsetY={view.y}
           />
         )}
-
-        {/* Committed strokes */}
         <Layer>{strokeElems}</Layer>
-
-        {/* Committed objects */}
         <Layer>{objectElems}</Layer>
-
-        {/* Imperative preview layer — no children in JSX; redrawn via batchDraw() */}
-        <Layer
-          ref={previewLayerRef}
-          listening={false}
-        />
+        {/* Imperative preview layer — no JSX children, redrawn via batchDraw() */}
+        <Layer ref={previewLayerRef} listening={false} />
       </Stage>
 
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-400 shadow-lg backdrop-blur-sm select-none">
         <button
-          onClick={() =>
-            setView((v) => ({
-              ...v,
-              scale: Math.max(MIN_SCALE, v.scale / ZOOM_STEP),
-            }))
-          }
+          onClick={() => setView((v) => ({ ...v, scale: Math.max(MIN_SCALE, v.scale / ZOOM_STEP) }))}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom out"
-        >
-          −
-        </button>
+        >−</button>
         <span className="w-12 text-center font-mono text-[11px]">
           {Math.round(view.scale * 100)}%
         </span>
         <button
-          onClick={() =>
-            setView((v) => ({
-              ...v,
-              scale: Math.min(MAX_SCALE, v.scale * ZOOM_STEP),
-            }))
-          }
+          onClick={() => setView((v) => ({ ...v, scale: Math.min(MAX_SCALE, v.scale * ZOOM_STEP) }))}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom in"
-        >
-          +
-        </button>
+        >+</button>
         <div className="mx-1 h-4 w-px bg-slate-700" />
         <button
           onClick={() => setView({ x: 0, y: 0, scale: 1 })}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           title="Reset view"
           aria-label="Reset zoom"
-        >
-          ↺
-        </button>
+        >↺</button>
       </div>
 
-      {/* Undo/Redo floating buttons */}
+      {/* Undo/Redo */}
       <div className="absolute bottom-4 left-4 flex items-center gap-1 select-none">
         <button
-          onClick={handleUndo}
-          disabled={!isUndoable}
+          onClick={onUndo}
+          disabled={!canUndo}
           title="Undo (Ctrl+Z)"
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/90 text-sm text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          ↩
-        </button>
+        >↩</button>
         <button
-          onClick={handleRedo}
-          disabled={!isRedoable}
+          onClick={onRedo}
+          disabled={!canRedo}
           title="Redo (Ctrl+Y)"
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/90 text-sm text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          ↪
-        </button>
+        >↪</button>
       </div>
 
       {/* Tool hint */}
@@ -1080,8 +1087,8 @@ export function WhiteboardCanvas({
         {activeTool === "select"
           ? "Seret untuk panning · Scroll untuk zoom"
           : activeTool === "pen"
-            ? "Gambar · Auto-shape detection aktif"
-            : "Klik & seret untuk menggambar · Scroll untuk zoom"}
+            ? "Gambar · Auto-shape aktif (garis/kotak/lingkaran/segitiga)"
+            : "Klik & seret · Scroll untuk zoom"}
       </div>
     </div>
   );

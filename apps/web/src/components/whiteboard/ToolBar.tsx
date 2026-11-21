@@ -25,6 +25,7 @@ const TOOLS: ToolDef[] = [
   { type: "arrow",       label: "Panah",      icon: "→",   group: "shapes" },
   { type: "rect",        label: "Kotak",      icon: "▭",   group: "shapes" },
   { type: "circle",      label: "Lingkaran",  icon: "◯",   group: "shapes" },
+  { type: "triangle",    label: "Segitiga",   icon: "△",   group: "shapes" },
   { type: "text",        label: "Teks",       icon: "T",   group: "other" },
 ];
 

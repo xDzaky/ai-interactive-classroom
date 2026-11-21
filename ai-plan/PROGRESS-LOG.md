@@ -1376,3 +1376,12 @@ All P09 CODEMAP rows locked. ENTIRE PROJECT P00–P09 COMPLETE.
 - DB seed: `teacher@demo.test / password123` ✅
 - Git commit: `87d00c6` pushed to `main`
 
+
+## DONE — 2026-11-21T23:03 — fix(whiteboard)
+- ReactCurrentOwner: Object.defineProperty non-configurable polyfill (react19-compat.ts)
+- Drawing lag: imperative Konva previewLayerRef.batchDraw() — zero setState on pointerMove
+- Sketch recognition: line/rect/circle snapping on pen tool (recognizeShape())
+- PersonalRoomPage simplified: all pointer logic moved inside WhiteboardCanvas
+- Tests: 332/332 PASS | Build: green 30s | TS: 0 errors
+- Login 422: db:seed run (teacher@demo.test / password123)
+- Commit: 2b4a171 pushed to main

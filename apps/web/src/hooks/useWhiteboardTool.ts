@@ -22,7 +22,8 @@ export type ToolType =
   | "arrow"
   | "text"
   | "rect"
-  | "circle";
+  | "circle"
+  | "triangle";
 
 export interface ToolState {
   activeTool: ToolType;
