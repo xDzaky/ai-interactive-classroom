@@ -595,3 +595,12 @@ Changed files:
 Verify evidence:
   - `php artisan test` → 128/128 PASS
 Next: P05-T05 (Web: Mobile Controller app)
+
+### START   2026-11-21 16:52 | Claude Antigravity | tier HIGH | P05-T05
+Resuming: no
+Plan:
+  1. ControllerPage (/controller?room=X&token=Y) — mobile-optimised whiteboard control surface
+  2. Shows gesture controls: prev/next page, zoom, draw (passes device.* events via POST /events)
+  3. Device token auth: reads token from URL query param
+  4. SyncEngine (read-only) to follow board state
+  5. Test: renders device controls, dispatches events

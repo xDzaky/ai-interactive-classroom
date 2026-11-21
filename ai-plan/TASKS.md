@@ -69,7 +69,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P05-T02 | HIGH | deps: T01,P04-T05 | Presenter workflow API + server enforcement
 - [x] P05-T03 | MID  | deps: T02,P04-T07 | Web: Raise Hand, host queue, approve dialog with scope
 - [x] P05-T04 | HIGH | deps: T01,P04-T05 | Device pairing API (pair/confirm/revoke, device auth)
-- [ ] P05-T05 | MID  | deps: T04,P04-T08 | Web: Mobile Controller app (/controller)
+- [~] P05-T05 | MID  | deps: T04,P04-T08 | Web: Mobile Controller app (/controller)  <-- Claude Antigravity / HIGH / 2026-11-21 16:52
 - [ ] P05-T06 | LOW  | deps: T04,P04-T07 | Web: Connect Device modal (QR) + device list/revoke
 - [ ] P05-T07 | MID  | deps: T02,T04  | End room revokes all tokens/permissions/devices (FR-016)
 - [ ] P05-RV  | HIGH | deps: T01-T07  | Phase review
