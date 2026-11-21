@@ -5,8 +5,8 @@ import React from "react";
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock("../../components/math/SolidViewer.js", () => ({
-  SolidViewer: ({ solidType }: { solidType: string }) =>
-    React.createElement("div", { "data-testid": "solid-viewer-mock", "data-solid": solidType }),
+  SolidViewer: ({ params }: { params: { type?: string } }) =>
+    React.createElement("div", { "data-testid": "solid-viewer-mock", "data-solid": params?.type ?? "" }),
 }));
 
 vi.mock("../../components/math/GraphViewer.js", () => ({

@@ -50,7 +50,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P03-T04 | HIGH | deps: P00-T06  | math-core: safe expression evaluator (AST whitelist) + MathLive adapter
 - [x] P03-T05 | MID  | deps: T04,P00-T04 | Web: GraphViewer (Mafs) + expression list
 - [x] P03-T06 | HIGH | deps: T03,T05,P02-T07 | Integrate viz.solid / viz.graph objects into whiteboard (DOM overlay layer)
-- [ ] P03-RV  | HIGH | deps: T01-T06  | Phase review
+- [x] P03-RV  | HIGH | deps: T01-T06  | Phase review
 
 ## P04 — Classroom room (rooms, join, realtime, views) · `tasks/P04-room.md`
 - [ ] P04-T01 | MID  | deps: P01-T01  | Migrations: rooms, participants, whiteboards, events, snapshots, audit_logs
