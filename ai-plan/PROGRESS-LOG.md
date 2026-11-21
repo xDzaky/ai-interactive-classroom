@@ -1093,3 +1093,15 @@ Plan:
   1. Create StudentAiTutor.tsx — hint-first tutor with question/answer flow
   2. 4+ component tests
   3. Run vitest ≥ 313 tests
+
+
+### BLOCKED   2026-11-21 19:57 | Codex | tier HIGH | P08-T07
+Reason: `ai-plan/tasks/P08-ai-rag.md`, referenced by `TASKS.md`, is absent from
+the working tree and from `HEAD`; `ai-plan/tasks/` contains only P00-bootstrap.md.
+The missing task specification means its Allowed paths, required Read files, exact
+steps, and Verify commands cannot be determined. Two untracked files left by the
+previous agent are intentionally not modified or claimed as complete:
+  apps/web/src/pages/room/StudentAiTutor.tsx
+  apps/web/src/pages/room/StudentAiTutor.test.tsx
+Action needed: restore or create the P08 task file with the standard task contract,
+then re-open P08-T07 after confirming its dependency P08-T04 is unblocked.

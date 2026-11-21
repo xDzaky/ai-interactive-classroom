@@ -98,7 +98,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P08-T04 | HIGH | deps: T03      | Scoped retrieval + cited answers
 - [x] P08-T05 | HIGH | deps: T01,P04-T03 | Laravel AI job layer (202 + job_id, usage log, rate limit)
 - [x] P08-T06 | MID  | deps: T05      | Teacher AI UI: outline/quiz generator with edit+approve
-- [~] P08-T07 | MID  | deps: T04,T05  | Student AI tutor UI (hint-first)  — Claude Antigravity HIGH 2026-11-21T19:44
+- [!] P08-T07 | MID  | deps: T04,T05  | Student AI tutor UI (hint-first)  — BLOCKED: task spec missing 2026-11-21T19:57 WIB
 - [ ] P08-T08 | HIGH | deps: P02-T06,P03-T06 | OPTIONAL: rule-based sketch recognition + clarification UI
 - [ ] P08-RV  | HIGH | deps: T01-T07  | Phase review
 
