@@ -322,3 +322,7 @@ Verify evidence:
   - `php artisan migrate --env=testing` → 6 new migrations DONE
   - `php artisan test` → 46/46 PASS
 Next: P04-T02 (Room domain API)
+
+### START   2026-11-21 15:07 | Claude Antigravity | tier HIGH | P04-T02
+Resuming: no
+Plan: Room model, RoomPolicy, RoomController (create/show/patch/end/regenerate-code), expiry Artisan command

@@ -54,7 +54,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 
 ## P04 — Classroom room (rooms, join, realtime, views) · `tasks/P04-room.md`
 - [x] P04-T01 | MID  | deps: P01-T01  | Migrations: rooms, participants, whiteboards, events, snapshots, audit_logs
-- [ ] P04-T02 | HIGH | deps: T01,P01-T02 | Room domain: create, lifecycle, lock, regenerate code, expiry command
+- [~] P04-T02 | HIGH | deps: T01,P01-T02 | Room domain: create, lifecycle, lock, regenerate code, expiry command  <-- Claude Antigravity / HIGH / 2026-11-21 15:05
 - [ ] P04-T03 | HIGH | deps: T02      | Join flow (guest + account), participant tokens, rate limits
 - [ ] P04-T04 | HIGH | deps: T03,P00-T03 | Reverb install + channel authorization with participant guard
 - [ ] P04-T05 | HIGH | deps: T04      | Event ingestion API (seq, idempotency, permission allowlist, broadcast) + sync endpoints
