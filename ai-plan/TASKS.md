@@ -45,8 +45,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 
 ## P03 — Math visualization · `tasks/P03-math-viz.md`
 - [x] P03-T01 | MID  | deps: P00-T06  | geometry-core: solid formulas + shared fixtures + tests
-- [~] P03-T02 | MID  | deps: T01,P00-T04 | Web: Three geometry builders per solid (+ bounding-box tests)  <-- Claude Antigravity / HIGH / 2026-11-21 14:32
-- [ ] P03-T03 | MID  | deps: T02      | Web: SolidViewer (R3F), parameter panel, labels, clip plane, low-quality mode, WebGL fallback
+- [x] P03-T02 | MID  | deps: T01,P00-T04 | Web: Three geometry builders per solid (+ bounding-box tests)
+- [~] P03-T03 | MID  | deps: T02      | Web: SolidViewer (R3F), parameter panel, labels, clip plane, low-quality mode, WebGL fallback  <-- Claude Antigravity / HIGH / 2026-11-21 14:35
 - [ ] P03-T04 | HIGH | deps: P00-T06  | math-core: safe expression evaluator (AST whitelist) + MathLive adapter
 - [ ] P03-T05 | MID  | deps: T04,P00-T04 | Web: GraphViewer (Mafs) + expression list
 - [ ] P03-T06 | HIGH | deps: T03,T05,P02-T07 | Integrate viz.solid / viz.graph objects into whiteboard (DOM overlay layer)

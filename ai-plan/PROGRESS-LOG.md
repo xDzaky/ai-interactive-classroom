@@ -225,3 +225,16 @@ Next: P03-T02 (Three.js geometry builders)
 ### START   2026-11-21 14:32 | Claude Antigravity | tier HIGH | P03-T02
 Resuming: no
 Plan: Web Three.js geometry builders — one function per solid, bounding box computation
+
+### DONE   2026-11-21 14:34 | P03-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/threeGeometry.ts — 8 Three.js BufferGeometry builders + bounding box utility
+  apps/web/src/lib/threeGeometry.test.ts — 24 vitest tests
+  apps/web/package.json — added @ai-classroom/geometry-core workspace:*
+Verify evidence:
+  - `pnpm run test:run` → 105/105 PASS (9 test files)
+
+### START   2026-11-21 14:35 | Claude Antigravity | tier HIGH | P03-T03
+Resuming: no
+Plan: SolidViewer component (R3F), parameter panel, labels, low-quality mode
