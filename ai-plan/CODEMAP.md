@@ -161,3 +161,7 @@ Rules:
 | apps/api/tests/Feature/ParticipantListTest.php | 7 feature tests for participant list endpoints | — | P04-T09 | LOCKED |
 | apps/web/src/components/room/ParticipantList.tsx | Real-time participant list sidebar (REST poll + useEchoPresence presence channel) | ParticipantList, ParticipantListProps, ParticipantInfo | P04-T09 | LOCKED |
 | apps/web/src/components/room/ParticipantList.test.tsx | 4 tests for ParticipantList component | — | P04-T09 | LOCKED |
+| apps/api/database/migrations/2026_11_21_300001_create_presenter_requests_table.php | presenter_requests migration (uuid pk, room_id, participant_id, status, scope, expires_at) | — | P05-T01 | OK |
+| apps/api/database/migrations/2026_11_21_300002_create_room_permissions_table.php | room_permissions migration (uuid pk, room_id, participant_id, permission, granted_by, granted_at, revoked_at) | — | P05-T01 | OK |
+| apps/api/database/migrations/2026_11_21_300003_create_room_devices_table.php | room_devices migration (uuid pk, room_id, device_id, device_name, token_hash, paired_at, revoked_at) | — | P05-T01 | OK |
+| apps/api/tests/Feature/MigrationP05Test.php | 6 schema-shape tests for all 3 P05 tables | — | P05-T01 | OK |

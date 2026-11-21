@@ -65,7 +65,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P04-RV  | HIGH | deps: T01-T09  | Phase review
 
 ## P05 — Presenter approval + mobile controller · `tasks/P05-presenter-controller.md`
-- [~] P05-T01 | LOW  | deps: P04-T01  | Migrations: presenter_requests, room_permissions, room_devices  <-- Claude Antigravity / HIGH / 2026-11-21 16:27
+- [x] P05-T01 | LOW  | deps: P04-T01  | Migrations: presenter_requests, room_permissions, room_devices
 - [ ] P05-T02 | HIGH | deps: T01,P04-T05 | Presenter workflow API + server enforcement
 - [ ] P05-T03 | MID  | deps: T02,P04-T07 | Web: Raise Hand, host queue, approve dialog with scope
 - [ ] P05-T04 | HIGH | deps: T01,P04-T05 | Device pairing API (pair/confirm/revoke, device auth)

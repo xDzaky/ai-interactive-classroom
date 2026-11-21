@@ -513,3 +513,14 @@ Next: P05-T01 (Migrations: presenter_requests, room_permissions, room_devices)
 ### START   2026-11-21 16:27 | Claude Antigravity | tier HIGH | P05-T01
 Resuming: no
 Plan: Create 3 migrations — presenter_requests, room_permissions, room_devices — matching CONTRACTS.md schema exactly. Add schema shape tests. Run php artisan test.
+
+### DONE   2026-11-21 16:29 | P05-T01 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/database/migrations/2026_11_21_300001_create_presenter_requests_table.php
+  apps/api/database/migrations/2026_11_21_300002_create_room_permissions_table.php
+  apps/api/database/migrations/2026_11_21_300003_create_room_devices_table.php
+  apps/api/tests/Feature/MigrationP05Test.php — 6 schema tests
+Verify evidence:
+  - `php artisan test` → 113/113 PASS (6 new + 107 existing)
+Next: P05-T02 (Presenter workflow API + server enforcement)
