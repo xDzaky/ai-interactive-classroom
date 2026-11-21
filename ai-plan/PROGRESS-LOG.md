@@ -1385,3 +1385,13 @@ All P09 CODEMAP rows locked. ENTIRE PROJECT P00–P09 COMPLETE.
 - Tests: 332/332 PASS | Build: green 30s | TS: 0 errors
 - Login 422: db:seed run (teacher@demo.test / password123)
 - Commit: 2b4a171 pushed to main
+
+## DONE — feat(whiteboard): triangle tool + infinite loop fix
+Commit: 5ad5b1c
+Date: %Y-%m-%dT%H:%M:%SZ
+- Triangle: drag-to-draw, live dashed preview, commit on pointer-up
+- Sketch recognition: auto-converts freehand triangle pen strokes
+- Eliminated infinite render loop (ref-based tool/color/strokeWidth sync)
+- PersonalRoomPage: stable handleEvent via boardStateRef (no stale closure)
+- ToolBar: triangle entry (△ Segitiga)
+- 332/332 tests pass, tsc --noEmit clean, pushed to main
