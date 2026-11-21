@@ -855,3 +855,12 @@ Verify evidence:
   - `pnpm run test:run` → 256/256 PASS (38 test files)
 Next: P07-T02 (Replay engine — nearest snapshot + events, seek/step/speed — HIGH tier)
 
+
+
+### START   2026-11-21 18:26 | Claude Antigravity | tier HIGH | P07-T02
+Resuming: no
+Plan:
+  1. Create apps/web/src/lib/replayEngine.ts — pure TS, no React deps
+  2. API: createReplayEngine(roomId) -> { seek, step, setSpeed }
+  3. Internally: fetchNearestSnapshot -> fetch events after seq_at -> apply via applyEvent
+  4. 5+ unit tests in replayEngine.test.ts
