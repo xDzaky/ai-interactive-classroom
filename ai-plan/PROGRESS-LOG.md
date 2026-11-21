@@ -1011,3 +1011,24 @@ Plan:
   4. Write Python contract tests (test_p08_t02.py) — each fixture case verified by Python solver
   5. Write TS contract tests (geometry.contract.test.ts) — same fixture cases via @ai-classroom/geometry-core
   6. Run pytest ≥ 17 tests; vitest still ≥ 288
+
+
+### DONE   2026-11-21 19:32 | P08-T02 | status [x]
+Agent: Claude Antigravity | tier HIGH
+Changed files:
+  apps/ai-service/tests/fixtures/geometry_cases.json — shared fixture: 8 cases (cube/cuboid/sphere/cylinder/cone/pyramid/prism/torus)
+  apps/ai-service/app/routers/geometry.py — POST /ai/geometry/solve (8 solid types, mirrored from geometry-core)
+  apps/ai-service/main.py — mounted geometry router
+  apps/ai-service/tests/test_p08_t02.py — 14 pytest tests (8 fixture cases + 6 edge cases)
+  apps/web/src/lib/geometry.contract.test.ts — 17 vitest tests (8 contract cases + 8 self-consistency + 1 coverage)
+Verify evidence:
+  - `.venv/bin/python -m pytest tests/ -v` → 26/26 PASS (12 P08-T01 + 14 P08-T02)
+  - `pnpm run test:run` → 305/305 PASS (44 test files)
+Next: P08-T03 (document ingestion + embeddings — blocked on ADR-020)
+
+
+### START   2026-11-21 19:32 | Claude Antigravity | tier HIGH | P08-T03
+Resuming: no
+Plan:
+  ADR-020 check: if embedding model not decided → mark [!] and STOP.
+  If decided: proceed with pgvector migrations + document ingestion + embeddings endpoint.

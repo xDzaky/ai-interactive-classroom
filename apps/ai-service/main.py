@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from app.routers import geometry as geometry_router
 from app.routers import jobs as jobs_router
 
 app = FastAPI(
@@ -14,6 +15,7 @@ app = FastAPI(
 )
 
 app.include_router(jobs_router.router)
+app.include_router(geometry_router.router)
 
 
 # ---------------------------------------------------------------------------

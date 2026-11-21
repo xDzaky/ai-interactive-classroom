@@ -1,0 +1,50 @@
+[
+  {
+    "id": "cube-s3",
+    "params": { "type": "cube", "s": 3 },
+    "expected": { "volume": 27.0, "surface_area": 54.0 },
+    "tolerance": 1e-4
+  },
+  {
+    "id": "cuboid-4x3x2",
+    "params": { "type": "cuboid", "l": 4, "w": 3, "h": 2 },
+    "expected": { "volume": 24.0, "surface_area": 52.0 },
+    "tolerance": 1e-4
+  },
+  {
+    "id": "sphere-r5",
+    "params": { "type": "sphere", "r": 5 },
+    "expected": { "volume": 523.598775598, "surface_area": 314.159265359 },
+    "tolerance": 1e-3
+  },
+  {
+    "id": "cylinder-r3h7",
+    "params": { "type": "cylinder", "r": 3, "h": 7 },
+    "expected": { "volume": 197.920337176, "surface_area": 188.495559215 },
+    "tolerance": 1e-3
+  },
+  {
+    "id": "cone-r4h3",
+    "params": { "type": "cone", "r": 4, "h": 3 },
+    "expected": { "volume": 50.265482457, "surface_area": 113.097335529 },
+    "tolerance": 1e-3
+  },
+  {
+    "id": "pyramid-b6h4",
+    "params": { "type": "pyramid", "b": 6, "h": 4 },
+    "expected": { "volume": 48.0, "surface_area": 96.0 },
+    "tolerance": 1e-3
+  },
+  {
+    "id": "prism-3-4-5-h10",
+    "params": { "type": "prism", "a": 3, "b": 4, "c": 5, "h": 10 },
+    "expected": { "volume": 60.0, "surface_area": 132.0 },
+    "tolerance": 1e-3
+  },
+  {
+    "id": "torus-R5r2",
+    "params": { "type": "torus", "R": 5, "r": 2 },
+    "expected": { "volume": 394.784176044, "surface_area": 394.784176044 },
+    "tolerance": 1e-3
+  }
+]
