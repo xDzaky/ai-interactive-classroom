@@ -76,7 +76,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 
 ## P06 — Activities: poll, quiz, group · `tasks/P06-activities.md`
 - [x] P06-T01 | MID  | deps: P04-T01  | Migrations: lesson_sessions, activities, questions, answers, room_groups, group_members, group_submissions
-- [~] P06-T02 | MID  | deps: T01,P04-T03 | Poll/quiz API (answer key hidden from students)  <-- Claude Antigravity / HIGH / 2026-11-21 17:23
+- [x] P06-T02 | MID  | deps: T01,P04-T03 | Poll/quiz API (answer key hidden from students)
 - [ ] P06-T03 | MID  | deps: T02,P04-T07 | Web: host builder, student responder, results dashboard
 - [ ] P06-T04 | HIGH | deps: T01,P04-T08 | Group workspace (own channel + board) + leader submission
 - [ ] P06-T05 | LOW  | deps: P04-T07  | Timer, random picker, group generator

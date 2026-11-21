@@ -111,4 +111,24 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Device confirm — open route (device presents its own token in body/header)
     Route::post('/rooms/{room}/devices/{device}/confirm', [\App\Http\Controllers\Api\V1\DeviceController::class, 'confirm'])
         ->name('rooms.devices.confirm');
+
+    // Activities (P06-T02) — host routes require Sanctum; answer requires participant token
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/rooms/{room}/activities', [\App\Http\Controllers\Api\V1\ActivityController::class, 'index'])
+            ->name('rooms.activities.index');
+        Route::post('/rooms/{room}/activities', [\App\Http\Controllers\Api\V1\ActivityController::class, 'store'])
+            ->name('rooms.activities.store');
+        Route::get('/rooms/{room}/activities/{activity}', [\App\Http\Controllers\Api\V1\ActivityController::class, 'show'])
+            ->name('rooms.activities.show');
+        Route::patch('/rooms/{room}/activities/{activity}', [\App\Http\Controllers\Api\V1\ActivityController::class, 'update'])
+            ->name('rooms.activities.update');
+        Route::get('/rooms/{room}/activities/{activity}/results', [\App\Http\Controllers\Api\V1\ActivityController::class, 'results'])
+            ->name('rooms.activities.results');
+    });
+
+    // Activity answer — participant token auth
+    Route::middleware(\App\Http\Middleware\ParticipantTokenGuard::class)->group(function () {
+        Route::post('/rooms/{room}/activities/{activity}/answers', [\App\Http\Controllers\Api\V1\ActivityController::class, 'answer'])
+            ->name('rooms.activities.answers.store');
+    });
 });

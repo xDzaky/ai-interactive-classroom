@@ -695,3 +695,25 @@ Verify evidence:
   - `php artisan test` → 147/147 PASS
 Next: P06-T02 (Poll/quiz API — answer key hidden from students)
 
+
+### START   2026-11-21 17:23 | Claude Antigravity | tier HIGH | P06-T02
+Resuming: no
+Plan:
+  1. Models: Activity, ActivityQuestion, ActivityAnswer, LessonSession
+  2. ActivityController — CRUD + start/stop + answer submission + results (answer_key stripped for students)
+  3. Routes: GET/POST /rooms/{room}/activities, GET/PATCH /activities/{activity}, POST answers, GET results
+  4. Tests: 10+ feature tests (create, start, stop, submit, results, answer key hidden)
+
+
+### DONE   2026-11-21 17:26 | P06-T02 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Models/LessonSession.php, Activity.php, ActivityQuestion.php, ActivityAnswer.php — new models
+  apps/api/app/Http/Controllers/Api/V1/ActivityController.php — CRUD + answer + results
+  apps/api/routes/api.php — activity routes added
+  apps/api/tests/Feature/ActivityApiTest.php — 10 tests
+Verify evidence:
+  - `php artisan test --filter=ActivityApiTest` → 10/10 PASS
+  - `php artisan test` → 157/157 PASS
+Next: P06-T03 (Web: host builder, student responder, results dashboard)
+

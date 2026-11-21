@@ -202,3 +202,10 @@ Rules:
 | apps/api/database/migrations/2026_11_21_400006_create_group_members_table.php | group_members migration (uuid pk, group_id, participant_id, is_leader) | — | P06-T01 | LOCKED |
 | apps/api/database/migrations/2026_11_21_400007_create_group_submissions_table.php | group_submissions migration (uuid pk, group_id, activity_id, content json, submitted_by, submitted_at) | — | P06-T01 | LOCKED |
 | apps/api/tests/Feature/MigrationP06Test.php | 14 schema-shape tests for all 7 P06 tables | — | P06-T01 | LOCKED |
+| apps/api/app/Models/LessonSession.php | LessonSession Eloquent model | LessonSession | P06-T02 | LOCKED |
+| apps/api/app/Models/Activity.php | Activity Eloquent model (poll/quiz/group_task) | Activity | P06-T02 | LOCKED |
+| apps/api/app/Models/ActivityQuestion.php | ActivityQuestion model (body, options, answer_key) | ActivityQuestion | P06-T02 | LOCKED |
+| apps/api/app/Models/ActivityAnswer.php | ActivityAnswer model (participant response) | ActivityAnswer | P06-T02 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/ActivityController.php | Activity CRUD + start/stop + answer submit + results (answer_key guarded) | index, store, show, update, answer, results | P06-T02 | LOCKED |
+| apps/api/routes/api.php | Added activity routes (GET/POST/PATCH activities, POST answers, GET results) | — | P06-T02 | LOCKED |
+| apps/api/tests/Feature/ActivityApiTest.php | 10 feature tests for activity API | — | P06-T02 | LOCKED |
