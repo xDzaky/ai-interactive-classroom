@@ -144,3 +144,4 @@ Rules:
 | apps/api/database/factories/SchoolFactory.php | School model factory | SchoolFactory | P04-T02 | OK |
 | apps/api/database/factories/ClassroomFactory.php | Classroom model factory | ClassroomFactory | P04-T02 | OK |
 | apps/api/tests/Feature/RoomApiTest.php | 15 feature tests for Room domain API | — | P04-T02 | OK |
+| apps/api/tests/Feature/RoomJoinTest.php | 14 feature tests for join flow (guest, auth, tokens, errors) | — | P04-T03 | OK |

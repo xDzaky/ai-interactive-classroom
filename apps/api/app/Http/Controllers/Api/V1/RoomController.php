@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Classroom;
+use App\Models\Participant;
 use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class RoomController extends Controller
@@ -124,11 +126,90 @@ class RoomController extends Controller
         return response()->json(['data' => ['code' => $room->code]]);
     }
 
-    // ── POST /api/v1/rooms/join (stub — full impl in P04-T03) ───────────────
+    // ── POST /api/v1/rooms/join ─────────────────────────────────────────────
 
+    /**
+     * Join a room by code.
+     * Authenticated users keep their identity; unauthenticated users are guests.
+     * Body: { code, alias? }
+     * Returns: { participant_token, participant: {...} }
+     */
     public function join(Request $request): JsonResponse
     {
-        return response()->json(['message' => 'Not implemented — see P04-T03'], 501);
+        $data = $request->validate([
+            'code'  => ['required', 'string', 'size:8'],
+            'alias' => ['sometimes', 'nullable', 'string', 'max:60'],
+        ]);
+
+        $room = Room::where('code', strtoupper($data['code']))->first();
+
+        if (!$room) {
+            return response()->json(['message' => 'Room not found.'], 404);
+        }
+
+        if (!in_array($room->status, ['lobby', 'live'], true)) {
+            return response()->json([
+                'message' => 'Room is not accepting participants right now.',
+            ], 422);
+        }
+
+        $user = $request->user('sanctum');
+
+        // Determine role and alias
+        $isHost = $user && $user->id === $room->host_id;
+        $role   = $isHost ? 'teacher_host' : ($user ? 'student' : 'guest_student');
+        $alias  = $data['alias'] ?? ($user?->name ?? 'Guest-' . Str::upper(Str::random(4)));
+
+        // If authenticated user is already in room, return existing participant
+        if ($user) {
+            $existing = Participant::where('room_id', $room->id)
+                ->where('user_id', $user->id)
+                ->whereNull('left_at')
+                ->first();
+
+            if ($existing) {
+                $token = $this->generateParticipantToken($existing->id);
+                return response()->json([
+                    'participant_token' => $token,
+                    'participant'       => $existing,
+                ]);
+            }
+        }
+
+        // Create participant
+        $participantId = Str::uuid()->toString();
+        $rawToken      = $this->generateParticipantToken($participantId);
+        $tokenHash     = hash('sha256', $rawToken);
+
+        $participant = Participant::create([
+            'id'         => $participantId,
+            'room_id'    => $room->id,
+            'user_id'    => $user?->id,
+            'alias'      => $alias,
+            'role'       => $role,
+            'token_hash' => $tokenHash,
+            'joined_at'  => now(),
+        ]);
+
+        $this->log($room->id, $user?->id, 'participant.joined', ['alias' => $alias, 'role' => $role]);
+
+        return response()->json([
+            'participant_token' => $rawToken,
+            'participant'       => $participant,
+        ], 201);
+    }
+
+    /**
+     * Generate a signed participant token.
+     * Format: base64url(participantId) . '.' . HMAC-SHA256(participantId, APP_KEY)
+     * Not a JWT — just a simple verifiable token stored hashed server-side.
+     */
+    private function generateParticipantToken(string $participantId): string
+    {
+        $appKey  = config('app.key');
+        $payload = base64_encode($participantId);
+        $sig     = hash_hmac('sha256', $participantId, $appKey);
+        return $payload . '.' . $sig;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

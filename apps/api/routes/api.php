@@ -63,9 +63,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->name('rooms.regenerate-code');
     });
 
-    // Room join (guest or account)
-    Route::post('/rooms/join', [\App\Http\Controllers\Api\V1\RoomController::class, 'join'])
-        ->name('rooms.join');
+    // Room join (guest or account) — rate-limited: 10 attempts/minute per IP
+    Route::middleware('throttle:10,1')
+         ->post('/rooms/join', [\App\Http\Controllers\Api\V1\RoomController::class, 'join'])
+         ->name('rooms.join');
 
     // AI Jobs (implemented in P08)
     Route::middleware('auth:sanctum')->group(function () {
