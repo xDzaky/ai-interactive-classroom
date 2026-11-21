@@ -447,3 +447,7 @@ Key fixes:
   - useWhiteboardTool(onEvent, seqRef) — seqRef = useRef(0) gives {current: number}
   - StudentView follow-button: removed aria-label, test uses text content
 Next: P04-T08 (Web: realtime sync engine)
+
+### START   2026-11-21 16:03 | Claude Antigravity | tier HIGH | P04-T08
+Resuming: no
+Plan: syncEngine.ts — configureEcho, subscribe to private-room.{id} channel, event ordering by seq, gap detection + fill (GET /rooms/{room}/events?after=N), dedupe by idempotency_key, optimistic apply + dispatch to applyEvent. useSyncEngine React hook. Tests with mock Echo.
