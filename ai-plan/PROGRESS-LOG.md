@@ -155,3 +155,17 @@ Next eligible task: P02-T05 (Shape builder)
 ### START   2026-11-21 14:17 | Claude Antigravity | tier HIGH | P02-T05
 Resuming: no
 Plan: Shape builder — ToolBar component, ShapePropertiesPanel, snapping, useShapeBuilder hook
+
+### DONE   2026-11-21 14:19 | P02-T05 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/components/whiteboard/ToolBar.tsx — ToolBar + ShapePropertiesPanel (accessible, i18n Indonesian labels)
+  apps/web/src/components/whiteboard/ToolBar.test.tsx — 12 tests
+  apps/web/src/lib/snapping.ts — snapToGrid, snapSize, constrainToAxis, snapToAnchors
+  apps/web/src/lib/snapping.test.ts — 12 tests
+Verify evidence:
+  - `pnpm run test:run` → 47/47 PASS (5 test files)
+
+### START   2026-11-21 14:20 | Claude Antigravity | tier HIGH | P02-T06
+Resuming: no
+Plan: Pointer Events layer — usePointerEvents hook, mouse/pen/touch, palm rejection, pinch-zoom
