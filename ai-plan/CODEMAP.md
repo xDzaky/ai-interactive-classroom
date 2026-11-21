@@ -251,3 +251,10 @@ Rules:
 | apps/web/src/pages/room/TeacherView.test.tsx | Added vi.mock for ClassroomTimer+RandomPicker+GroupGenerator (additive) | — | P06-T05 | LOCKED |
 | apps/web/src/pages/room/RoomPage.test.tsx | Added vi.mock for ClassroomTimer+RandomPicker+GroupGenerator (additive) | — | P06-T05 | LOCKED |
 | apps/web/src/i18n/locales/id.json | Added timer.*, picker.*, generator.* i18n keys | — | P06-T05 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/SnapshotController.php | Snapshot API — index + store (host) + nearest (nearest snapshot at or before seq) | index, store, nearest | P07-T01 | LOCKED |
+| apps/api/routes/api.php | Added snapshot routes (GET/POST /snapshots, GET /snapshots/nearest) | — | P07-T01 | LOCKED |
+| apps/api/tests/Feature/SnapshotApiTest.php | 6 feature tests (create, list ordered, nearest, nearest-null, non-host blocked, upsert same seq) | — | P07-T01 | LOCKED |
+| apps/web/src/lib/api/snapshots.ts | Snapshots API client (listSnapshots, createSnapshot, getNearestSnapshot) | listSnapshots, createSnapshot, getNearestSnapshot, RoomSnapshot | P07-T01 | LOCKED |
+| apps/web/src/lib/api/snapshots.test.ts | 4 tests for snapshots API client | — | P07-T01 | LOCKED |
+| apps/web/src/hooks/useSnapshot.ts | useSnapshot hook — host auto-pushes snapshot every 50 events; fetchNearestSnapshot for replay | useSnapshot, UseSnapshotOptions, UseSnapshotReturn | P07-T01 | LOCKED |
+| apps/web/src/hooks/useSnapshot.test.ts | 5 tests for useSnapshot hook | — | P07-T01 | LOCKED |

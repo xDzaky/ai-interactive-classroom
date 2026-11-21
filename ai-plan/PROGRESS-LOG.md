@@ -840,3 +840,18 @@ Plan:
   3. Tests: 5+ feature tests (create, list, non-host cannot create, closest-snapshot lookup)
   4. Web: snapshots.ts API client + useSnapshot hook (host auto-posts snapshot every N events)
 
+
+### DONE   2026-11-21 18:20 | P07-T01 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Http/Controllers/Api/V1/SnapshotController.php — index + store + nearest
+  apps/api/routes/api.php — snapshot routes added
+  apps/api/tests/Feature/SnapshotApiTest.php — 6 tests
+  apps/web/src/lib/api/snapshots.ts — API client + 4 tests
+  apps/web/src/hooks/useSnapshot.ts — hook + 5 tests
+Verify evidence:
+  - `php artisan test --filter=SnapshotApiTest` → 6/6 PASS
+  - `php artisan test` → 173/173 PASS
+  - `pnpm run test:run` → 256/256 PASS (38 test files)
+Next: P07-T02 (Replay engine — nearest snapshot + events, seek/step/speed — HIGH tier)
+

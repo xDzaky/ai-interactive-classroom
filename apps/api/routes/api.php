@@ -153,4 +153,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/rooms/{room}/groups/{group}/submissions', [\App\Http\Controllers\Api\V1\GroupController::class, 'submit'])
             ->name('rooms.groups.submissions.store');
     });
+
+    // Snapshots (P07-T01) — host creates, all auth can read
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/rooms/{room}/snapshots', [\App\Http\Controllers\Api\V1\SnapshotController::class, 'index'])
+            ->name('rooms.snapshots.index');
+        Route::post('/rooms/{room}/snapshots', [\App\Http\Controllers\Api\V1\SnapshotController::class, 'store'])
+            ->name('rooms.snapshots.store');
+        Route::get('/rooms/{room}/snapshots/nearest', [\App\Http\Controllers\Api\V1\SnapshotController::class, 'nearest'])
+            ->name('rooms.snapshots.nearest');
+    });
 });
