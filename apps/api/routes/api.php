@@ -68,6 +68,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
          ->post('/rooms/join', [\App\Http\Controllers\Api\V1\RoomController::class, 'join'])
          ->name('rooms.join');
 
+    // Room events — open to participant token OR Sanctum auth (middleware resolves both)
+    Route::middleware(\App\Http\Middleware\ParticipantTokenGuard::class)->group(function () {
+        Route::post('/rooms/{room}/events', [\App\Http\Controllers\Api\V1\RoomEventController::class, 'store'])
+            ->name('rooms.events.store');
+        Route::get('/rooms/{room}/events', [\App\Http\Controllers\Api\V1\RoomEventController::class, 'index'])
+            ->name('rooms.events.index');
+    });
+
     // AI Jobs (implemented in P08)
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/ai/jobs', [\App\Http\Controllers\Api\V1\AiJobController::class, 'store'])

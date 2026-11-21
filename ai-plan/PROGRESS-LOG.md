@@ -364,3 +364,33 @@ Next: P04-T04 (Reverb install + channel auth)
 ### START   2026-11-21 15:14 | Claude Antigravity | tier HIGH | P04-T04
 Resuming: no
 Plan: Check if Reverb is installed (should be in STACK.md); create broadcasting/channels.php channel auth for room.{roomId}, room.{roomId}.host, presence-room.{roomId}; add ParticipantGuard middleware for participant_token; tests
+
+### DONE   2026-11-21 15:33 | P04-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/app/Auth/ParticipantGuard.php — custom auth guard resolving participant from raw token
+  apps/api/app/Auth/ParticipantAuthAdapter.php — Authenticatable adapter wrapping Participant model
+  apps/api/app/Http/Middleware/ParticipantTokenGuard.php — middleware for Authorization: Participant header
+  apps/api/config/broadcasting.php — broadcasting config (reverb driver)
+  apps/api/config/reverb.php — Reverb server config
+  apps/api/routes/channels.php — channel auth (room.{roomId}, room.{roomId}.host)
+  apps/api/bootstrap/app.php — added channels: route registration
+  apps/api/app/Providers/AppServiceProvider.php — registered participant guard via Auth::extend
+  apps/api/config/auth.php — added 'participant' guard entry
+  apps/api/database/factories/RoomFactory.php — Room factory (lobby/live/ended states)
+  apps/api/database/factories/ParticipantFactory.php — Participant factory
+  apps/api/app/Models/Room.php — added HasFactory
+  apps/api/app/Models/Participant.php — added HasFactory
+  apps/api/phpunit.xml — BROADCAST_CONNECTION=reverb with fake credentials for tests
+  apps/api/tests/Feature/ChannelAuthTest.php — 14 channel auth tests
+Verify evidence:
+  - `php artisan test` → 89/89 PASS
+Key learnings:
+  - K025: LogBroadcaster/NullBroadcaster auth() returns null (200) — must use reverb driver in tests
+  - K026: Pusher normalises 'private-X' and 'presence-X' to 'X'; both map to same channel pattern
+  - K027: Presence auth: return array from channel callback (not bool) for both private + presence
+Next: P04-T05 (Event ingestion API)
+
+### START   2026-11-21 15:33 | Claude Antigravity | tier HIGH | P04-T05
+Resuming: no
+Plan: POST /rooms/{room}/events (seq, idempotency_key, event_type allowlist, actor perm, broadcast), GET /rooms/{room}/events?after={seq}; tests for idempotency + permission
