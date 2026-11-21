@@ -186,10 +186,10 @@ Goal: If Laravel Boost is available as a dev tool, install it in apps/api to gen
 Allowed paths: apps/api/
 
 Steps:
-- [ ] 1. Check if Laravel Boost package exists: composer search laravel/boost
-- [ ] 2. If exists and MIT/compatible license: composer require laravel/boost --dev
+- [x] 1. Check if Laravel Boost package exists: composer search laravel/boost
+- [x] 2. If exists and MIT/compatible license: composer require laravel/boost --dev
 - [ ] 3. If not exists: skip (mark [-])
-- [ ] 4. Commit or mark [-]
+- [x] 4. Commit or mark [-]
 
 ---
 

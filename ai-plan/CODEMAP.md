@@ -293,3 +293,7 @@ Rules:
 | apps/web/src/hooks/useAiJob.ts | Hook: submit AI job + poll until done/failed | useAiJob, AiJobStatus, AiJobResult | P08-T06 | OK |
 | apps/web/src/pages/room/TeacherAiPanel.tsx | Teacher AI panel: outline/quiz generate, edit, approve | default TeacherAiPanel | P08-T06 | OK |
 | apps/web/src/pages/room/TeacherAiPanel.test.tsx | 8 component tests for TeacherAiPanel | — | P08-T06 | OK |
+| apps/api/composer.json | Added Laravel Boost development dependency | — | P00-T08 | OK |
+| apps/api/boost.json | Laravel Boost generated-guidelines configuration | — | P00-T08 | OK |
+| apps/api/AGENTS.md | Laravel Boost supplementary agent guidance | — | P00-T08 | OK |
+| apps/api/CLAUDE.md | Laravel Boost supplementary agent guidance | — | P00-T08 | OK |

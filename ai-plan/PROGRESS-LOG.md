@@ -1125,3 +1125,15 @@ Action needed: human approval of ADR-021 and corresponding STACK.md version cons
 ### RESUMED   2026-11-21 20:03 | Codex | tier HIGH | P00-T08
 Human approved ADR-020 and ADR-021. Assumption recorded: use OpenAI
 `text-embedding-3-small` (1536 dimensions) for ADR-020.
+
+
+### DONE   2026-11-21 20:06 | P00-T08 | status [x]
+Agent: Codex | tier HIGH
+Changed files:
+  apps/api/composer.json — added laravel/boost ^2.10 as dev dependency
+  apps/api/boost.json — enabled generated guidelines
+  apps/api/AGENTS.md, apps/api/CLAUDE.md — refreshed Laravel Boost guidance
+Verify evidence:
+  - `composer show laravel/boost --locked --name-only` → laravel/boost v2.10.4, MIT
+  - `php artisan test --compact` → 182/182 PASS, 383 assertions
+Next: no task spec is available for the next eligible work; restore/create missing task files.
