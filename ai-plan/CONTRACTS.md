@@ -193,3 +193,43 @@ Exported names (do not rename):
 - `PresenterRequest`, `RoomDevice`
 - `ApiError`, `PaginatedResponse<T>`
 - Zod schemas suffixed with `Schema`: `UserSchema`, `RoomSchema`, etc.
+
+---
+
+## Addendum P10–P12 (Contracts)
+
+### A1. New optional fields on the existing `viz_solid` BoardObject
+```ts
+interface VizSolidExt {
+  display?: {
+    labels: boolean;                 // show A,B,C… (default true)
+    hiddenEdges: boolean;            // dashed hidden edges (default true)
+    faces: boolean;                  // translucent faces (default true)
+    faceOpacity: number;             // 0..1 (default 0.08)
+    projection: 'perspective' | 'orthographic';
+  };
+  section?:
+    | { mode: 'vertices'; vertexIds: [string, string, string] }   // labels such as 'A','C','G'
+    | { mode: 'parallel'; axis: 'x' | 'y' | 'z'; offset: number }
+    | null;
+  cutAway?: boolean;                 // hide one side of the section plane
+  unfoldT?: number;                  // 0 = solid … 1 = flat net
+  measures?: Array<{ id: string; kind: 'distance' | 'angle'; vertexIds: string[] }>;
+}
+```
+Defaults apply when a field is missing, so old snapshots/replays keep working. Changes travel through the EXISTING viz patch event. Never emit per-frame events for camera moves.
+
+### A2. Sketch/shape recognizer (package `@ai-classroom/sketch-core`)
+- `recognizeShape(points, opts) → { decision: 'snap'|'suggest'|'keep', best, candidates, reason }`.
+- Decision thresholds: snap ≥ 0.80 with margin ≥ 0.10; suggest ≥ 0.55; otherwise keep ink.
+- Shape objects created from a snap use the current pen color/width and emit the SAME board events the manual shape tools emit.
+
+### A3. Geometry conventions
+- Math coordinates Z-up; Three.js conversion `(x,y,z) → (x, z, −y)` in `apps/web/src/lib/coords.ts` only.
+- 1 grid cell = 20 world units = 1 cm. Angles in degrees at the UI boundary, radians internally.
+- Indonesian vertex labels: cube/cuboid `ABCD.EFGH`, pyramid `T.ABCD`, triangular prism `ABC.DEF`; section points P,Q,R,S,T,U.
+
+### A4. Shared test vectors (geometry-core ⇄ ai-service contract tests)
+Unit cube `[0,1]³`: plane z=0.5 → 4 pts, area 1 · plane through (1,0,0),(0,1,0),(0,0,1) → 3 pts, area √3/2 · plane x+y+z=1.5 → 6 pts, area 3√3/4 · plane x=y → 4 pts, area √2 · dihedral(x+y+z=1, z=0) = 54.7356103° · angle(AC,AG) = 35.2643897° · dist(G, plane x+y+z=1) = 2/√3.
+Surface areas / volumes: cube 5 → 150 / 125 · cuboid 3×4×5 → 94 / 60 · prism a3 b4 H10 → 132 / 60 · pyramid base 6 h 4 → 96 / 48 · cylinder r7 h10 → 238π / 490π · cone r3 h4 → 24π / 12π · sphere r3 → 36π / 36π.
+Store them as `packages/geometry-core/fixtures/solids-p11.json` so Python and TypeScript tests read the same file.

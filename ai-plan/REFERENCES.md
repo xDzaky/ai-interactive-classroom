@@ -52,3 +52,35 @@ Use ONLY these URLs. Do not web-search or crawl. Open ONE page at a time.
 ## Original product docs (do not read unless task cites line range)
 - Tech Spec: docs/AI-Interactive-Classroom-Tech-Spec.md
 - Proposal: docs/Proposal-AI-Interactive-Classroom.md
+
+---
+
+## Addendum P10–P12 (References)
+
+**Performance (Konva / React)**
+- Konva all performance tips: https://konvajs.org/docs/performance/All_Performance_Tips.html
+- Konva canvas performance guide: https://konvajs.org/docs/posts/canvas-performance.html
+- Konva listening(false): https://konvajs.org/docs/performance/Listening_False.html
+- react-konva free drawing (pattern): https://konvajs.org/docs/react/Free_Drawing.html
+- react-konva release notes (React version coupling): https://raw.githubusercontent.com/konvajs/react-konva/HEAD/RELEASE_NOTES.md
+- Konva FAQ (thousands of shapes, layers, caching): https://konvajs.org/docs/faq.html
+
+**Shape recognition**
+- $1 unistroke recognizer (algorithm + paper): https://depts.washington.edu/acelab/proj/dollar/index.html
+- OneDollar.js (npm, reference only): https://www.npmjs.com/package/OneDollar.js
+- Shape-Detector whiteboard example (reference only): https://www.github.com/SDC-SVIT/Shape-Detector
+- Whiteboard shape-correction thesis (chapter 3): https://ii.uni.wroc.pl/media/uploads/2023/11/16/skalski-switaa-uwr-28-inz-68629-225406-224964.pdf
+- Douglas–Peucker reference (simplify.js, BSD): https://github.com/mourner/simplify-js/blob/master/simplify.js · demo https://mourner.github.io/simplify-js
+
+**3D / geometry**
+- Three.js docs: https://threejs.org/docs/ (EdgesGeometry, Plane, Raycaster, material `depthFunc`, `clippingPlanes`)
+- Three.js clipping example: https://threejs.org/examples/#webgl_clipping
+- React Three Fiber: https://r3f.docs.pmnd.rs
+- drei (Html, OrbitControls, Edges, Line): https://drei.docs.pmnd.rs
+- Mafs (2D graphs, already used): https://mafs.dev
+- MathLive docs (getValue formats): https://cortexjs.io/mathlive/
+
+**Product/UX references**
+- OpenMAIC: https://github.com/ade-karya/OpenMAIC
+- iFLYTEK "Tongchuang AI Blackboard"
+- SolidGeo: https://github.com/HarryYancy/SolidGeo
