@@ -462,3 +462,7 @@ Verify evidence:
   - `pnpm run build` → ✓ built in 11.22s
 Key fix: WhiteboardEvent only has {event_type, payload, idempotency_key?} — stripped extra fields before passing to applyEvent
 Next: P04-T09 (Host participant list)
+
+### START   2026-11-21 16:09 | Claude Antigravity | tier HIGH | P04-T09
+Resuming: no
+Plan: 1) GET /rooms/{room}/participants endpoint in RoomController, 2) ParticipantList.tsx component (uses useEchoPresence + REST fallback), 3) Wire ParticipantList into TeacherView sidebar, 4) Tests.
