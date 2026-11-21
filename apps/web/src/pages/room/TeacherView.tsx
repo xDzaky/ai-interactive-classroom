@@ -18,6 +18,7 @@ import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { endRoom } from "@/lib/api/rooms";
 import { ParticipantList } from "@/components/room/ParticipantList";
 import { PresenterQueue } from "@/components/room/PresenterQueue";
+import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -103,6 +104,9 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
     onSuccess: () => navigate("/dashboard"),
   });
 
+  // ── Connect Device modal ─────────────────────────────────────────────────
+  const [deviceModalOpen, setDeviceModalOpen] = useState(false);
+
   // ── Participant count shown in header (ParticipantList sidebar has full list) ─
   const [participantCount] = useState(1);
 
@@ -126,6 +130,13 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           <span className="text-xs text-slate-400">
             {t("room.participants", { count: participantCount })}
           </span>
+          <button
+            onClick={() => setDeviceModalOpen(true)}
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+            aria-label={t("device.connectDevice")}
+          >
+            {t("device.connectDevice")}
+          </button>
           <button
             onClick={() => {
               if (window.confirm(t("room.endRoom") + "?")) {
@@ -191,6 +202,13 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           <PresenterQueue roomId={roomId} authToken={_token || undefined} />
         </aside>
       </div>
+
+      {/* Connect Device Modal */}
+      <ConnectDeviceModal
+        roomId={roomId}
+        open={deviceModalOpen}
+        onClose={() => setDeviceModalOpen(false)}
+      />
     </div>
   );
 }

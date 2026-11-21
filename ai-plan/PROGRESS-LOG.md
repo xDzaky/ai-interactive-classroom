@@ -616,3 +616,28 @@ Verify evidence:
   - `pnpm run build` → built in 24.02s, no TS errors
 Next: P05-T06 (Web: Connect Device modal QR + device list/revoke)
 
+
+### START   2026-11-21 17:04 | Claude Antigravity | tier HIGH | P05-T06
+Resuming: no
+Plan:
+  1. Create apps/web/src/lib/api/devices.ts — initiateDevice, listDevices, revokeDevice
+  2. Create ConnectDeviceModal.tsx — QR code display + device list + revoke
+  3. Wire open button into TeacherView.tsx
+  4. Tests: mock fetch, QR library mock
+  5. i18n keys for device.* actions
+
+
+### DONE   2026-11-21 17:11 | P05-T06 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/api/devices.ts — initiateDevice, listDevices, revokeDevice API client
+  apps/web/src/lib/api/devices.test.ts — 4 tests
+  apps/web/src/components/room/ConnectDeviceModal.tsx — QR + device list + revoke
+  apps/web/src/components/room/ConnectDeviceModal.test.tsx — 4 tests
+  apps/web/src/pages/room/TeacherView.tsx — added ConnectDeviceModal + button
+  apps/web/src/i18n/locales/id.json — device.* i18n keys
+Verify evidence:
+  - `pnpm run test:run` → 205/205 PASS (26 test files)
+  - `pnpm run build` → built in 14.08s, no TS errors
+Next: P05-T07 (End room revokes all tokens/permissions/devices)
+

@@ -55,6 +55,12 @@ vi.mock("@/components/room/PresenterQueue", () => ({
   ),
 }));
 
+// Mock ConnectDeviceModal — no fetch in TeacherView tests
+vi.mock("@/components/room/ConnectDeviceModal", () => ({
+  ConnectDeviceModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? <div data-testid="connect-device-modal" onClick={onClose} /> : null,
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

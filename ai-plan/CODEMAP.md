@@ -180,3 +180,9 @@ Rules:
 | apps/web/src/pages/room/ControllerPage.tsx | Mobile Controller app — gesture controls (prev/next/zoom/pointer/blank), sends device.* events | ControllerPage | P05-T05 | LOCKED |
 | apps/web/src/pages/room/ControllerPage.test.tsx | 5 tests for ControllerPage gesture controls | — | P05-T05 | LOCKED |
 | apps/web/src/i18n/locales/id.json | Added controller.* i18n keys for mobile controller UI | — | P05-T05 | LOCKED |
+| apps/web/src/lib/api/devices.ts | API client for device-pairing endpoints (initiateDevice, listDevices, revokeDevice) | initiateDevice, listDevices, revokeDevice, RoomDevice, InitiatedDevice | P05-T06 | LOCKED |
+| apps/web/src/lib/api/devices.test.ts | 4 tests for devices API client | — | P05-T06 | LOCKED |
+| apps/web/src/components/room/ConnectDeviceModal.tsx | Teacher modal — QR pairing, device list, revoke | ConnectDeviceModal, ConnectDeviceModalProps | P05-T06 | LOCKED |
+| apps/web/src/components/room/ConnectDeviceModal.test.tsx | 4 tests for ConnectDeviceModal | — | P05-T06 | LOCKED |
+| apps/web/src/pages/room/TeacherView.tsx | Added ConnectDeviceModal import + deviceModalOpen state + Connect Device button | (unchanged exports) | P05-T06 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Added device.* i18n keys for ConnectDeviceModal | — | P05-T06 | LOCKED |

@@ -170,5 +170,18 @@
     "roomNotFound": "Room tidak ditemukan atau sudah berakhir",
     "roomFull": "Room sudah penuh",
     "invalidCode": "Kode room tidak valid"
+  },
+  "device": {
+    "modalTitle": "Hubungkan Perangkat",
+    "connectDevice": "Hubungkan Perangkat",
+    "generateQR": "Buat QR Baru",
+    "generatePrompt": "Klik tombol di bawah untuk membuat QR pairing.",
+    "qrInstruction": "Scan QR ini di perangkat mobile untuk menghubungkan kontroler.",
+    "qrAriaLabel": "QR code untuk menghubungkan perangkat",
+    "activeDevices": "Perangkat Aktif",
+    "noDevices": "Belum ada perangkat yang terhubung.",
+    "revoke": "Cabut",
+    "errorInitiate": "Gagal membuat QR pairing. Coba lagi.",
+    "errorRevoke": "Gagal mencabut akses perangkat. Coba lagi."
   }
 }

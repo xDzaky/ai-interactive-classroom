@@ -57,6 +57,12 @@ vi.mock("@/components/room/PresenterQueue", () => ({
   ),
 }));
 
+// Mock ConnectDeviceModal — no fetch in RoomPage tests
+vi.mock("@/components/room/ConnectDeviceModal", () => ({
+  ConnectDeviceModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? <div data-testid="connect-device-modal" onClick={onClose} /> : null,
+}));
+
 // Mock RaiseHandButton — no fetch in RoomPage tests
 vi.mock("@/components/room/RaiseHandButton", () => ({
   RaiseHandButton: () => <button aria-label="Angkat Tangan">✋</button>,
