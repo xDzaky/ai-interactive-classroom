@@ -38,8 +38,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P02-T03 | MID  | deps: T02,P00-T04 | Web: canvas render from state, zoom/pan, grid
 - [x] P02-T04 | MID  | deps: T03      | Tools: select/transform, pen, eraser, line/arrow, text
 - [x] P02-T05 | MID  | deps: T04      | Shape builder: click-create, drag-resize, numeric panel, snapping
-- [~] P02-T06 | MID  | deps: T04      | Pointer Events layer: mouse/pen/touch, palm rejection, pinch zoom  <-- Claude Antigravity / HIGH / 2026-11-21 14:20
-- [ ] P02-T07 | MID  | deps: T05      | Layers, grouping, scenes (slides), local JSON save/load
+- [x] P02-T06 | MID  | deps: T04      | Pointer Events layer: mouse/pen/touch, palm rejection, pinch zoom
+- [~] P02-T07 | MID  | deps: T05      | Layers, grouping, scenes (slides), local JSON save/load  <-- Claude Antigravity / HIGH / 2026-11-21 14:22
 - [ ] P02-T08 | LOW  | deps: T03      | Export active scene to PNG
 - [ ] P02-RV  | HIGH | deps: T01-T08  | Phase review
 

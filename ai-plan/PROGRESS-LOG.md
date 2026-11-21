@@ -169,3 +169,15 @@ Verify evidence:
 ### START   2026-11-21 14:20 | Claude Antigravity | tier HIGH | P02-T06
 Resuming: no
 Plan: Pointer Events layer — usePointerEvents hook, mouse/pen/touch, palm rejection, pinch-zoom
+
+### DONE   2026-11-21 14:21 | P02-T06 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/hooks/usePointerEvents.ts — unified pointer handler (mouse/pen/touch), palm rejection, pinch-zoom, world-space transform
+  apps/web/src/hooks/usePointerEvents.test.ts — 11 vitest tests
+Verify evidence:
+  - `pnpm run test:run` → 58/58 PASS (6 test files)
+
+### START   2026-11-21 14:22 | Claude Antigravity | tier HIGH | P02-T07
+Resuming: no
+Plan: Scenes (slides), local JSON save/load, useSceneManager hook
