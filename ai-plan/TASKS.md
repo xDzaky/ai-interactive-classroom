@@ -72,7 +72,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P05-T05 | MID  | deps: T04,P04-T08 | Web: Mobile Controller app (/controller)
 - [x] P05-T06 | LOW  | deps: T04,P04-T07 | Web: Connect Device modal (QR) + device list/revoke
 - [x] P05-T07 | MID  | deps: T02,T04  | End room revokes all tokens/permissions/devices (FR-016)
-- [~] P05-RV  | HIGH | deps: T01-T07  | Phase review  <-- Claude Antigravity / HIGH / 2026-11-21 17:18
+- [x] P05-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P06 — Activities: poll, quiz, group · `tasks/P06-activities.md`
 - [ ] P06-T01 | MID  | deps: P04-T01  | Migrations: lesson_sessions, activities, questions, answers, room_groups, group_members, group_submissions
