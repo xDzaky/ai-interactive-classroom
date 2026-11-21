@@ -16,6 +16,9 @@ importers:
       '@ai-classroom/geometry-core':
         specifier: workspace:*
         version: link:../../packages/geometry-core
+      '@ai-classroom/math-core':
+        specifier: workspace:*
+        version: link:../../packages/math-core
       '@ai-classroom/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types

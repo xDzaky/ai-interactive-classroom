@@ -264,3 +264,16 @@ Next: P03-T05 (GraphViewer using mafs)
 ### START   2026-11-21 14:43 | Claude Antigravity | tier HIGH | P03-T05
 Resuming: no
 Plan: GraphViewer component (Mafs 2D graphing) + expression list side panel; safeEvaluate integration
+
+### DONE   2026-11-21 14:51 | P03-T05 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/components/math/GraphViewer.tsx — Mafs 2D graphing, expression list panel, controlled/uncontrolled, safeEvaluate integration
+  apps/web/src/components/math/GraphViewer.test.tsx — 16 tests (Mafs mocked)
+  apps/web/src/vite-env.d.ts — added R3F reference
+  apps/web/src/r3f-types.d.ts — augments React.JSX.IntrinsicElements with ThreeElements (react-jsx compat)
+  apps/web/tsconfig.json — added @react-three/fiber to types
+Verify evidence:
+  - `pnpm run test:run` → 129/129 PASS (11 test files)
+  - `pnpm run build` → ✓ built in 9.62s, no TS errors
+Next: P03-T06 (WhiteboardOverlay — DOM overlay for SolidViewer/GraphViewer)

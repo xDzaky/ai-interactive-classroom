@@ -1,3 +1,4 @@
+/// <reference types="@react-three/fiber" />
 /**
  * SolidViewer — P03-T03
  * React Three Fiber viewer for 3D solids.

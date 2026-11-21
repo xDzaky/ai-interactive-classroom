@@ -119,3 +119,7 @@ Rules:
 | apps/web/src/hooks/usePointerEvents.ts | Unified pointer handler: mouse/pen/touch, palm rejection, pinch-zoom | usePointerEvents, ViewTransform, WorldPoint | P02-T06 | LOCKED |
 | apps/web/src/lib/sceneManager.ts | Scene CRUD, reorder, localStorage, JSON export/import | addScene, removeScene, renameScene, switchScene, exportBoardJson, importBoardJson, saveBoardToLocal, loadBoardFromLocal | P02-T07 | LOCKED |
 | apps/web/src/lib/exportPng.ts | Export Konva stage to PNG download | exportStageToPng, exportStageToBlob | P02-T08 | LOCKED |
+| apps/web/src/components/math/GraphViewer.tsx | Mafs 2D graphing viewer + expression list side panel (controlled & uncontrolled) | GraphViewer, ExpressionEntry, GraphViewerProps | P03-T05 | OK |
+| apps/web/src/components/math/GraphViewer.test.tsx | 16 vitest tests for GraphViewer (controlled + uncontrolled modes) | — | P03-T05 | OK |
+| apps/web/src/r3f-types.d.ts | Augments React.JSX.IntrinsicElements with ThreeElements for react-jsx compat | — | P03-T05 | OK |
+| apps/web/src/vite-env.d.ts | Vite + R3F type references | — | P03-T05 | OK |
