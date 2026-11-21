@@ -1120,3 +1120,8 @@ Reason: `composer search laravel/boost` found the package; `composer show larave
 reports v2.10.4 and MIT. It is absent from the approved package list in STACK.md, and
 the project prohibits adding unlisted packages. ADR-021 proposes its approval.
 Action needed: human approval of ADR-021 and corresponding STACK.md version constraint.
+
+
+### RESUMED   2026-11-21 20:03 | Codex | tier HIGH | P00-T08
+Human approved ADR-020 and ADR-021. Assumption recorded: use OpenAI
+`text-embedding-3-small` (1536 dimensions) for ADR-020.

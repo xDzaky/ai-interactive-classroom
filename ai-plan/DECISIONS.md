@@ -24,9 +24,9 @@ ADR-016 | DECIDED | PyMuPDF/pymupdf4llm FORBIDDEN (AGPL). Use pypdf (MIT) for PD
 ADR-017 | DECIDED | tldraw SDK FORBIDDEN (paid license). Build whiteboard with Konva + React.
 ADR-018 | DECIDED | PhET and OpenStax content MUST NOT be bundled (NC license).
 ADR-019 | DECIDED | Guest tokens scoped to one room + one participant. Room code alone is not authorization.
-ADR-020 | PROPOSED | Embedding model for pgvector: dimension must be decided before migration. Options: OpenAI text-embedding-3-small (1536-dim), sentence-transformers (768-dim). HUMAN MUST DECIDE before P08-T03.
-ADR-021 | PROPOSED | Add `laravel/boost` as a development dependency for Laravel-specific AI guidance. Composer registry reports v2.10.4, MIT license, and Laravel 13 compatibility. HUMAN MUST APPROVE and add the approved version constraint to STACK.md before P00-T08 may install it.
+ADR-020 | DECIDED | Use OpenAI `text-embedding-3-small` (1536 dimensions) for pgvector. This matches the existing LiteLLM/OpenAI environment configuration. Approved by human 2026-11-21.
+ADR-021 | DECIDED | Add `laravel/boost` `^2.10` as a development dependency for Laravel-specific AI guidance. Composer registry reports MIT license and Laravel 13 compatibility. Approved by human 2026-11-21.
 
 ## PROPOSED entries (need human/HIGH-tier decision)
 
-_(ADR-020 and ADR-021 above require a decision.)_
+_(No outstanding proposed entries.)_

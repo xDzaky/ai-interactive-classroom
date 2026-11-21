@@ -31,6 +31,7 @@ Never add a package not listed here. If you need one, write a PROPOSED entry in 
 | pestphp/pest-plugin-laravel | ^3.0 | Laravel test helpers |
 | pgvector/pgvector | ^0.2 | Vector DB |
 | barryvdh/laravel-ide-helper | ^3.0 | IDE support (dev) |
+| laravel/boost | ^2.10 | Laravel-specific AI development guidance (dev) |
 
 ---
 
