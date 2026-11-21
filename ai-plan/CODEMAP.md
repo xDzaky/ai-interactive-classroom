@@ -170,3 +170,8 @@ Rules:
 | apps/api/app/Models/RoomDevice.php | RoomDevice Eloquent model | RoomDevice | P05-T02 | OK |
 | apps/api/app/Http/Controllers/Api/V1/PresenterRequestController.php | Presenter request CRUD — POST/GET/PATCH/DELETE /rooms/{room}/presenter-requests | store, index, update, destroy | P05-T02 | OK |
 | apps/api/tests/Feature/PresenterRequestTest.php | 8 feature tests for presenter-requests CRUD (raise hand, approve, reject, revoke, duplicate guard) | — | P05-T02 | OK |
+| apps/web/src/lib/api/presenterRequests.ts | API client for presenter-request endpoints (raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest) | raiseHand, listPresenterRequests, updatePresenterRequest, deletePresenterRequest, PRStatus, PRScope, PresenterRequest | P05-T03 | OK |
+| apps/web/src/components/room/RaiseHandButton.tsx | Student raise-hand button — POST /presenter-requests + DELETE on lower | RaiseHandButton, RaiseHandButtonProps | P05-T03 | OK |
+| apps/web/src/components/room/PresenterQueue.tsx | Teacher queue of pending presenter requests + ApproveDialog (scope selector) | PresenterQueue, PresenterQueueProps | P05-T03 | OK |
+| apps/web/src/components/room/RaiseHandButton.test.tsx | 4 tests for RaiseHandButton | — | P05-T03 | OK |
+| apps/web/src/components/room/PresenterQueue.test.tsx | 4 tests for PresenterQueue + ApproveDialog | — | P05-T03 | OK |

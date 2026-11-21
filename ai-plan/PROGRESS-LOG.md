@@ -557,3 +557,23 @@ Plan:
   5. Wire PresenterQueue into TeacherView sidebar (below ParticipantList)
   6. API client helpers in lib/api/presenterRequests.ts
   7. Tests for each component
+
+### DONE   2026-11-21 16:48 | P05-T03 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/src/lib/api/presenterRequests.ts — API client (raiseHand, list, update, delete)
+  apps/web/src/components/room/RaiseHandButton.tsx — student raise-hand button wired to API
+  apps/web/src/components/room/PresenterQueue.tsx — teacher queue + ApproveDialog
+  apps/web/src/components/room/RaiseHandButton.test.tsx — 4 tests
+  apps/web/src/components/room/PresenterQueue.test.tsx — 4 tests
+  apps/web/src/pages/room/StudentView.tsx — wired RaiseHandButton (replaces local stub)
+  apps/web/src/pages/room/TeacherView.tsx — wired PresenterQueue into sidebar
+  apps/web/src/pages/room/StudentView.test.tsx — updated: added QueryClientProvider + RaiseHandButton mock
+  apps/web/src/pages/room/TeacherView.test.tsx — added PresenterQueue mock
+  apps/web/src/pages/room/RoomPage.test.tsx — added PresenterQueue + RaiseHandButton mocks
+  apps/web/src/i18n/locales/id.json — added presenterActive, presenterQueue, scope, approve, reject keys
+Verify evidence:
+  - `pnpm run test:run` → 23/23 files, 191/191 PASS
+  - `pnpm run build` → ✓ built in 14.28s
+Key fix: vi.mock() factory hoisting — MOCK_REQUESTS must be inlined, not referenced from top-level variable
+Next: P05-T04 (Device pairing API)

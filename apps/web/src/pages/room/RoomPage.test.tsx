@@ -50,6 +50,18 @@ vi.mock("@/components/room/ParticipantList", () => ({
   ),
 }));
 
+// Mock PresenterQueue — no React Query / API in RoomPage tests
+vi.mock("@/components/room/PresenterQueue", () => ({
+  PresenterQueue: ({ roomId }: { roomId: string }) => (
+    <div data-testid="presenter-queue" data-room={roomId} />
+  ),
+}));
+
+// Mock RaiseHandButton — no fetch in RoomPage tests
+vi.mock("@/components/room/RaiseHandButton", () => ({
+  RaiseHandButton: () => <button aria-label="Angkat Tangan">✋</button>,
+}));
+
 import { fetchRoom, fetchMe } from "@/lib/api/rooms";
 import RoomPage from "@/pages/room/RoomPage";
 

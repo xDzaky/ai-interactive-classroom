@@ -1,5 +1,5 @@
 /**
- * StudentView — P04-T07
+ * StudentView — P04-T07 / P05-T03
  * Student view: read-only whiteboard + raise hand (FR-013) + follow-teacher toggle.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import {
 } from "@ai-classroom/whiteboard-core";
 import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
+import { RaiseHandButton } from "@/components/room/RaiseHandButton";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -29,7 +30,7 @@ export interface StudentViewProps {
 
 export function StudentView({
   roomId,
-  participantToken: _token,
+  participantToken,
   participantId: _pid,
   roomCode,
 }: StudentViewProps) {
@@ -54,10 +55,6 @@ export function StudentView({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
-
-  // Raise hand state (FR-013)
-  const [handRaised, setHandRaised] = useState(false);
-  const toggleHand = useCallback(() => setHandRaised((prev) => !prev), []);
 
   // Follow teacher toggle
   const [followTeacher, setFollowTeacher] = useState(true);
@@ -99,21 +96,8 @@ export function StudentView({
         role="toolbar"
         aria-label="Kontrol siswa"
       >
-        {/* Raise hand — FR-013 */}
-        <button
-          onClick={toggleHand}
-          aria-pressed={handRaised}
-          aria-label={handRaised ? t("room.lowerHand") : t("room.raiseHand")}
-          className={[
-            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-            handRaised
-              ? "bg-yellow-500 text-white hover:bg-yellow-600"
-              : "bg-slate-700 text-slate-200 hover:bg-slate-600",
-          ].join(" ")}
-        >
-          <span aria-hidden="true">✋</span>
-          {handRaised ? t("room.lowerHand") : t("room.raiseHand")}
-        </button>
+        {/* Raise hand — FR-013: now wired to API via RaiseHandButton (P05-T03) */}
+        <RaiseHandButton roomId={roomId} participantToken={participantToken} />
 
         {/* Follow teacher toggle */}
         <button

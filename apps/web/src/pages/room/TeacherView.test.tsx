@@ -48,6 +48,13 @@ vi.mock("@/components/room/ParticipantList", () => ({
   ),
 }));
 
+// Mock PresenterQueue — no React Query / API in TeacherView tests
+vi.mock("@/components/room/PresenterQueue", () => ({
+  PresenterQueue: ({ roomId }: { roomId: string }) => (
+    <div data-testid="presenter-queue" data-room={roomId} />
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");

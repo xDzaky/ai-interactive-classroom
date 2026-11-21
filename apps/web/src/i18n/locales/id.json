@@ -72,7 +72,16 @@
       "group": "Kelompok"
     },
     "toolbar": "Toolbar",
-    "participantListPlaceholder": "Daftar peserta diperbarui secara real-time"
+    "participantListPlaceholder": "Daftar peserta diperbarui secara real-time",
+    "presenterActive": "Aktif sebagai Presenter",
+    "presenterQueue": "Antrian Presenter",
+    "approvePresenterTitle": "Setujui Permintaan Presenter",
+    "scope": "Hak Akses Papan Tulis",
+    "scopeDrawOnly": "Menggambar Saja",
+    "scopeObjectEdit": "Edit Objek",
+    "scopeFullBoard": "Papan Penuh",
+    "approve": "Setujui",
+    "reject": "Tolak"
   },
   "whiteboard": {
     "tools": {

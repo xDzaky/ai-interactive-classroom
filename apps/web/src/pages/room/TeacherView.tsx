@@ -17,6 +17,7 @@ import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { endRoom } from "@/lib/api/rooms";
 import { ParticipantList } from "@/components/room/ParticipantList";
+import { PresenterQueue } from "@/components/room/PresenterQueue";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -187,6 +188,7 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           aria-label={t("room.participants", { count: 0 })}
         >
           <ParticipantList roomId={roomId} authToken={_token || undefined} />
+          <PresenterQueue roomId={roomId} authToken={_token || undefined} />
         </aside>
       </div>
     </div>
