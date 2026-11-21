@@ -307,3 +307,18 @@ Next: P04-T01 (rooms, participants migrations)
 ### START   2026-11-21 15:02 | Claude Antigravity | tier HIGH | P04-T01
 Resuming: no
 Plan: 6 Laravel migrations for rooms, participants, whiteboards, room_events, room_snapshots, audit_logs — exact column names from CONTRACTS.md
+
+### DONE   2026-11-21 15:04 | P04-T01 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/api/database/migrations/2026_11_21_200001_create_rooms_table.php
+  apps/api/database/migrations/2026_11_21_200002_create_participants_table.php
+  apps/api/database/migrations/2026_11_21_200003_create_whiteboards_table.php
+  apps/api/database/migrations/2026_11_21_200004_create_room_events_table.php
+  apps/api/database/migrations/2026_11_21_200005_create_room_snapshots_table.php
+  apps/api/database/migrations/2026_11_21_200006_create_audit_logs_table.php
+  apps/api/tests/Feature/MigrationP04Test.php — 12 tests
+Verify evidence:
+  - `php artisan migrate --env=testing` → 6 new migrations DONE
+  - `php artisan test` → 46/46 PASS
+Next: P04-T02 (Room domain API)

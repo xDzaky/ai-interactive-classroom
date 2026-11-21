@@ -125,3 +125,10 @@ Rules:
 | apps/web/src/vite-env.d.ts | Vite + R3F type references | — | P03-T05 | OK |
 | apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx | DOM overlay layer for viz_solid + viz_graph BoardObjects over Konva canvas | WhiteboardOverlay, WhiteboardOverlayProps, ViewTransform | P03-T06 | OK |
 | apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx | 11 vitest tests for overlay positioning + rendering | — | P03-T06 | OK |
+| apps/api/database/migrations/2026_11_21_200001_create_rooms_table.php | rooms migration (uuid pk, classroom_id, host_id, code, status, mode, settings, starts_at, ends_at) | — | P04-T01 | OK |
+| apps/api/database/migrations/2026_11_21_200002_create_participants_table.php | participants migration (uuid pk, room_id, user_id nullable, alias, role, token_hash, joined_at, left_at) | — | P04-T01 | OK |
+| apps/api/database/migrations/2026_11_21_200003_create_whiteboards_table.php | whiteboards migration (uuid pk, room_id, name, scene_data) | — | P04-T01 | OK |
+| apps/api/database/migrations/2026_11_21_200004_create_room_events_table.php | room_events migration (uuid pk, room_id, seq, event_type, payload, actor_id, idempotency_key, committed_at) | — | P04-T01 | OK |
+| apps/api/database/migrations/2026_11_21_200005_create_room_snapshots_table.php | room_snapshots migration (uuid pk, room_id, seq_at, state, created_at) | — | P04-T01 | OK |
+| apps/api/database/migrations/2026_11_21_200006_create_audit_logs_table.php | audit_logs migration (uuid pk, room_id, actor_id, action, metadata, created_at) | — | P04-T01 | OK |
+| apps/api/tests/Feature/MigrationP04Test.php | 12 schema-shape tests for all 6 P04 tables | — | P04-T01 | OK |
