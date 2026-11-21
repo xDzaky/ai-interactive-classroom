@@ -250,3 +250,13 @@ Verify evidence:
 ### START   2026-11-21 14:38 | Claude Antigravity | tier HIGH | P03-T04
 Resuming: no
 Plan: math-core — safe AST evaluator (recursive descent parser, whitelist: +,-,*,/,^,sqrt,sin,cos,tan,log,abs,pi,e) NO eval/Function()
+
+### DONE   2026-11-21 14:43 | P03-T04 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  packages/math-core/src/index.ts — full recursive descent parser, evaluateAST, safeEvaluate, parseMathLiveLatex (LaTeX adapter)
+  packages/math-core/src/index.test.ts — 76 tests
+Verify evidence:
+  - `pnpm run test` → 76/76 PASS
+  - `pnpm run build` → Done (tsc, no errors)
+Next: P03-T05 (GraphViewer using mafs)

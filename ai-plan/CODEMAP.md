@@ -62,7 +62,8 @@ Rules:
 | packages/shared-types/src/index.ts | Zod schemas + TS types for all CONTRACTS entities | User, School, Classroom, Room, Participant, RoomEvent, PresenterRequest, RoomDevice, Activity, ApiError, PaginatedResponse, etc. | P00-T06 | LOCKED |
 | packages/whiteboard-core/src/index.ts | Board model types + initial state factory | BoardObject, BoardStroke, SceneState, BoardState, createInitialBoardState | P00-T06 | LOCKED |
 | packages/geometry-core/src/index.ts | Solid type enum + geometry result types (placeholder) | SolidType, GeometryResult | P00-T06 | STUB (formulas in P03-T01) |
-| packages/math-core/src/index.ts | AST node types + safe evaluator placeholder | ASTNode, ALLOWED_FUNCTIONS, parseExpression, evaluateAST | P00-T06 | STUB (safe evaluator in P03-T04) |
+| packages/math-core/src/index.ts | Recursive descent parser, safe AST evaluator, MathLive LaTeX adapter | ASTNode, SafeScope, ParseError, EvaluationError, ALLOWED_FUNCTIONS, parseExpression, evaluateAST, safeEvaluate, parseMathLiveLatex | P03-T04 | OK |
+| packages/math-core/src/index.test.ts | 76 unit tests for parser, evaluator, security, MathLive adapter | — | P03-T04 | OK |
 | packages/curriculum-schema/src/index.ts | Subject/Curriculum/LessonTopic Zod schemas | Subject, Curriculum, LessonTopic | P00-T06 | LOCKED |
 
 ## infra / root / CI
