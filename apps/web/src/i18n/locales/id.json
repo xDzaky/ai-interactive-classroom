@@ -220,5 +220,30 @@
     "errorUpdate": "Gagal memperbarui aktivitas.",
     "errorSubmit": "Gagal mengirim jawaban.",
     "errorResults": "Gagal memuat hasil."
+  },
+  "group": {
+    "title": "Kelompok",
+    "loading": "Memuat kelompok...",
+    "noGroups": "Belum ada kelompok. Buat kelompok baru.",
+    "namePlaceholder": "Nama kelompok...",
+    "create": "Buat",
+    "delete": "Hapus",
+    "members": "anggota",
+    "leader": "Ketua",
+    "add": "Tambah",
+    "selectParticipant": "Pilih peserta...",
+    "removeMember": "Hapus anggota",
+    "errorCreate": "Gagal membuat kelompok.",
+    "errorDelete": "Gagal menghapus kelompok.",
+    "errorAddMember": "Gagal menambah anggota.",
+    "errorRemoveMember": "Gagal menghapus anggota.",
+    "errorSubmit": "Gagal mengirim jawaban kelompok.",
+    "notAssigned": "Anda belum masuk kelompok manapun.",
+    "noActiveTask": "Belum ada tugas kelompok aktif.",
+    "waitForLeader": "Menunggu ketua kelompok mengirim jawaban...",
+    "submitted": "Jawaban berhasil dikirim!",
+    "leaderRole": "Ketua Kelompok",
+    "submitButton": "Kirim Jawaban",
+    "submitPlaceholder": "Tulis jawaban kelompok di sini..."
   }
 }

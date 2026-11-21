@@ -42,6 +42,13 @@ vi.mock("@/components/room/ActivityResponder", () => ({
   ),
 }));
 
+// Mock GroupSubmitPanel to avoid React Query / API in StudentView tests
+vi.mock("@/components/room/GroupSubmitPanel", () => ({
+  GroupSubmitPanel: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-submit-panel" data-room={roomId} />
+  ),
+}));
+
 import { StudentView } from "@/pages/room/StudentView";
 
 function wrapper({ children }: { children: React.ReactNode }) {

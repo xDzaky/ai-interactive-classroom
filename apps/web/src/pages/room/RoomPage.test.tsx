@@ -77,6 +77,20 @@ vi.mock("@/components/room/ActivityResponder", () => ({
   ),
 }));
 
+// Mock GroupWorkspace — no React Query in RoomPage tests
+vi.mock("@/components/room/GroupWorkspace", () => ({
+  GroupWorkspace: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-workspace" data-room={roomId} />
+  ),
+}));
+
+// Mock GroupSubmitPanel — no React Query in RoomPage tests
+vi.mock("@/components/room/GroupSubmitPanel", () => ({
+  GroupSubmitPanel: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-submit-panel" data-room={roomId} />
+  ),
+}));
+
 // Mock RaiseHandButton — no fetch in RoomPage tests
 vi.mock("@/components/room/RaiseHandButton", () => ({
   RaiseHandButton: () => <button aria-label="Angkat Tangan">✋</button>,

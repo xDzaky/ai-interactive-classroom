@@ -20,6 +20,7 @@ import { ParticipantList } from "@/components/room/ParticipantList";
 import { PresenterQueue } from "@/components/room/PresenterQueue";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 import { ActivityBuilder } from "@/components/room/ActivityBuilder";
+import { GroupWorkspace } from "@/components/room/GroupWorkspace";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -202,6 +203,7 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           <ParticipantList roomId={roomId} authToken={_token || undefined} />
           <PresenterQueue roomId={roomId} authToken={_token || undefined} />
           <ActivityBuilder roomId={roomId} />
+          <GroupWorkspace roomId={roomId} />
         </aside>
       </div>
 

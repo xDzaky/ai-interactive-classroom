@@ -131,4 +131,26 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/rooms/{room}/activities/{activity}/answers', [\App\Http\Controllers\Api\V1\ActivityController::class, 'answer'])
             ->name('rooms.activities.answers.store');
     });
+
+    // Groups (P06-T04) — host routes require Sanctum; submit requires participant token
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/rooms/{room}/groups', [\App\Http\Controllers\Api\V1\GroupController::class, 'index'])
+            ->name('rooms.groups.index');
+        Route::post('/rooms/{room}/groups', [\App\Http\Controllers\Api\V1\GroupController::class, 'store'])
+            ->name('rooms.groups.store');
+        Route::delete('/rooms/{room}/groups/{group}', [\App\Http\Controllers\Api\V1\GroupController::class, 'destroy'])
+            ->name('rooms.groups.destroy');
+        Route::post('/rooms/{room}/groups/{group}/members', [\App\Http\Controllers\Api\V1\GroupController::class, 'addMember'])
+            ->name('rooms.groups.members.store');
+        Route::delete('/rooms/{room}/groups/{group}/members/{participant}', [\App\Http\Controllers\Api\V1\GroupController::class, 'removeMember'])
+            ->name('rooms.groups.members.destroy');
+        Route::get('/rooms/{room}/groups/{group}/submissions', [\App\Http\Controllers\Api\V1\GroupController::class, 'submissions'])
+            ->name('rooms.groups.submissions.index');
+    });
+
+    // Group submit — participant token (leader only)
+    Route::middleware(\App\Http\Middleware\ParticipantTokenGuard::class)->group(function () {
+        Route::post('/rooms/{room}/groups/{group}/submissions', [\App\Http\Controllers\Api\V1\GroupController::class, 'submit'])
+            ->name('rooms.groups.submissions.store');
+    });
 });

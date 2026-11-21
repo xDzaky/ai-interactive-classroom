@@ -12,6 +12,7 @@ import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core"
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { RaiseHandButton } from "@/components/room/RaiseHandButton";
 import { ActivityResponder } from "@/components/room/ActivityResponder";
+import { GroupSubmitPanel } from "@/components/room/GroupSubmitPanel";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -93,6 +94,9 @@ export function StudentView({
 
       {/* Activity responder — shown when a poll/quiz is active */}
       <ActivityResponder roomId={roomId} participantToken={participantToken} />
+
+      {/* Group submit panel — shown when a group_task is active (leader gets submit form) */}
+      <GroupSubmitPanel roomId={roomId} participantId={_pid} participantToken={participantToken} />
 
       {/* Bottom action bar */}
       <div

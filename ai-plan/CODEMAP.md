@@ -223,3 +223,21 @@ Rules:
 | apps/web/src/pages/room/StudentView.test.tsx | Added vi.mock for ActivityResponder (additive) | — | P06-T03 | LOCKED |
 | apps/web/src/pages/room/RoomPage.test.tsx | Added mocks for ActivityBuilder + ActivityResponder (additive) | — | P06-T03 | LOCKED |
 | apps/web/src/i18n/locales/id.json | Added activity.* i18n keys (title, type.poll, type.quiz, noActiveActivity, submit, answerSubmitted, errorSubmit, etc.) | — | P06-T03 | LOCKED |
+| apps/api/app/Models/RoomGroup.php | RoomGroup Eloquent model (room_id, name, whiteboard_id, members, submissions) | RoomGroup | P06-T04 | LOCKED |
+| apps/api/app/Models/GroupMember.php | GroupMember Eloquent model (group_id, participant_id, is_leader) | GroupMember | P06-T04 | LOCKED |
+| apps/api/app/Models/GroupSubmission.php | GroupSubmission Eloquent model (group_id, activity_id, content, submitted_by, submitted_at) | GroupSubmission | P06-T04 | LOCKED |
+| apps/api/app/Http/Controllers/Api/V1/GroupController.php | Group CRUD + member management + leader submission + host submissions view | index, store, destroy, addMember, removeMember, submit, submissions | P06-T04 | LOCKED |
+| apps/api/routes/api.php | Added group routes (GET/POST/DELETE groups, POST/DELETE members, GET/POST submissions) | — | P06-T04 | LOCKED |
+| apps/api/tests/Feature/GroupApiTest.php | 10 feature tests for group API (create, list, delete, add member, set leader, remove, submit, non-leader blocked, host sees submissions, outside-room participant blocked) | — | P06-T04 | LOCKED |
+| apps/web/src/lib/api/groups.ts | Groups API client (listGroups, createGroup, deleteGroup, addGroupMember, removeGroupMember, submitGroupWork, getGroupSubmissions) | listGroups, createGroup, deleteGroup, addGroupMember, removeGroupMember, submitGroupWork, getGroupSubmissions, RoomGroup, GroupMember, GroupSubmission | P06-T04 | LOCKED |
+| apps/web/src/lib/api/groups.test.ts | 5 tests for groups API client | — | P06-T04 | LOCKED |
+| apps/web/src/components/room/GroupWorkspace.tsx | Host panel: create/delete groups, expand group, assign members, set leader | GroupWorkspace, GroupWorkspaceProps | P06-T04 | LOCKED |
+| apps/web/src/components/room/GroupWorkspace.test.tsx | 4 tests for GroupWorkspace (no-groups, renders groups, create form, delete) | — | P06-T04 | LOCKED |
+| apps/web/src/components/room/GroupSubmitPanel.tsx | Student leader submit panel: shows active group_task, leader gets textarea+submit, non-leader sees waiting | GroupSubmitPanel, GroupSubmitPanelProps | P06-T04 | LOCKED |
+| apps/web/src/components/room/GroupSubmitPanel.test.tsx | 4 tests for GroupSubmitPanel (not-assigned, no-task, leader form, submit success) | — | P06-T04 | LOCKED |
+| apps/web/src/pages/room/TeacherView.tsx | Added GroupWorkspace import + render in sidebar (additive) | (unchanged exports) | P06-T04 | LOCKED |
+| apps/web/src/pages/room/StudentView.tsx | Added GroupSubmitPanel import + render (additive) | (unchanged exports) | P06-T04 | LOCKED |
+| apps/web/src/pages/room/TeacherView.test.tsx | Added vi.mock for GroupWorkspace (additive) | — | P06-T04 | LOCKED |
+| apps/web/src/pages/room/StudentView.test.tsx | Added vi.mock for GroupSubmitPanel (additive) | — | P06-T04 | LOCKED |
+| apps/web/src/pages/room/RoomPage.test.tsx | Added mocks for GroupWorkspace + GroupSubmitPanel (additive) | — | P06-T04 | LOCKED |
+| apps/web/src/i18n/locales/id.json | Added group.* i18n keys (title, loading, noGroups, create, delete, etc.) | — | P06-T04 | LOCKED |

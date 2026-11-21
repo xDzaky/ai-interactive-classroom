@@ -68,6 +68,13 @@ vi.mock("@/components/room/ActivityBuilder", () => ({
   ),
 }));
 
+// Mock GroupWorkspace — no React Query / API in TeacherView tests
+vi.mock("@/components/room/GroupWorkspace", () => ({
+  GroupWorkspace: ({ roomId }: { roomId: string }) => (
+    <div data-testid="group-workspace" data-room={roomId} />
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
