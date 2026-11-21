@@ -750,3 +750,15 @@ Verify evidence:
   - `pnpm run build` → ✓ built in 14.70s
 Next: P06-T04 (Group workspace + leader submission) — HIGH tier task, claim next
 
+
+### START   2026-11-21 17:45 | Claude Antigravity | tier HIGH | P06-T04
+Resuming: no
+Plan:
+  1. Models: RoomGroup, GroupMember, GroupSubmission (HasFactory)
+  2. GroupController — CRUD groups + assign members + leader submit + list submissions (host sees all)
+  3. Routes: GET/POST /rooms/{room}/groups, GET/POST/DELETE /rooms/{room}/groups/{group}/members, POST /rooms/{room}/groups/{group}/submissions
+  4. Tests: 10+ feature tests (create group, assign members, leader submits, only leader can submit, host sees all)
+  5. Web: GroupWorkspace.tsx — group members see shared whiteboard snapshot + leader submit form
+  6. Wire GroupWorkspace into TeacherView (host panel) and StudentView (if in group)
+  7. i18n keys for group.*
+
