@@ -941,3 +941,25 @@ Plan:
   2. Create apps/web/public/manifest.json — PWA manifest
   3. Lazy load SolidViewer (React.lazy + Suspense)
   4. Low-quality 3D on weak devices (navigator.hardwareConcurrency < 4)
+
+
+### DONE   2026-11-21 19:06 | P07-T06 | status [x]
+Agent: Claude (Antigravity) | tier HIGH
+Changed files:
+  apps/web/vite.config.ts — VitePWA already configured (registerType: prompt, Workbox, three-vendor chunk)
+  apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx — SolidViewer converted to React.lazy + Suspense
+  apps/web/src/lib/useWeakDevice.ts — isWeakDevice + useWeakDevice hook
+  apps/web/src/lib/useWeakDevice.test.ts — 6 unit tests
+  apps/web/public/manifest.json — PWA manifest
+Verify evidence:
+  - `pnpm run test:run` → 288/288 PASS (43 test files)
+Next: P07-RV (Phase 7 review)
+
+
+### START   2026-11-21 19:11 | Claude Antigravity | tier HIGH | P07-RV
+Resuming: no
+Plan:
+  1. Run all 4 suites: php artisan test, pnpm run test:run, pnpm run build, python3 -m pytest
+  2. Verify counts: Laravel >=173, vitest >=282, build green, pytest >=5
+  3. Lock all P07 CODEMAP rows
+  4. Mark P07-RV [x]

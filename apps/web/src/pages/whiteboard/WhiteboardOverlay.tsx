@@ -6,10 +6,13 @@
  * Usage: place this div as an absolute-positioned sibling of <WhiteboardCanvas>.
  * The parent container must have `position: relative`.
  */
-import React, { useMemo } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import type { BoardState, BoardObject } from "@ai-classroom/whiteboard-core";
 import { getActiveScene } from "@ai-classroom/whiteboard-core";
-import { SolidViewer } from "../../components/math/SolidViewer.js";
+// Lazy-load heavy 3D/graph components — keeps initial bundle lean (P07-T06)
+const SolidViewer = lazy(() =>
+  import("../../components/math/SolidViewer.js").then((m) => ({ default: m.SolidViewer })),
+);
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
 import type { SolidType, SolidParams } from "@ai-classroom/geometry-core";
 
@@ -104,10 +107,12 @@ function VizSolidOverlay({ obj, view, widgetSize }: OverlayItemProps) {
         background: "#0a0a1a",
       }}
     >
-      <SolidViewer
-        params={solidParams}
-        showPanel={false}
-      />
+      <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "#0a0a1a" }} />}>
+        <SolidViewer
+          params={solidParams}
+          showPanel={false}
+        />
+      </Suspense>
     </div>
   );
 }
