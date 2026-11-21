@@ -360,3 +360,7 @@ Changed files:
 Verify evidence:
   - `php artisan test` → 75/75 PASS
 Next: P04-T04 (Reverb install + channel auth)
+
+### START   2026-11-21 15:14 | Claude Antigravity | tier HIGH | P04-T04
+Resuming: no
+Plan: Check if Reverb is installed (should be in STACK.md); create broadcasting/channels.php channel auth for room.{roomId}, room.{roomId}.host, presence-room.{roomId}; add ParticipantGuard middleware for participant_token; tests
