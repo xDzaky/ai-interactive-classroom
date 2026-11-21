@@ -59,58 +59,88 @@ export interface CreateRoomPayload {
   ends_at?: string;
 }
 
+// ── Helper ────────────────────────────────────────────────────────────────────
+
+function unwrap<T>(data: unknown): T {
+  if (data && typeof data === "object" && "data" in data) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 /** Create a new room (teacher, authenticated). */
 export async function createRoom(payload: CreateRoomPayload): Promise<Room> {
-  const { data } = await api.post<Room>("/api/v1/rooms", payload);
-  return data;
+  const { data } = await api.post<Room | { data: Room }>("/api/v1/rooms", payload);
+  return unwrap<Room>(data);
 }
 
 /** Fetch a single room by id. */
 export async function fetchRoom(roomId: string): Promise<Room> {
-  const { data } = await api.get<Room>(`/api/v1/rooms/${roomId}`);
-  return data;
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
+  const { data } = await api.get<Room | { data: Room }>(`/api/v1/rooms/${roomId}`);
+  return unwrap<Room>(data);
 }
 
 /** Transition room to lobby (status: lobby). */
 export async function openLobby(roomId: string): Promise<Room> {
-  const { data } = await api.patch<Room>(`/api/v1/rooms/${roomId}`, {
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
+  const { data } = await api.patch<Room | { data: Room }>(`/api/v1/rooms/${roomId}`, {
     status: "lobby",
   });
-  return data;
+  return unwrap<Room>(data);
 }
 
 /** Transition room to live (status: live). */
 export async function startRoom(roomId: string): Promise<Room> {
-  const { data } = await api.patch<Room>(`/api/v1/rooms/${roomId}`, {
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
+  const { data } = await api.patch<Room | { data: Room }>(`/api/v1/rooms/${roomId}`, {
     status: "live",
   });
-  return data;
+  return unwrap<Room>(data);
 }
 
 /** End an active room. */
 export async function endRoom(roomId: string): Promise<Room> {
-  const { data } = await api.post<Room>(`/api/v1/rooms/${roomId}/end`);
-  return data;
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
+  const { data } = await api.post<Room | { data: Room }>(`/api/v1/rooms/${roomId}/end`);
+  return unwrap<Room>(data);
 }
 
 /** Regenerate join code (host only). */
 export async function regenerateCode(roomId: string): Promise<Room> {
-  const { data } = await api.post<Room>(
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
+  const { data } = await api.post<Room | { data: Room }>(
     `/api/v1/rooms/${roomId}/regenerate-code`,
   );
-  return data;
+  return unwrap<Room>(data);
 }
 
 /** Fetch the current participant's info (role, id) in a room. */
 export async function fetchMe(roomId: string, participantToken?: string): Promise<Participant> {
+  if (!roomId || roomId === "undefined") {
+    throw new Error("Invalid roomId");
+  }
   const headers: Record<string, string> = {};
   if (participantToken) {
     headers["Authorization"] = `Participant ${participantToken}`;
   }
-  const { data } = await api.get<Participant>(`/api/v1/rooms/${roomId}/participants/me`, { headers });
-  return data;
+  const { data } = await api.get<Participant | { data: Participant }>(
+    `/api/v1/rooms/${roomId}/participants/me`,
+    { headers },
+  );
+  return unwrap<Participant>(data);
 }
 
 /** Join a room by code (guest or authenticated user). */
@@ -128,5 +158,5 @@ export async function joinRoom(
     { code, alias },
     { headers },
   );
-  return data;
+  return unwrap<JoinResult>(data);
 }

@@ -190,14 +190,25 @@ export default function JoinPage() {
           </form>
 
           {/* Quick Footer */}
-          <div className="mt-8 border-t border-slate-800 pt-6 text-center text-xs text-slate-400">
-            <span>Guru atau staf pengajar? </span>
-            <Link
-              to="/login"
-              className="font-semibold text-indigo-400 hover:text-indigo-300 hover:underline"
-            >
-              Masuk dengan Akun Pengajar &rarr;
-            </Link>
+          <div className="mt-8 border-t border-slate-800 pt-6 space-y-2 text-center text-xs text-slate-400">
+            <div>
+              <span>Ingin langsung coret-coret sendiri? </span>
+              <Link
+                to="/whiteboard"
+                className="font-semibold text-emerald-400 hover:text-emerald-300 hover:underline"
+              >
+                Buka Whiteboard Pribadi &rarr;
+              </Link>
+            </div>
+            <div>
+              <span>Guru atau staf pengajar? </span>
+              <Link
+                to="/login"
+                className="font-semibold text-indigo-400 hover:text-indigo-300 hover:underline"
+              >
+                Masuk dengan Akun Pengajar &rarr;
+              </Link>
+            </div>
           </div>
         </div>
       </div>

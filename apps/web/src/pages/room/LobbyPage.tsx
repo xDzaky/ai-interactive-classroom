@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { fetchRoom, startRoom, regenerateCode } from "@/lib/api/rooms";
@@ -9,6 +9,10 @@ export default function LobbyPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
 
+  if (!roomId || roomId === "undefined") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const {
     data: room,
     isLoading,
@@ -17,7 +21,7 @@ export default function LobbyPage() {
     queryKey: ["room", roomId],
     queryFn: () => fetchRoom(roomId!),
     refetchInterval: 5000, // poll every 5 s for status changes
-    enabled: !!roomId,
+    enabled: !!roomId && roomId !== "undefined",
   });
 
   const startMutation = useMutation({

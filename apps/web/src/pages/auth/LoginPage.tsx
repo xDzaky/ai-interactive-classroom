@@ -304,6 +304,15 @@ export default function LoginPage() {
 
           {/* Quick Links Section */}
           <div className="mt-8 border-t border-slate-800 pt-6">
+            <div className="mb-4">
+              <Link
+                to="/whiteboard"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/30 py-2.5 px-4 text-xs font-semibold text-emerald-300 transition-all hover:bg-emerald-900/40 hover:text-white"
+              >
+                <span>🎨</span>
+                <span>Masuk ke Whiteboard Pribadi (Tanpa Login) &rarr;</span>
+              </Link>
+            </div>
             <div className="flex flex-col gap-2.5 text-center text-xs text-slate-400">
               <div>
                 <span>Siswa ingin bergabung ke sesi? </span>

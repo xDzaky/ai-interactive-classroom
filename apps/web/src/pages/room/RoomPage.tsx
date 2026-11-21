@@ -52,10 +52,14 @@ export default function RoomPage() {
   const [searchParams] = useSearchParams();
   const isPresentation = searchParams.get("mode") === "presentation";
 
+  if (!roomId || roomId === "undefined") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   // Load token from localStorage
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
-    if (roomId) {
+    if (roomId && roomId !== "undefined") {
       setToken(localStorage.getItem(tokenKey(roomId)));
     }
   }, [roomId]);
@@ -64,14 +68,14 @@ export default function RoomPage() {
   const { data: room, isLoading: roomLoading } = useQuery({
     queryKey: ["room", roomId],
     queryFn: () => fetchRoom(roomId!),
-    enabled: !!roomId,
+    enabled: !!roomId && roomId !== "undefined",
   });
 
   // Fetch participant role from server (uses participant token or Sanctum session)
   const { data: me, isLoading: meLoading } = useQuery({
     queryKey: ["room-me", roomId],
     queryFn: () => fetchMe(roomId!, token ?? undefined),
-    enabled: !!roomId && !isPresentation,
+    enabled: !!roomId && roomId !== "undefined" && !isPresentation,
     retry: false,
   });
 

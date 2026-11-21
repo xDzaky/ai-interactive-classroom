@@ -38,12 +38,17 @@ export default function CreateRoomPage() {
     mutationFn: async () => {
       if (!classroomId) throw new Error("Pilih kelas terlebih dahulu.");
       const room = await createRoom({ classroom_id: classroomId, mode });
+      const targetId = room?.id ?? (room as unknown as { data?: { id?: string } })?.data?.id;
+      if (!targetId) throw new Error("Gagal mendapatkan ID ruangan.");
       // Transition to lobby immediately
-      const lobbyRoom = await openLobby(room.id);
+      const lobbyRoom = await openLobby(targetId);
       return lobbyRoom;
     },
     onSuccess: (room) => {
-      navigate(`/room/${room.id}/lobby`);
+      const targetId = room?.id ?? (room as unknown as { data?: { id?: string } })?.data?.id;
+      if (targetId) {
+        navigate(`/room/${targetId}/lobby`);
+      }
     },
     onError: (err: unknown) => {
       const msg =
