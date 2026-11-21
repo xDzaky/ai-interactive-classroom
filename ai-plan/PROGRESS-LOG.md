@@ -1105,3 +1105,11 @@ previous agent are intentionally not modified or claimed as complete:
   apps/web/src/pages/room/StudentAiTutor.test.tsx
 Action needed: restore or create the P08 task file with the standard task contract,
 then re-open P08-T07 after confirming its dependency P08-T04 is unblocked.
+
+
+### START   2026-11-21 19:58 | Codex | tier HIGH | P00-T08
+Resuming: no
+Plan:
+  1. Check the Composer registry for Laravel Boost.
+  2. Check package-policy eligibility before any installation.
+  3. Install and generate supplementary guidance only if both task and package policy allow it.
