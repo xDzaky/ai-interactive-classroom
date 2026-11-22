@@ -14,6 +14,7 @@ import {
 } from "@ai-classroom/whiteboard-core";
 import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
+import { WhiteboardOverlay } from "@/pages/whiteboard/WhiteboardOverlay";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { endRoom } from "@/lib/api/rooms";
@@ -27,8 +28,9 @@ import { RandomPicker } from "@/components/room/RandomPicker";
 import { GroupGenerator } from "@/components/room/GroupGenerator";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { ObjectsPanel, type BoardObjectItem } from "@/components/workspace/ObjectsPanel";
-import { RadialMenu, type RadialMenuItem } from "@/components/whiteboard/RadialMenu";
+import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
+import type { SolidType } from "@ai-classroom/geometry-core";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -136,13 +138,25 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
     }
   }, []);
 
-  const radialItems: RadialMenuItem[] = [
-    { id: 'pen', label: 'Pena', icon: '✏️', action: () => setTool('pen') },
-    { id: 'eraser', label: 'Hapus', icon: '⌫', action: () => setTool('eraser') },
-    { id: 'rect', label: 'Kotak', icon: '▭', action: () => setTool('rect') },
-    { id: 'circle', label: 'Lingkaran', icon: '◯', action: () => setTool('circle') },
-    { id: 'template', label: 'Template', icon: '📚', action: () => setTemplateModalOpen(true) },
-  ];
+  const handleInsertSolid = useCallback(
+    (solidType: SolidType) => {
+      handleEvent({
+        event_type: "object.created",
+        payload: {
+          id: `solid-${Date.now().toString(36)}`,
+          object_type: "viz_solid",
+          props: {
+            solid_type: solidType,
+            params: solidType === "cube" ? { type: "cube", s: 4 } : { type: solidType },
+            label: solidType,
+            x: Math.max(140, Math.round(canvasSize.width / 2 - 140)),
+            y: Math.max(60, Math.round(canvasSize.height / 2 - 140)),
+          },
+        },
+      });
+    },
+    [canvasSize.width, canvasSize.height, handleEvent]
+  );
 
   // ── Participant count shown in header (ParticipantList sidebar has full list) ─
   const [participantCount] = useState(1);
@@ -275,9 +289,9 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           />
         </aside>
 
-        {/* Center: canvas */}
+        {/* Center: canvas + Tongchuang 3D/Graph Overlay */}
         <main
-          className="flex-1 overflow-hidden"
+          className="relative flex-1 overflow-hidden bg-[#2d333f]"
           aria-label="Papan tulis"
           onPointerDown={(e) =>
             handlePointerDown({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, pressure: e.pressure })
@@ -297,6 +311,18 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
             showGrid
             readOnly={false}
           />
+          <div className="pointer-events-none absolute inset-0 z-10">
+            <WhiteboardOverlay
+              boardState={boardState}
+              width={canvasSize.width}
+              height={canvasSize.height}
+              defaultWidgetSize={300}
+              tongchuangMode={true}
+              onDeleteObject={(id) =>
+                handleEvent({ event_type: "object.deleted", payload: { id } })
+              }
+            />
+          </div>
         </main>
 
         {/* Right: participant list (real-time via ParticipantList) */}
@@ -321,8 +347,17 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
         onClose={() => setDeviceModalOpen(false)}
       />
 
-      {/* Floating Radial Quick Action Menu */}
-      <RadialMenu items={radialItems} />
+      {/* Signature Tongchuang Floating White Circular AI Radial Wheel */}
+      <TongchuangRadialWheel
+        activeTool={toolState.activeTool}
+        color={toolState.color}
+        strokeWidth={toolState.strokeWidth}
+        onToolChange={setTool}
+        onColorChange={setColor}
+        onStrokeWidthChange={setStrokeWidth}
+        onInsertSolid={handleInsertSolid}
+        onOpenTemplates={() => setTemplateModalOpen(true)}
+      />
 
       {/* Lesson Template Library Modal */}
       <TemplatePickerModal

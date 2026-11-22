@@ -422,3 +422,14 @@ Rules:
 
 
 
+| apps/web/src/lib/selectionHitTest.ts | Pure arithmetic bounding box & hit testing for multi-select and marquee | computeObjectBbox, findHitItem, findItemsInMarquee, getItemBBox | P10-T02 | OK |
+| apps/web/src/features/whiteboard/actionRegistry.ts | Modular contextual ActionRegistry for whiteboard selection actions | WHITEBOARD_ACTIONS, resolveActions, is2DConvertible | P11-T01 | OK |
+| apps/web/src/components/whiteboard/WhiteboardContextMenu.tsx | Accessible right-click and long-press contextual menu with color palette | WhiteboardContextMenu | P11-T02 | OK |
+| apps/web/src/components/whiteboard/SelectionToolbar.tsx | Crisp white Tongchuang floating contextual toolbar with green confirm button | SelectionToolbar | P11-T02 | OK |
+| apps/web/src/components/whiteboard/TongchuangRadialWheel.tsx | Signature floating white circular AI Radial Wheel with concentric color/width/3D/AI arcs | TongchuangRadialWheel | P11-T02 | OK |
+| apps/web/src/components/math/TongchuangSolidWidget.tsx | Interactive transparent 3D solid on chalkboard: 360° orbit, 3-pt cross-section + 2D angle projection, unfold net + dihedral angle, explode | TongchuangSolidWidget, projectSectionPolygon2D | P12-P13 | OK |
+| apps/web/src/components/whiteboard/AiExplainModal.tsx | Socratic AI math explanation modal for 2D/3D whiteboard objects | AiExplainModal | P15-T01 | OK |
+| apps/web/src/components/whiteboard/FormulaToGraphModal.tsx | Convert math formulas with parameter sliders into live viz_graph objects | FormulaToGraphModal | P14-T02 | OK |
+| apps/web/src/hooks/useVoiceCommands.ts | Deterministic Indonesian voice command parser and Web Speech API hook | parseIndonesianVoiceCommand, useVoiceCommands | P15-T02 | OK |
+| apps/web/src/components/whiteboard/VoiceCommandBar.tsx | Floating voice & text AI command pill (Chromium Web Speech + Firefox fallback) | VoiceCommandBar | P15-T02 | OK |
+| apps/web/src/components/whiteboard/LessonSummaryModal.tsx | Deterministic micro-lesson & timeline highlights from board event log | LessonSummaryModal | P16-T01 | OK |

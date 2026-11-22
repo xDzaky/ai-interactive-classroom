@@ -13,11 +13,11 @@ interface ToolDef {
   type: ToolType;
   label: string;
   icon: string;
-  group: "draw" | "shapes" | "other";
+  group: "select" | "draw" | "shapes" | "other";
 }
 
 const TOOLS: ToolDef[] = [
-  { type: "select",      label: "Seleksi",    icon: "↖",   group: "other" },
+  { type: "select",      label: "Seleksi (V)", icon: "↖",  group: "select" },
   { type: "pen",         label: "Pena",       icon: "✏️",  group: "draw" },
   { type: "highlighter", label: "Stabilo",    icon: "🖊",  group: "draw" },
   { type: "eraser",      label: "Hapus",      icon: "⌫",   group: "draw" },
@@ -98,8 +98,8 @@ export function ToolBar({
       aria-label="Alat papan tulis"
       className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-md w-14 max-h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden select-none"
     >
-      {/* Tool buttons grouped */}
-      {(["draw", "shapes", "other"] as const).map((group) => (
+      {/* Tool buttons grouped — Select tool at top (P10-T02) */}
+      {(["select", "draw", "shapes", "other"] as const).map((group) => (
         <div key={group} className="flex flex-col gap-0.5">
           {TOOLS.filter((t) => t.group === group).map((tool) => (
             <button

@@ -1791,3 +1791,12 @@ Date: 2026-11-22T04:10:00Z
 
 
 
+
+## DONE — Tongchuang AI Blackboard Full Upgrade (P10–P16)
+Date: 2026-11-23T01:20:00+07:00
+Tier: HIGH
+- Added atomic `batch` transaction event + inverse + stroke deletion inverse in `packages/whiteboard-core/src/reducer.ts` and `index.ts`.
+- Moved Select tool (`V`) to top of `ToolBar.tsx`; upgraded `exportPng.ts` to composite WebGL 3D overlay canvases.
+- Built `TongchuangRadialWheel.tsx` (draggable white circular "AI" floating wheel with concentric expandable 10-color + stroke-width arc, 3D solids arc, and AI smart hub arc) and upgraded `SelectionToolbar.tsx` to crisp white Tongchuang floating pill with green confirm button.
+- Built `TongchuangSolidWidget.tsx` and mounted `WhiteboardOverlay` (`tongchuangMode={true}`) directly onto `/whiteboard` (`PersonalRoomPage.tsx`): transparent 3D solids on matte chalkboard (`#2d333f`), 360° orbit + presets + auto-rotate, 2D→3D extrusion animation, 3-point cross-section with vivid blue polygon + live side-by-side 2D extracted interior-angle projection, unfold net with dihedral angle badge (`83°`) & orange face highlight, exploded view, and measurement HUD.
+- Built `FormulaToGraphModal.tsx` (P14), `useVoiceCommands.ts` + `VoiceCommandBar.tsx` (P15), and `LessonSummaryModal.tsx` (P16) and integrated all into `PersonalRoomPage.tsx`.

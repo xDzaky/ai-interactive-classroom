@@ -15,6 +15,11 @@ import { getActiveScene } from "@ai-classroom/whiteboard-core";
 const SolidViewer = lazy(() =>
   import("../../components/math/SolidViewer.js").then((m) => ({ default: m.SolidViewer })),
 );
+const TongchuangSolidWidget = lazy(() =>
+  import("../../components/math/TongchuangSolidWidget.js").then((m) => ({
+    default: m.TongchuangSolidWidget,
+  })),
+);
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
 import type { SolidType, SolidParams } from "@ai-classroom/geometry-core";
 import type { ViewportController, ViewportState } from "@/lib/viewport";
@@ -39,6 +44,11 @@ export interface WhiteboardOverlayProps {
   height: number;
   /** Default size (pixels) for a viz widget at scale=1 */
   defaultWidgetSize?: number;
+  /** Render transparent Tongchuang interactive 3D widgets with cross-section, unfold, and white action bar */
+  tongchuangMode?: boolean;
+  onDeleteObject?: (id: string) => void;
+  onExplainObject?: (obj: BoardObject) => void;
+  onDuplicateObject?: (obj: BoardObject) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -62,8 +72,12 @@ interface VizSolidOverlayProps {
   canvasHeight: number;
   isLive: boolean;
   snapshotUrl?: string;
+  tongchuangMode?: boolean;
   onActivate: () => void;
   onSnapshot: (url: string) => void;
+  onDelete?: () => void;
+  onExplain?: () => void;
+  onDuplicate?: () => void;
 }
 
 function VizSolidOverlay({
@@ -75,8 +89,12 @@ function VizSolidOverlay({
   canvasHeight,
   isLive,
   snapshotUrl,
+  tongchuangMode = false,
   onActivate,
   onSnapshot,
+  onDelete,
+  onExplain,
+  onDuplicate,
 }: VizSolidOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { x: wx, y: wy } = extractTransform(obj);
@@ -159,19 +177,33 @@ function VizSolidOverlay({
         width: initialSize,
         height: initialSize,
         pointerEvents: "auto",
-        border: "1px solid rgba(100,100,255,0.3)",
-        borderRadius: 4,
-        overflow: "hidden",
-        background: "#0a0a1a",
+        border: tongchuangMode ? "none" : "1px solid rgba(100,100,255,0.3)",
+        borderRadius: tongchuangMode ? 12 : 4,
+        overflow: tongchuangMode ? "visible" : "hidden",
+        background: tongchuangMode ? "transparent" : "#0a0a1a",
       }}
     >
       {isLive && isNearViewport ? (
-        <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "#0a0a1a" }} />}>
-          <SolidViewer
-            params={solidParams}
-            showPanel={false}
-            onSnapshot={onSnapshot}
-          />
+        <Suspense fallback={<div style={{ width: "100%", height: "100%", background: tongchuangMode ? "transparent" : "#0a0a1a" }} />}>
+          {tongchuangMode ? (
+            <TongchuangSolidWidget
+              id={obj.id}
+              params={solidParams}
+              label={typeof props.label === "string" ? props.label : undefined}
+              selected={true}
+              compact={true}
+              onSnapshot={onSnapshot}
+              onDelete={onDelete}
+              onExplainAi={onExplain}
+              onDuplicate={onDuplicate}
+            />
+          ) : (
+            <SolidViewer
+              params={solidParams}
+              showPanel={false}
+              onSnapshot={onSnapshot}
+            />
+          )}
         </Suspense>
       ) : (
         <div
@@ -327,6 +359,10 @@ export function WhiteboardOverlay({
   width,
   height,
   defaultWidgetSize = 240,
+  tongchuangMode = false,
+  onDeleteObject,
+  onExplainObject,
+  onDuplicateObject,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -403,8 +439,12 @@ export function WhiteboardOverlay({
             canvasHeight={height}
             isLive={activeSolidIds.includes(obj.id)}
             snapshotUrl={snapshots[obj.id]}
+            tongchuangMode={tongchuangMode}
             onActivate={() => activateSolid(obj.id)}
             onSnapshot={(url) => handleSnapshot(obj.id, url)}
+            onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+            onExplain={onExplainObject ? () => onExplainObject(obj) : undefined}
+            onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
           />
         ) : (
           <VizGraphOverlay

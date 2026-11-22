@@ -17,11 +17,13 @@ import type {
 
 export type InverseEvent =
   | { type: "remove_stroke"; id: string }
+  | { type: "restore_stroke"; stroke: BoardStroke }
   | { type: "remove_object"; id: string }
   | { type: "restore_object"; object: BoardObject }
   | { type: "restore_object_props"; id: string; props: Record<string, unknown> }
   | { type: "restore_transform"; id: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }
   | { type: "restore_scene"; scene_id: string }
+  | { type: "batch"; inverses: InverseEvent[] }
   | { type: "noop" };
 
 // ---------------------------------------------------------------------------
@@ -145,18 +147,31 @@ export function applyEvent(
 
     case "object.deleted": {
       const p = event.payload as { id: string };
-      const existing = scene.objects[p.id];
-      if (!existing) return [state, { type: "noop" }];
-      const { [p.id]: _removed, ...restObjects } = scene.objects;
-      const newScene: SceneState = {
-        ...scene,
-        objects: restObjects,
-        order: scene.order.filter((id) => id !== p.id),
-      };
-      return [
-        replaceScene(state, newScene),
-        { type: "restore_object", object: existing },
-      ];
+      const existingObj = scene.objects[p.id];
+      if (existingObj) {
+        const { [p.id]: _removed, ...restObjects } = scene.objects;
+        return [
+          replaceScene(state, {
+            ...scene,
+            objects: restObjects,
+            order: scene.order.filter((id) => id !== p.id),
+          }),
+          { type: "restore_object", object: existingObj },
+        ];
+      }
+      const existingStroke = scene.strokes[p.id];
+      if (existingStroke) {
+        const { [p.id]: _removed, ...restStrokes } = scene.strokes;
+        return [
+          replaceScene(state, {
+            ...scene,
+            strokes: restStrokes,
+            order: scene.order.filter((id) => id !== p.id),
+          }),
+          { type: "restore_stroke", stroke: existingStroke },
+        ];
+      }
+      return [state, { type: "noop" }];
     }
 
     case "object.transform": {
@@ -257,6 +272,19 @@ export function applyEvent(
       ];
     }
 
+    case "batch": {
+      const p = event.payload as { events?: WhiteboardEvent[] };
+      const subEvents = Array.isArray(p.events) ? p.events : [];
+      let current = state;
+      const inverses: InverseEvent[] = [];
+      for (const sub of subEvents) {
+        const [next, inv] = applyEvent(current, sub);
+        current = next;
+        inverses.push(inv);
+      }
+      return [current, { type: "batch", inverses }];
+    }
+
     // Ephemeral events — no state change
     case "device.pointer.moved":
     case "device.action":
@@ -282,6 +310,22 @@ export function applyInverse(state: BoardState, inv: InverseEvent): BoardState {
         strokes: restStrokes,
         order: scene.order.filter((id) => id !== inv.id),
       });
+    }
+    case "restore_stroke": {
+      return replaceScene(state, {
+        ...scene,
+        strokes: { ...scene.strokes, [inv.stroke.id]: inv.stroke },
+        order: scene.order.includes(inv.stroke.id)
+          ? scene.order
+          : [...scene.order, inv.stroke.id],
+      });
+    }
+    case "batch": {
+      let current = state;
+      for (let i = inv.inverses.length - 1; i >= 0; i--) {
+        current = applyInverse(current, inv.inverses[i]);
+      }
+      return current;
     }
     case "remove_object": {
       const { [inv.id]: _removed, ...restObjects } = scene.objects;

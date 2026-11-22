@@ -46,6 +46,25 @@ import {
 } from "@/components/whiteboard/ShapeSuggestionChip";
 import type { AutoShapeMode } from "@/components/whiteboard/ToolBar";
 import { WhiteboardOverlay } from "./WhiteboardOverlay";
+import {
+  findHitItem,
+  findItemsInMarquee,
+  getItemBBox,
+} from "@/lib/selectionHitTest";
+import {
+  resolveActions,
+  WHITEBOARD_ACTIONS,
+  type ActionContext,
+} from "@/features/whiteboard/actionRegistry";
+import { WhiteboardContextMenu } from "@/components/whiteboard/WhiteboardContextMenu";
+import { SelectionToolbar } from "@/components/whiteboard/SelectionToolbar";
+import { ShapeToSolidMenu } from "@/components/whiteboard/ShapeToSolidMenu";
+import {
+  createConvertShapeToSolidEvent,
+  type SolidProposal,
+  type Input2DShape,
+} from "@/lib/shapeToSolid";
+import { AiExplainModal } from "@/components/whiteboard/AiExplainModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -539,6 +558,7 @@ export function WhiteboardCanvas({
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
   const previewLayerRef = useRef<Konva.Layer | null>(null);
+  const uiLayerRef = useRef<Konva.Layer | null>(null);
   const lastTouchDist = useRef<number>(0);
 
   // ---------------------------------------------------------------------------
@@ -645,6 +665,18 @@ export function WhiteboardCanvas({
 
   const scene = getActiveScene(boardState);
 
+  // ── Interactive Selection & Context Menu state (P10-T02, P11-T02) ─────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
+  const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
+
+  const isMarquee = useRef(false);
+  const marqueeStart = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingSelection = useRef(false);
+  const dragSelectionStart = useRef<{ x: number; y: number } | null>(null);
+  const longPressTimer = useRef<any>(null);
+
   // ---------------------------------------------------------------------------
   // Commit event (dispatch to board state)
   // ---------------------------------------------------------------------------
@@ -660,6 +692,121 @@ export function WhiteboardCanvas({
       }
     },
     [legacyOnEvent, onBoardStateChange, boardState],
+  );
+
+  const selectionBBox = useMemo(() => {
+    if (selectedIds.length === 0) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of selectedIds) {
+      const b = getItemBBox(id, scene);
+      if (b) {
+        minX = Math.min(minX, b.x);
+        minY = Math.min(minY, b.y);
+        maxX = Math.max(maxX, b.x + b.w);
+        maxY = Math.max(maxY, b.y + b.h);
+      }
+    }
+    if (!isFinite(minX)) return null;
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }, [selectedIds, scene]);
+
+  const actionContext: ActionContext = useMemo(
+    () => ({
+      selectedIds,
+      scene,
+      boardState,
+      roomId,
+      actorId,
+      onEvent: commitEvent,
+      onOpenConvert3D: (shape) => setConvert3DShape(shape),
+      onOpenAiExplain: (target) => setExplainTarget(target),
+      onClearSelection: () => setSelectedIds([]),
+    }),
+    [selectedIds, scene, boardState, roomId, actorId, commitEvent]
+  );
+
+  const resolvedActions = useMemo(
+    () => resolveActions(actionContext),
+    [actionContext]
+  );
+
+  const toolbarScreenPos = useMemo(() => {
+    if (!selectionBBox) return null;
+    const centerWorldX = selectionBBox.x + selectionBBox.w / 2;
+    const topWorldY = selectionBBox.y;
+    return viewportController.toScreen(centerWorldX, topWorldY);
+  }, [selectionBBox, viewportController, zoomDisplay]);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const stage = stageRef.current;
+      if (!stage) return;
+      const rect =
+        typeof stage.container === "function"
+          ? stage.container().getBoundingClientRect()
+          : (stage as unknown as HTMLElement).getBoundingClientRect?.() ?? { left: 0, top: 0 };
+      const worldPt = viewportController.toWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const hitId = findHitItem(worldPt, scene);
+      if (hitId) {
+        if (!selectedIds.includes(hitId)) {
+          setSelectedIds([hitId]);
+        }
+      }
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    },
+    [stageRef, viewportController, scene, selectedIds]
+  );
+
+  const handleConvertProposal = useCallback(
+    (proposal: SolidProposal) => {
+      if (!convert3DShape) return;
+      const solidEvent = createConvertShapeToSolidEvent(
+        convert3DShape,
+        proposal,
+        roomId,
+        actorId,
+        uid()
+      );
+      // Atomic batch transaction (P10-T03 / P12-T03): one Ctrl+Z restores the original 2D sketch
+      commitEvent({
+        event_type: "batch",
+        payload: {
+          events: [
+            {
+              event_type: "object.deleted",
+              payload: { id: convert3DShape.id },
+            },
+            solidEvent,
+          ],
+        },
+      });
+      setConvert3DShape(null);
+      setSelectedIds([]);
+    },
+    [convert3DShape, roomId, actorId, commitEvent]
+  );
+
+  const handleSetSelectedColor = useCallback(
+    (newColor: string) => {
+      for (const id of selectedIds) {
+        if (scene.objects[id]) {
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: { stroke: newColor, color: newColor } },
+          } as unknown as WhiteboardEvent);
+        } else if (scene.strokes[id]) {
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: { color: newColor } },
+          } as unknown as WhiteboardEvent);
+        }
+      }
+    },
+    [selectedIds, scene, commitEvent]
   );
 
   const handleAcceptSuggestion = useCallback(() => {
@@ -707,6 +854,8 @@ export function WhiteboardCanvas({
   const isSpaceDown = useRef(false);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
       if (e.code === "Space" && !e.repeat) {
         isSpaceDown.current = true;
         document.body.style.cursor = "grab";
@@ -722,6 +871,29 @@ export function WhiteboardCanvas({
         e.preventDefault();
         onRedo?.();
       }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          const delAction = WHITEBOARD_ACTIONS.find((a) => a.id === "delete");
+          if (delAction) delAction.run(actionContext);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          const dupAction = WHITEBOARD_ACTIONS.find((a) => a.id === "duplicate");
+          if (dupAction) dupAction.run(actionContext);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+        if (activeToolRef.current === "select") {
+          e.preventDefault();
+          setSelectedIds([...scene.order]);
+        }
+      } else if (e.key === "Escape") {
+        setSelectedIds([]);
+        setContextMenu(null);
+        setConvert3DShape(null);
+        setExplainTarget(null);
+      }
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === "Space") {
@@ -735,7 +907,38 @@ export function WhiteboardCanvas({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [onUndo, onRedo]);
+  }, [onUndo, onRedo, selectedIds, actionContext, scene.order]);
+
+  // ── Render Selection Boxes on uiLayer ─────────────────────────────────────
+  useEffect(() => {
+    const uiLayer = uiLayerRef.current;
+    if (!uiLayer || typeof uiLayer.destroyChildren !== "function") return;
+
+    uiLayer.destroyChildren();
+
+    if (selectedIds.length > 0) {
+      for (const id of selectedIds) {
+        const bbox = getItemBBox(id, scene);
+        if (bbox) {
+          uiLayer.add(
+            new Konva.Rect({
+              x: bbox.x - 4,
+              y: bbox.y - 4,
+              width: bbox.w + 8,
+              height: bbox.h + 8,
+              stroke: "#6366f1",
+              strokeWidth: 2,
+              dash: [6, 3],
+              listening: false,
+              cornerRadius: 4,
+            })
+          );
+        }
+      }
+    }
+
+    uiLayer.batchDraw();
+  }, [selectedIds, scene]);
 
   // ---------------------------------------------------------------------------
   // World coord helper
@@ -975,10 +1178,40 @@ export function WhiteboardCanvas({
       const pos = getWorldPos();
       if (!pos) return;
 
+      const tool = activeToolRef.current;
+
+      if (tool === "select") {
+        const hitId = findHitItem(pos, scene);
+        if (hitId) {
+          if (e.evt.shiftKey) {
+            setSelectedIds((prev) =>
+              prev.includes(hitId) ? prev.filter((id) => id !== hitId) : [...prev, hitId]
+            );
+          } else {
+            setSelectedIds((prev) => (prev.includes(hitId) && prev.length > 1 ? prev : [hitId]));
+          }
+          isDraggingSelection.current = true;
+          dragSelectionStart.current = { x: pos.x, y: pos.y };
+        } else {
+          if (!e.evt.shiftKey) {
+            setSelectedIds([]);
+          }
+          isMarquee.current = true;
+          marqueeStart.current = { x: pos.x, y: pos.y };
+        }
+
+        clearTimeout(longPressTimer.current);
+        const screenClientX = e.evt.clientX;
+        const screenClientY = e.evt.clientY;
+        longPressTimer.current = setTimeout(() => {
+          setContextMenu({ x: screenClientX || 200, y: screenClientY || 200 });
+        }, 500);
+        return;
+      }
+
       isPointerDown.current = true;
       activeIdRef.current = uid();
       const pressure = e.evt.pressure || 0.5;
-      const tool = activeToolRef.current;
       pointerHoldRef.current = { startPos: { x: pos.x, y: pos.y }, startTime: Date.now() };
 
       if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
@@ -999,7 +1232,7 @@ export function WhiteboardCanvas({
         livePointsRef.current = [[pos.x, pos.y, 0.5]];
       }
     },
-    [readOnly, getWorldPos],
+    [readOnly, getWorldPos, scene],
   );
 
   // ---------------------------------------------------------------------------
@@ -1007,9 +1240,38 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const handleStagePointerMove = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
-      if (!isPointerDown.current || readOnly) return;
+      const tool = activeToolRef.current;
       const pos = getWorldPos();
       if (!pos) return;
+
+      if (tool === "select") {
+        clearTimeout(longPressTimer.current);
+        const uiLayer = uiLayerRef.current;
+        if (isMarquee.current && marqueeStart.current && uiLayer && typeof uiLayer.destroyChildren === "function") {
+          const sx = marqueeStart.current.x;
+          const sy = marqueeStart.current.y;
+          const w = pos.x - sx;
+          const h = pos.y - sy;
+          uiLayer.destroyChildren();
+          uiLayer.add(
+            new Konva.Rect({
+              x: w < 0 ? pos.x : sx,
+              y: h < 0 ? pos.y : sy,
+              width: Math.abs(w),
+              height: Math.abs(h),
+              fill: "rgba(99, 102, 241, 0.12)",
+              stroke: "#6366f1",
+              strokeWidth: 1.5,
+              dash: [4, 4],
+              listening: false,
+            })
+          );
+          uiLayer.batchDraw();
+        }
+        return;
+      }
+
+      if (!isPointerDown.current || readOnly) return;
       if (
         Math.hypot(
           pos.x - pointerHoldRef.current.startPos.x,
@@ -1030,15 +1292,69 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const handleStagePointerUp = useCallback(
     (_e: Konva.KonvaEventObject<PointerEvent>) => {
+      const tool = activeToolRef.current;
+      const pos = getWorldPos();
+
+      if (tool === "select") {
+        clearTimeout(longPressTimer.current);
+        const uiLayer = uiLayerRef.current;
+
+        if (isMarquee.current && marqueeStart.current) {
+          const sx = marqueeStart.current.x;
+          const sy = marqueeStart.current.y;
+          const w = pos ? pos.x - sx : 0;
+          const h = pos ? pos.y - sy : 0;
+
+          if (Math.abs(w) > 5 || Math.abs(h) > 5) {
+            const itemsInMarquee = findItemsInMarquee({ x: sx, y: sy, w, h }, scene);
+            setSelectedIds(itemsInMarquee);
+          }
+          isMarquee.current = false;
+          marqueeStart.current = null;
+          if (uiLayer) {
+            uiLayer.destroyChildren();
+            uiLayer.batchDraw();
+          }
+        }
+
+        if (isDraggingSelection.current && dragSelectionStart.current && pos) {
+          const dx = pos.x - dragSelectionStart.current.x;
+          const dy = pos.y - dragSelectionStart.current.y;
+          if (Math.hypot(dx, dy) > 2) {
+            for (const id of selectedIds) {
+              const obj = scene.objects[id];
+              if (obj) {
+                const props = { ...(obj.props as Record<string, unknown>) };
+                if (typeof props.x === "number") props.x += dx;
+                if (typeof props.y === "number") props.y += dy;
+                if (typeof props.cx === "number") props.cx += dx;
+                if (typeof props.cy === "number") props.cy += dy;
+                if (typeof props.x1 === "number") {
+                  props.x1 += dx;
+                  props.y1 = (props.y1 as number) + dy;
+                  props.x2 = (props.x2 as number) + dx;
+                  props.y2 = (props.y2 as number) + dy;
+                }
+                commitEvent({
+                  event_type: "object.updated",
+                  payload: { id, props_patch: props },
+                } as unknown as WhiteboardEvent);
+              }
+            }
+          }
+          isDraggingSelection.current = false;
+          dragSelectionStart.current = null;
+        }
+        return;
+      }
+
       if (!isPointerDown.current || readOnly) {
         clearLivePreview();
         return;
       }
       isPointerDown.current = false;
 
-      const pos = getWorldPos();
       const pts = livePointsRef.current;
-      const tool = activeToolRef.current;
       const col = colorRef.current;
       const sw = strokeWidthRef.current;
       const id = activeIdRef.current;
@@ -1467,6 +1783,7 @@ export function WhiteboardCanvas({
   return (
     <div
       className="relative overflow-hidden bg-slate-950"
+      onContextMenu={handleContextMenu}
       style={{
         width,
         height,
@@ -1503,7 +1820,7 @@ export function WhiteboardCanvas({
         {/* Layer 2: liveLayer — current stroke/shape preview */}
         <Layer id="live-layer" ref={previewLayerRef} listening={false} />
         {/* Layer 3: uiLayer — selection/transformer */}
-        <Layer id="ui-layer" listening={activeTool === "select"} />
+        <Layer id="ui-layer" ref={uiLayerRef} listening={activeTool === "select"} />
       </Stage>
 
       {/* 3D solid and 2D math graph interactive DOM overlay (P03-T06, P10-T07, P11-T04) */}
@@ -1578,10 +1895,53 @@ export function WhiteboardCanvas({
         onDismiss={() => setRevertToast({ visible: false, shapeKind: "" })}
       />
 
+      {/* Floating selection toolbar (P11-T02, P12-T02) */}
+      {selectedIds.length > 0 && toolbarScreenPos && (
+        <SelectionToolbar
+          x={toolbarScreenPos.x}
+          y={toolbarScreenPos.y}
+          actions={resolvedActions}
+          actionContext={actionContext}
+          onOpenMoreMenu={(e) => {
+            e.stopPropagation();
+            setContextMenu({ x: toolbarScreenPos.x, y: toolbarScreenPos.y + 20 });
+          }}
+        />
+      )}
+
+      {/* Right-click & Long-press Context Menu (P11-T02) */}
+      {contextMenu && (
+        <WhiteboardContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={resolvedActions}
+          actionContext={actionContext}
+          onClose={() => setContextMenu(null)}
+          onSelectColor={handleSetSelectedColor}
+        />
+      )}
+
+      {/* 2D to 3D Shape Conversion Proposal Menu (P11-T08, P12-T03) */}
+      {convert3DShape && (
+        <ShapeToSolidMenu
+          shape={convert3DShape}
+          onSelectProposal={handleConvertProposal}
+          onDismiss={() => setConvert3DShape(null)}
+        />
+      )}
+
+      {/* Socratic AI Math Explanation Modal (P15-T01) */}
+      {explainTarget && (
+        <AiExplainModal
+          target={explainTarget}
+          onClose={() => setExplainTarget(null)}
+        />
+      )}
+
       {/* Tool hint */}
       <div className="absolute bottom-14 left-4 text-[10px] text-slate-500 select-none pointer-events-none">
         {activeTool === "select"
-          ? "Seret untuk panning · Scroll untuk zoom"
+          ? "Klik untuk memilih · Klik kanan untuk menu · Seret marquee · Scroll untuk zoom"
           : activeTool === "pen"
             ? "Gambar bebas · Auto-shape aktif (garis, kotak, lingkaran, elips, segitiga, belah ketupat, segi lima/enam, bintang)"
             : "Klik & seret · Scroll untuk zoom"}

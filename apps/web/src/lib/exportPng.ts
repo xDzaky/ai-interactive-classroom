@@ -15,10 +15,13 @@ export interface ExportPngOptions {
   /** Export only the active scene bounding box; if false, export full stage */
   mimeType?: "image/png" | "image/jpeg";
   quality?: number;
+  /** Optional DOM root containing WebGL 3D overlay canvases to composite onto the PNG */
+  overlayRoot?: HTMLElement | null;
 }
 
 /**
  * Export the Konva stage to PNG and trigger browser download.
+ * Composites any live WebGL overlay canvases (e.g. 3D solids) when overlayRoot is provided.
  * Returns a data URL string (for testing), or null if stage unavailable.
  */
 export function exportStageToPng(
@@ -32,6 +35,7 @@ export function exportStageToPng(
     pixelRatio = 2,
     mimeType = "image/png",
     quality = 1,
+    overlayRoot,
   } = options;
 
   // Reset view transform temporarily for clean export
@@ -42,10 +46,43 @@ export function exportStageToPng(
 
   stage.x(0).y(0).scaleX(1).scaleY(1);
 
-  const dataUrl = stage.toDataURL({ pixelRatio, mimeType, quality });
+  let dataUrl = stage.toDataURL({ pixelRatio, mimeType, quality });
 
   // Restore view
   stage.x(prevX).y(prevY).scaleX(prevScaleX).scaleY(prevScaleY);
+
+  // Composite WebGL 3D overlay canvases if present (P12-T06)
+  if (overlayRoot && typeof document !== "undefined") {
+    const webglCanvases = overlayRoot.querySelectorAll("canvas");
+    if (webglCanvases.length > 0 && typeof stage.container === "function") {
+      try {
+        const stageRect = stage.container().getBoundingClientRect();
+        const composite = document.createElement("canvas");
+        composite.width = Math.max(1, Math.round(stage.width() * pixelRatio));
+        composite.height = Math.max(1, Math.round(stage.height() * pixelRatio));
+        const ctx = composite.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#2d333f";
+          ctx.fillRect(0, 0, composite.width, composite.height);
+          const stageCanvas = stage.toCanvas({ pixelRatio });
+          ctx.drawImage(stageCanvas, 0, 0);
+          webglCanvases.forEach((wc) => {
+            const r = wc.getBoundingClientRect();
+            const dx = (r.left - stageRect.left) * pixelRatio;
+            const dy = (r.top - stageRect.top) * pixelRatio;
+            const dw = r.width * pixelRatio;
+            const dh = r.height * pixelRatio;
+            if (dw > 0 && dh > 0) {
+              ctx.drawImage(wc, dx, dy, dw, dh);
+            }
+          });
+          dataUrl = composite.toDataURL(mimeType, quality);
+        }
+      } catch {
+        // Fallback to plain stage dataUrl if WebGL preserveDrawingBuffer is unavailable
+      }
+    }
+  }
 
   // Trigger download
   const link = document.createElement("a");

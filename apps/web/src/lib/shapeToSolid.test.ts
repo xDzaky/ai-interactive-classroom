@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { proposeSolidsFromShape } from './shapeToSolid';
+import { proposeSolidsFromShape, createConvertShapeToSolidEvent } from './shapeToSolid';
 
 describe('Datar -> Ruang Proposals (P11-T08)', () => {
   it('converts rectangle (200x120 world units) to balok 10x6 cm', () => {
@@ -46,4 +46,23 @@ describe('Datar -> Ruang Proposals (P11-T08)', () => {
     expect(proposals.some((p) => p.solidType === 'cone')).toBe(true);
     expect(proposals.some((p) => p.solidType === 'sphere')).toBe(true);
   });
+
+  it('generates a valid object.created event from solid proposal', () => {
+    const shape = {
+      id: 'square-1',
+      object_type: 'rect',
+      props: { x: 0, y: 0, w: 200, h: 200 },
+    };
+    const proposals = proposeSolidsFromShape(shape);
+    const proposal = proposals[0];
+    const event = createConvertShapeToSolidEvent(shape, proposal, 'room-1', 'teacher-1', 'solid-123');
+
+    expect(event.event_type).toBe('object.created');
+    expect(event.payload.id).toBe('solid-123');
+    expect(event.payload.object_type).toBe('viz_solid');
+    expect(event.payload.props.solid_type).toBe(proposal.solidType);
+    expect(event.payload.props.x).toBe(proposal.position.x);
+    expect(event.payload.props.y).toBe(proposal.position.y);
+  });
 });
+

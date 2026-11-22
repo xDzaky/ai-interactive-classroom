@@ -126,3 +126,30 @@ export function proposeSolidsFromShape(shape: Input2DShape): SolidProposal[] {
 
   return proposals;
 }
+
+/**
+ * Creates an object.created WhiteboardEvent for replacing a 2D shape with a 3D viz_solid.
+ */
+export function createConvertShapeToSolidEvent(
+  _shape: Input2DShape,
+  proposal: SolidProposal,
+  _roomId?: string,
+  _actorId?: string,
+  solidId?: string
+) {
+  return {
+    event_type: 'object.created' as const,
+    payload: {
+      id: solidId || `solid-${Date.now()}`,
+      object_type: 'viz_solid',
+      props: {
+        solid_type: proposal.solidType,
+        params: proposal.params,
+        x: proposal.position.x,
+        y: proposal.position.y,
+        label: proposal.title,
+      },
+    },
+  };
+}
+

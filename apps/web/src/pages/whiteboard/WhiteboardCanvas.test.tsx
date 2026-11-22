@@ -219,4 +219,40 @@ describe("WhiteboardCanvas", () => {
     );
     expect(container.firstChild).toBeTruthy();
   });
+
+  it("opens context menu on right click (onContextMenu)", () => {
+    const { container } = render(
+      <WhiteboardCanvas
+        boardState={state}
+        onBoardStateChange={noop}
+        width={400}
+        height={300}
+        activeTool="select"
+      />
+    );
+
+    const canvasRoot = container.firstChild as HTMLElement;
+    fireEvent.contextMenu(canvasRoot, { clientX: 150, clientY: 150 });
+
+    expect(screen.getByTestId("whiteboard-context-menu")).toBeInTheDocument();
+  });
+
+  it("closes context menu on Escape key", () => {
+    const { container } = render(
+      <WhiteboardCanvas
+        boardState={state}
+        onBoardStateChange={noop}
+        width={400}
+        height={300}
+        activeTool="select"
+      />
+    );
+
+    const canvasRoot = container.firstChild as HTMLElement;
+    fireEvent.contextMenu(canvasRoot, { clientX: 150, clientY: 150 });
+    expect(screen.getByTestId("whiteboard-context-menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("whiteboard-context-menu")).not.toBeInTheDocument();
+  });
 });

@@ -211,6 +211,15 @@ export const DeviceActionPayloadSchema = z.object({
   params: z.record(z.unknown()).optional(),
 });
 
+export const BatchPayloadSchema = z.object({
+  events: z.array(
+    z.object({
+      event_type: z.string(),
+      payload: z.record(z.unknown()),
+    })
+  ),
+});
+
 /** All known whiteboard event types from CONTRACTS.md */
 export type WhiteboardEventType =
   | "stroke.committed"
@@ -226,7 +235,8 @@ export type WhiteboardEventType =
   | "annotation.created"
   | "annotation.deleted"
   | "device.pointer.moved"
-  | "device.action";
+  | "device.action"
+  | "batch";
 
 /** A whiteboard event as sent to POST /api/v1/rooms/{roomId}/events */
 export interface WhiteboardEvent {
