@@ -126,7 +126,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P10-T09 | HIGH | deps: P09-RV | packages/sketch-core: shape recognizer v2 (confidence + reject option)
 - [x] P10-T10 | MID  | deps: T09    | Synthetic corpus generator + negative set + dev stroke recorder
 - [x] P10-T11 | MID  | deps: T09    | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
-- [~] P10-T12 | HIGH | deps: T10,T11 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc (Antigravity · HIGH · 2026-11-22)
+- [x] P10-T12 | HIGH | deps: T10,T11 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
 - [ ] P10-T13 | MID  | deps: T12    | OPTIONAL: extra planar shapes (jajargenjang, trapesium, layang-layang, siku-siku, sudut)
 - [ ] P10-RV  | HIGH | deps: T01-T12 | Phase review
 
@@ -152,6 +152,18 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P12-T05 | LOW  | deps: P12-T04 | Device matrix update + Playwright device emulation checks
 - [ ] P12-T06 | LOW  | deps: P11-T11 | OPTIONAL: voice commands (Web Speech API, id-ID) for 5 commands
 - [ ] P12-RV  | HIGH | deps: T01-T05 | Phase review
+
+## P13 — GeoGebra study, clean-room, UX redesign · `tasks/P13-geogebra-study-ux.md`
+- [x] P13-T00 | HUMAN | deps: -        | LEGAL GATE: choose path A/B/C and record ADR-P13 in DECISIONS.md (Path C chosen by Dzaky 2026-11-22)
+- [x] P13-T01 | LOW   | deps: T00      | Third-party policy doc + guard script wired into CI/verify
+- [ ] P13-T02 | HIGH  | deps: T00,P11-T03 | Clean-room READER sessions → behavior specs in docs/study/geogebra/ (no code copied)
+- [ ] P13-T03 | MID   | deps: T00      | UX study (use the apps manually) → own design spec + tokens (no assets copied)
+- [ ] P13-T04 | MID   | deps: T00      | Spike: JSXGraph as 2D dynamic-geometry engine (license + fit) → build-vs-adopt decision
+- [ ] P13-T05 | MID   | deps: T00      | OPTIONAL (path A only): feature-flagged GeoGebra Apps embed for NON-COMMERCIAL pilot
+- [ ] P13-T06 | HIGH  | deps: T02,T04  | construction-core: own dependency-graph engine (only if T04 says "build")
+- [ ] P13-T07 | MID   | deps: T03      | Apply design spec: workspace layout (objects panel, grouped toolbar, mode presets)
+- [ ] P13-T08 | MID   | deps: T03,P11-T11 | Lesson-template library + Kurikulum Merdeka taxonomy (original content)
+- [ ] P13-RV  | HIGH  | deps: T01-T04,T07 | Phase review (incl. guard script and license audit)
 
 ---
 

@@ -27,6 +27,16 @@ ADR-019 | DECIDED | Guest tokens scoped to one room + one participant. Room code
 ADR-020 | DECIDED | Use OpenAI `text-embedding-3-small` (1536 dimensions) for pgvector. This matches the existing LiteLLM/OpenAI environment configuration. Approved by human 2026-11-21.
 ADR-021 | DECIDED | Add `laravel/boost` `^2.10` as a development dependency for Laravel-specific AI guidance. Composer registry reports MIT license and Laravel 13 compatibility. Approved by human 2026-11-21.
 ADR-022 | DECIDED | Document-ingestion HTTP contract: `POST /api/v1/schools/{school}/documents` multipart `file` (PDF/text, ≤10 MB) + optional `title`, teacher or school_admin authorization (Sanctum), returns `202 {document_id, status:"queued"}`. Polling: `GET /api/v1/schools/{school}/documents/{document}` → `{id, title, status, ingested_at}`. Status enum: queued, processing, ready, failed. Decided by Claude Antigravity HIGH-tier 2026-11-21.
+ADR-P13 | DECIDED | 2026-11-22 | decided by: Dzaky (Human) & Antigravity (HIGH)
+Path: C (Clean-Room + Permissive Open Source Libraries like JSXGraph MIT & Math.js + UX inspiration from GeoGebra & Mathtalking)
+Commercial intent: Yes (School & education platform product, proprietary codebase)
+Consequences:
+- Zero copyleft (EUPL/GPL) code or NC-licensed user materials allowed in the repository.
+- Use clean-room behavioral specifications in docs/study/geogebra/ and docs/ux/.
+- Adopt JSXGraph (dual LGPL/MIT, choosing MIT commercial option) for dynamic 2D geometric constructions with dependent objects.
+- Integrate conversational math assistance patterns inspired by Mathtalking to guide learners interactively.
+- Automated third-party guard `scripts/check-third-party.mjs` runs on every verify and CI run.
+Review date: 2026-12-01
 
 ## PROPOSED entries (need human/HIGH-tier decision)
 

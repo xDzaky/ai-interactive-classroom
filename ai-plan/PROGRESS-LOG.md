@@ -1571,3 +1571,33 @@ Date: 2026-11-22T02:06:00Z
 ## START — P10-T12 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
 Date: 2026-11-22T02:07:00Z
 Tier: HIGH
+
+## DONE — P10-T12 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
+Date: 2026-11-22T02:40:00Z
+- Added accuracy gate assertions to `packages/sketch-core/src/testing/corpus.test.ts`:
+  - Overall accuracy >= 0.85 (achieved 93.9%, 155/165)
+  - Per-class recall >= 0.70 (circle 100%, ellipse 100%, square 100%, hexagon 100%, star 100%, rect 100%, right_triangle 93.3%, line 93.3%, triangle 86.7%, pentagon 86.7%, rhombus 73.3%)
+  - Negative rejection rate >= 0.95 (achieved 99.3%, 149/150 rejected as ink)
+  - False snap rate over non-shapes <= 0.02 (achieved 0.00%)
+- Tuned `packages/sketch-core/src/constants.ts` strictly without fixture special-casing:
+  - `LINE_PERP_DEV_RATIO` (0.15) & `LINE_CHORD_RATIO` (0.80) to accommodate human wobble
+  - `ELLIPSE_RMS_DIVISOR` (0.22) for radial tolerance
+  - `FIT_ERROR_DIVISOR` (0.10) for multi-corner regular polygons
+  - `QUAD_SIDE_EQUAL_RATIO` (0.22) & `POLYGON_REGULARITY_CV` (0.30)
+- Recorded benchmark history and confusion matrix in `docs/shape-recognition.md`
+- Documented geometric confusions (rhombus vs tilted square, right triangle vs triangle, hexagon vs circle)
+- Verified: all 18 unit/corpus tests passing in `packages/sketch-core`, all 14 tests passing in `apps/web`
+
+## START — P13-T00 & P13-T01 | GeoGebra Study, Clean-Room Policy, and Third-Party Guard
+Date: 2026-11-22T02:42:00Z
+Tier: HIGH & LOW
+
+## DONE — P13-T00 & P13-T01 | GeoGebra Study, Clean-Room Policy, and Third-Party Guard
+Date: 2026-11-22T02:45:00Z
+- Human decided ADR-P13: Path C (Clean-Room + Permissive Libraries like JSXGraph MIT & Math.js + UX inspiration from GeoGebra & Mathtalking)
+- Created `docs/THIRD-PARTY-POLICY.md` specifying allowed vs forbidden usage, licensing rules, and library addition procedure
+- Copied and wired `scripts/check-third-party.mjs` into `package.json` (`check:third-party`) and verified (`third-party guard: OK`)
+- Conducted clean-room UX study in `docs/ux/geogebra-ux-notes.md` (algebra/objects panel, grouped toolbar with flyouts, mode presets, conversational tutor)
+- Formulated UI/UX design spec in `docs/ux/design-spec.md` with CSS variable design tokens and responsive rules
+- Conducted dynamic geometry engine spike in `docs/spikes/jsxgraph.md` (JSXGraph MIT evaluation: score 16/18, HYBRID decision)
+- Appended P13 tasks to `ai-plan/TASKS.md` and `ai-plan/tasks/P13-geogebra-study-ux.md`

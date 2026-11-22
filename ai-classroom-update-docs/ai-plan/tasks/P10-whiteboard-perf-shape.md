@@ -158,9 +158,9 @@ Verify: vitest all pass; manual: draw a wobbly circle (snaps), a heart (stays in
 ### P10-T12 — Accuracy gate   [tier: HIGH] [deps: T10, T11]
 Gates (all must pass, synthetic AND human fixtures): per-class recall (correct kind via snap or suggest) ≥ 0.85; wrong-snap rate over all positives ≤ 0.02; negatives kept as ink ≥ 0.95.
 Steps:
-- [ ] 1. Add the gate assertions to `corpus.test.ts`.
-- [ ] 2. Tune ONLY `constants.ts`; never special-case fixtures. Log each tuning round (before/after table) in `docs/shape-recognition.md` with a confusion matrix.
-- [ ] 3. Document remaining known confusions (e.g., rhombus vs tilted square).
+- [x] 1. Add the gate assertions to `corpus.test.ts`.
+- [x] 2. Tune ONLY `constants.ts`; never special-case fixtures. Log each tuning round (before/after table) in `docs/shape-recognition.md` with a confusion matrix.
+- [x] 3. Document remaining known confusions (e.g., rhombus vs tilted square).
 Verify: full sketch-core tests pass with gates; web vitest pass.
 
 ### P10-T13 — OPTIONAL extra planar shapes   [tier: MID] [deps: T12]

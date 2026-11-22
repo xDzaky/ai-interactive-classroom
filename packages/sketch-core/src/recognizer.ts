@@ -260,10 +260,10 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
       const s2 = sideLengths[2];
       const s3 = sideLengths[3];
       const oppEqual =
-        Math.abs(s0 - s2) / Math.max((s0 + s2) / 2, 0.001) <= 0.15 &&
-        Math.abs(s1 - s3) / Math.max((s1 + s3) / 2, 0.001) <= 0.15;
-      const allSidesEqual = (Math.max(s0, s1, s2, s3) - Math.min(s0, s1, s2, s3)) / meanSide <= 0.15;
-      const all90 = angles.every((a) => Math.abs(a - 90) <= 14);
+        Math.abs(s0 - s2) / Math.max((s0 + s2) / 2, 0.001) <= CONSTANTS.QUAD_OPP_SIDE_EQUAL_RATIO &&
+        Math.abs(s1 - s3) / Math.max((s1 + s3) / 2, 0.001) <= CONSTANTS.QUAD_OPP_SIDE_EQUAL_RATIO;
+      const allSidesEqual = (Math.max(s0, s1, s2, s3) - Math.min(s0, s1, s2, s3)) / meanSide <= CONSTANTS.QUAD_SIDE_EQUAL_RATIO;
+      const all90 = angles.every((a) => Math.abs(a - 90) <= CONSTANTS.QUAD_RIGHT_ANGLE_TOLERANCE_DEG);
 
       let quadKind: ShapeKind = 'rect';
       if (allSidesEqual && all90) {
@@ -309,7 +309,7 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
         geometry: { type: 'polygon', points: finalPoints },
       });
       break;
-    } else if (k === 5 && !isSelfIntersecting && sideCV <= 0.25) {
+    } else if (k === 5 && !isSelfIntersecting && sideCV <= CONSTANTS.POLYGON_REGULARITY_CV) {
       candidates.push({
         kind: 'pentagon',
         confidence,
@@ -317,7 +317,7 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
         geometry: { type: 'polygon', points: refined },
       });
       break;
-    } else if (k === 6 && !isSelfIntersecting && sideCV <= 0.25) {
+    } else if (k === 6 && !isSelfIntersecting && sideCV <= CONSTANTS.POLYGON_REGULARITY_CV) {
       candidates.push({
         kind: 'hexagon',
         confidence,
