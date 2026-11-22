@@ -25,6 +25,13 @@ import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { ViewportController } from "@/lib/viewport";
 import { GridBackground } from "@/components/whiteboard/GridBackground";
+import {
+  RenderObject,
+  generateEllipsePoints,
+  generateRegularPolygonPoints,
+  generateRhombusPoints,
+  generateStarPoints,
+} from "./objects/RenderObject";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,43 +89,6 @@ function getSvgPathPoints(
 
 function strokeToPoints(stroke: BoardStroke): number[] {
   return getSvgPathPoints(stroke.points, stroke.width);
-}
-
-// ---------------------------------------------------------------------------
-// Geometry helpers for 2D math shapes
-// ---------------------------------------------------------------------------
-
-function generateRegularPolygonPoints(cx: number, cy: number, r: number, sides: number): number[] {
-  const pts: number[] = [];
-  for (let i = 0; i < sides; i++) {
-    const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
-    pts.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
-  }
-  return pts;
-}
-
-function generateRhombusPoints(cx: number, cy: number, rx: number, ry: number): number[] {
-  return [cx, cy - ry, cx + rx, cy, cx, cy + ry, cx - rx, cy];
-}
-
-function generateStarPoints(cx: number, cy: number, outerR: number, innerR: number, numPoints = 5): number[] {
-  const pts: number[] = [];
-  const step = Math.PI / numPoints;
-  for (let i = 0; i < 2 * numPoints; i++) {
-    const r = i % 2 === 0 ? outerR : innerR;
-    const angle = i * step - Math.PI / 2;
-    pts.push(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
-  }
-  return pts;
-}
-
-function generateEllipsePoints(cx: number, cy: number, rx: number, ry: number, segments = 36): number[] {
-  const pts: number[] = [];
-  for (let i = 0; i < segments; i++) {
-    const angle = (i * 2 * Math.PI) / segments;
-    pts.push(cx + rx * Math.cos(angle), cy + ry * Math.sin(angle));
-  }
-  return pts;
 }
 
 function perpendicularDistance(
@@ -320,210 +290,6 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   }
 
   return { type: "none" };
-}
-
-// ---------------------------------------------------------------------------
-// Individual object renderer
-// ---------------------------------------------------------------------------
-
-function RenderObject({ obj }: { obj: BoardObject }) {
-  const p = obj.props as Record<string, number & string>;
-
-  switch (obj.object_type) {
-    case "rect":
-      return (
-        <Rect
-          id={obj.id}
-          x={p.x ?? 0}
-          y={p.y ?? 0}
-          width={p.w ?? p.width ?? 100}
-          height={p.h ?? p.height ?? 60}
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          rotation={p.rotation ?? 0}
-          listening={false}
-        />
-      );
-    case "circle":
-      return (
-        <Circle
-          id={obj.id}
-          x={p.x ?? 0}
-          y={p.y ?? 0}
-          radius={p.r ?? p.radius ?? 40}
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          listening={false}
-        />
-      );
-    case "ellipse": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 50));
-      const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 30));
-      return (
-        <Line
-          id={obj.id}
-          points={generateEllipsePoints(cx, cy, rx, ry)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          listening={false}
-        />
-      );
-    }
-    case "triangle":
-      return (
-        <Line
-          id={obj.id}
-          points={[p.x1 ?? 0, p.y1 ?? 0, p.x2 ?? 50, p.y2 ?? 80, p.x3 ?? 100, p.y3 ?? 0]}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    case "rhombus": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 40));
-      const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 50));
-      return (
-        <Line
-          id={obj.id}
-          points={generateRhombusPoints(cx, cy, rx, ry)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    }
-    case "pentagon": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const r = Number(p.r ?? 40);
-      return (
-        <Line
-          id={obj.id}
-          points={generateRegularPolygonPoints(cx, cy, r, 5)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    }
-    case "hexagon": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const r = Number(p.r ?? 40);
-      return (
-        <Line
-          id={obj.id}
-          points={generateRegularPolygonPoints(cx, cy, r, 6)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    }
-    case "star": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const outerR = Number(p.outerR ?? (p.r ?? 45));
-      const innerR = Number(p.innerR ?? outerR / 2.2);
-      return (
-        <Line
-          id={obj.id}
-          points={generateStarPoints(cx, cy, outerR, innerR)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    }
-    case "polygon": {
-      const cx = Number(p.cx ?? p.x ?? 0);
-      const cy = Number(p.cy ?? p.y ?? 0);
-      const r = Number(p.r ?? 40);
-      const sides = Number(p.sides ?? 5);
-      return (
-        <Line
-          id={obj.id}
-          points={generateRegularPolygonPoints(cx, cy, r, sides)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    }
-    case "arrow":
-      return (
-        <Arrow
-          id={obj.id}
-          points={[p.x1 ?? 0, p.y1 ?? 0, p.x2 ?? 100, p.y2 ?? 100]}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          fill={p.stroke ?? "#6366f1"}
-          pointerLength={10}
-          pointerWidth={8}
-          lineCap="round"
-          listening={false}
-        />
-      );
-    case "line":
-      return (
-        <Line
-          id={obj.id}
-          points={[p.x1 ?? 0, p.y1 ?? 0, p.x2 ?? 100, p.y2 ?? 100]}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={p.strokeWidth ?? 2}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      );
-    case "text":
-    case "annotation":
-      return (
-        <KonvaText
-          id={obj.id}
-          x={p.x ?? 0}
-          y={p.y ?? 0}
-          text={String(p.text ?? obj.props.text ?? "")}
-          fontSize={Number(p.fontSize ?? 16)}
-          fill={String(p.fill ?? "#f8fafc")}
-          listening={false}
-        />
-      );
-    default:
-      return null;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1296,6 +1062,9 @@ export function WhiteboardCanvas({
         lineCap="round"
         lineJoin="round"
         listening={false}
+        perfectDrawEnabled={false}
+        shadowForStrokeEnabled={false}
+        hitStrokeWidth={0}
         globalCompositeOperation={
           stroke.tool === "eraser" ? "destination-out" : "source-over"
         }
@@ -1306,11 +1075,19 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   // Render objects
   // ---------------------------------------------------------------------------
+  const isSelectOrEraser = activeTool === "select" || activeTool === "eraser";
   const objectElems = scene.order
     .filter((id) => id in scene.objects)
     .map((id) => {
       const obj = scene.objects[id];
-      return <RenderObject key={`obj-${obj.id}`} obj={obj} />;
+      return (
+        <RenderObject
+          key={`obj-${obj.id}`}
+          obj={obj}
+          listening={isSelectOrEraser}
+          onNodeRef={(id, node, bbox) => viewportController.registerNode(id, node, bbox)}
+        />
+      );
     });
 
   // ---------------------------------------------------------------------------
@@ -1365,10 +1142,18 @@ export function WhiteboardCanvas({
         onPointerUp={handleStagePointerUp}
         onPointerLeave={handleStagePointerUp}
       >
-        <Layer>{strokeElems}</Layer>
-        <Layer>{objectElems}</Layer>
-        {/* Imperative preview layer — no JSX children, redrawn via batchDraw() */}
-        <Layer ref={previewLayerRef} listening={false} />
+        {/* Layer 1: committedLayer — listening only while tool is select/eraser */}
+        <Layer
+          id="committed-layer"
+          listening={isSelectOrEraser}
+        >
+          {strokeElems}
+          {objectElems}
+        </Layer>
+        {/* Layer 2: liveLayer — current stroke/shape preview */}
+        <Layer id="live-layer" ref={previewLayerRef} listening={false} />
+        {/* Layer 3: uiLayer — selection/transformer */}
+        <Layer id="ui-layer" listening={activeTool === "select"} />
       </Stage>
 
       {/* Zoom controls */}

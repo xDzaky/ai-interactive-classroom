@@ -19,6 +19,13 @@ export interface ViewportControllerOptions {
 
 export type ViewportSubscriber = (state: ViewportState) => void;
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export class ViewportController {
   private state: ViewportState;
   private minScale: number;
@@ -27,6 +34,8 @@ export class ViewportController {
   private subscribers: Set<ViewportSubscriber> = new Set();
   private rafId: number | null = null;
   private dirty = false;
+  private nodes: Map<string, { node: Konva.Node; bbox: BoundingBox }> = new Map();
+  private bboxCache: WeakMap<object, BoundingBox> = new WeakMap();
 
   constructor(options: ViewportControllerOptions = {}) {
     this.minScale = options.minScale ?? 0.1;
@@ -152,9 +161,66 @@ export class ViewportController {
     }
   }
 
+  public registerNode(id: string, node: Konva.Node | null, bbox?: BoundingBox): void {
+    if (!node) {
+      this.nodes.delete(id);
+    } else if (bbox) {
+      this.nodes.set(id, { node, bbox });
+    }
+  }
+
+  public getCachedBbox(obj: object, compute: () => BoundingBox): BoundingBox {
+    let box = this.bboxCache.get(obj);
+    if (!box) {
+      box = compute();
+      this.bboxCache.set(obj, box);
+    }
+    return box;
+  }
+
+  public getRegisteredNodeCount(): number {
+    return this.nodes.size;
+  }
+
+  private updateCulling(): void {
+    const count = this.nodes.size;
+    // Culling only active when object count > 200
+    if (count <= 200) {
+      this.nodes.forEach(({ node }) => {
+        if (typeof node.visible === "function" && !node.visible()) {
+          node.visible(true);
+        }
+      });
+      return;
+    }
+
+    const stageWidth = (typeof this.stage?.width === "function" ? this.stage.width() : 1920) || 1920;
+    const stageHeight = (typeof this.stage?.height === "function" ? this.stage.height() : 1080) || 1080;
+    const margin = 200;
+
+    const worldLeft = -this.state.x / this.state.scale - margin;
+    const worldTop = -this.state.y / this.state.scale - margin;
+    const worldRight = worldLeft + stageWidth / this.state.scale + margin * 2;
+    const worldBottom = worldTop + stageHeight / this.state.scale + margin * 2;
+
+    this.nodes.forEach(({ node, bbox }) => {
+      if (typeof node.visible !== "function") return;
+      const isVisible =
+        bbox.x + bbox.w >= worldLeft &&
+        bbox.x <= worldRight &&
+        bbox.y + bbox.h >= worldTop &&
+        bbox.y <= worldBottom;
+
+      if (node.visible() !== isVisible) {
+        node.visible(isVisible);
+      }
+    });
+  }
+
   public apply(): void {
     this.dirty = false;
     this.syncStageImmediately();
+    this.updateCulling();
     const current = this.getState();
     this.subscribers.forEach((fn) => {
       try {
@@ -184,6 +250,7 @@ export class ViewportController {
       this.rafId = null;
     }
     this.subscribers.clear();
+    this.nodes.clear();
     this.stage = null;
   }
 }

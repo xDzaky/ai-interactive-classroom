@@ -338,3 +338,4 @@ Rules:
 | apps/web/src/lib/gridSpec.test.ts | Unit tests for gridSpec vectors across zoom levels | — | P10-T04 | OK |
 | apps/web/src/components/whiteboard/GridBackground.tsx | CSS-only adaptive background grid driven by ViewportController (0 canvas cost) | GridBackground | P10-T04 | OK |
 | apps/web/src/components/whiteboard/GridBackground.test.tsx | Unit tests for GridBackground rendering & CSS variable updates | — | P10-T04 | OK |
+| apps/web/src/pages/whiteboard/objects/RenderObject.tsx | Memoized Konva object renderer with hitStrokeWidth<=12, perfectDraw=false | RenderObject, computeObjectBbox | P10-T05 | OK |

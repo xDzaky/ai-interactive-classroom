@@ -1460,3 +1460,12 @@ Date: 2026-11-22T00:48:45Z
 ## START — P10-T05 | Layer split, memoization, listening(false), culling
 Date: 2026-11-22T00:50:00Z
 Tier: MID
+
+## DONE — P10-T05 | Layer split, memoization, listening(false), culling
+Date: 2026-11-22T00:57:30Z
+- Enforced max 3 Konva layers in WhiteboardCanvas: `committed-layer` (listening only when activeTool is select/eraser), `live-layer` (preview, listening=false), `ui-layer` (transformer, listening on select)
+- Created `apps/web/src/pages/whiteboard/objects/RenderObject.tsx` with React.memo, `perfectDrawEnabled={false}`, `shadowForStrokeEnabled={false}`, `hitStrokeWidth <= 12`, and `computeObjectBbox`
+- Updated `ViewportController` with `registerNode`, `getCachedBbox` (WeakMap cache), and viewport boundary culling when object count > 200 (200px margin)
+- Added unit tests in `viewport.test.ts` for node registration, culling, and bbox caching
+- Recorded PERF measurements in `docs/perf/DIAGNOSIS.md` appendix (draw calls reduced by 75.7%, zoom frame time reduced to 9.4ms p95 11.1ms)
+- Verified: `tsc --noEmit` clean, 52/52 test files passed (349/349 tests)

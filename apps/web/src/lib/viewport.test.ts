@@ -115,4 +115,67 @@ describe("ViewportController", () => {
     expect(mockStage.position).toHaveBeenCalled();
     expect(mockStage.batchDraw).toHaveBeenCalled();
   });
+
+  it("registers nodes and toggles visibility via culling when count > 200", () => {
+    const vc = new ViewportController();
+    const mockStage = {
+      scale: vi.fn(),
+      position: vi.fn(),
+      batchDraw: vi.fn(),
+      width: () => 1000,
+      height: () => 800,
+    } as any;
+    vc.attachStage(mockStage);
+
+    // Register 201 nodes: 200 in-view, 1 far away
+    const farNode = {
+      _visible: true,
+      visible: function (v?: boolean) {
+        if (typeof v === "boolean") this._visible = v;
+        return this._visible;
+      },
+    } as any;
+    const inViewNode = {
+      _visible: true,
+      visible: function (v?: boolean) {
+        if (typeof v === "boolean") this._visible = v;
+        return this._visible;
+      },
+    } as any;
+
+    for (let i = 0; i < 200; i++) {
+      vc.registerNode(`node-${i}`, { ...inViewNode }, { x: 50, y: 50, w: 10, h: 10 });
+    }
+    vc.registerNode("far-node", farNode, { x: 50000, y: 50000, w: 50, h: 50 });
+    expect(vc.getRegisteredNodeCount()).toBe(201);
+
+    vc.apply();
+    // farNode should be culled
+    expect(farNode.visible()).toBe(false);
+
+    // If node count drops <= 200, all nodes should become visible
+    vc.registerNode("far-node", null);
+    expect(vc.getRegisteredNodeCount()).toBe(200);
+    farNode.visible(false);
+    vc.registerNode("far-node-2", farNode, { x: 50000, y: 50000, w: 50, h: 50 });
+    // Remove one to bring to 200
+    vc.registerNode("node-0", null);
+    expect(vc.getRegisteredNodeCount()).toBe(200);
+    vc.apply();
+    expect(farNode.visible()).toBe(true);
+  });
+
+  it("caches bbox in WeakMap", () => {
+    const vc = new ViewportController();
+    const dummyObj = { id: "test" };
+    const compute = vi.fn(() => ({ x: 10, y: 20, w: 30, h: 40 }));
+
+    const bbox1 = vc.getCachedBbox(dummyObj, compute);
+    expect(bbox1).toEqual({ x: 10, y: 20, w: 30, h: 40 });
+    expect(compute).toHaveBeenCalledTimes(1);
+
+    const bbox2 = vc.getCachedBbox(dummyObj, compute);
+    expect(bbox2).toBe(bbox1);
+    expect(compute).toHaveBeenCalledTimes(1); // Cached, not recomputed!
+  });
 });
