@@ -22,6 +22,7 @@ export default defineConfig({
       // Use Konva browser build in jsdom (node build requires 'canvas' package)
       "konva": path.resolve(__dirname, "node_modules/konva/lib/index.js"),
       "@ai-classroom/curriculum-schema": path.resolve(__dirname, "../../packages/curriculum-schema/src"),
+      "@ai-classroom/construction-core": path.resolve(__dirname, "../../packages/construction-core/src"),
       "@ai-classroom/whiteboard-core": path.resolve(__dirname, "../../packages/whiteboard-core/src"),
     },
   },

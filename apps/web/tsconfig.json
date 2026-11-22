@@ -18,7 +18,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@ai-classroom/curriculum-schema": ["../../packages/curriculum-schema/src/index.ts"]
+      "@ai-classroom/curriculum-schema": ["../../packages/curriculum-schema/src/index.ts"],
+      "@ai-classroom/construction-core": ["../../packages/construction-core/src/index.ts"]
     }
   },
   "include": ["src"],

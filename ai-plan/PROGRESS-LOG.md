@@ -1753,18 +1753,20 @@ Date: 2026-11-22T03:35:00Z
 Date: 2026-11-22T03:38:00Z
 Tier: MID
 
-## START — P13-T09 | Integration of WhiteboardOverlay, TemplatePickerModal, ObjectsPanel & RadialMenu
-Date: 2026-11-22T03:45:00Z
+## START — P13-T06 | Clean-room construction-core 2D dynamic geometry engine
+Date: 2026-11-22T04:00:00Z
 Tier: MID
 
-## DONE — P13-T09 | Integration of WhiteboardOverlay, TemplatePickerModal, ObjectsPanel & RadialMenu
-Date: 2026-11-22T03:50:00Z
-- Completed end-to-end integration:
-  - Mounted `<WhiteboardOverlay>` in `WhiteboardCanvas.tsx` with imperative `ViewportController` sync for 60 FPS HTML/WebGL overlay (3D solids & 2D graphs) above Konva canvas
-  - Integrated `TemplatePickerModal`, `ObjectsPanel`, and `RadialMenu` in `TeacherView.tsx`
-  - Fixed `@ai-classroom/whiteboard-core` mock in `RoomPage.test.tsx` and `TeacherView.test.tsx` to include `getActiveScene`
-  - Verified with `apps/web` unit tests (405 tests passing, 0 failures), `vite build` (15.78s clean), and `check-third-party.mjs` (0 violations)
-- Verified: All unit tests and production build pass (OK)
+## DONE — P13-T06 | Clean-room construction-core 2D dynamic geometry engine
+Date: 2026-11-22T04:05:00Z
+- Created package `@ai-classroom/construction-core`:
+  - `src/types.ts`: typed geometry primitives (free points, midpoint, line, segment, ray, perpendicular, parallel, circle by center+point, circle by 3 points, intersections line-line, line-circle, circle-circle, polygon, angle)
+  - `src/dag.ts`: dependency directed acyclic graph, Kahn's topological sort, cycle detection
+  - `src/geometry.ts`: robust analytical 2D geometry calculations with normalized vectors and EPSILON tolerance
+  - `src/engine.ts`: `ConstructionEngine` with topological recompute, graceful undefined propagation without NaN, and serialization (toJSON/fromJSON)
+  - `src/engine.test.ts`: 8/8 tests passing, verifying invariant drag midpoint update, exact intersection vectors, circumcircle of 3 points, cycle rejection, and 1000-object recompute benchmark (< 16 ms)
+- Verified: `construction-core` tests 8/8 pass, `third-party guard` OK, `tsc` clean (OK)
+
 
 
 

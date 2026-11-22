@@ -404,6 +404,12 @@ Rules:
 | apps/web/src/features/templates/TemplatePickerModal.test.tsx | Unit tests for TemplatePickerModal component | — | P13-T08 | OK |
 | docs/templates/README.md | Documentation of Kurikulum Merdeka taxonomy and 10 original starter lesson templates | — | P13-T08 | OK |
 | apps/web/e2e/devices.spec.ts | Playwright device emulation checks for iPad, iPhone, and flat panel displays | — | P12-T05 | OK |
+| packages/construction-core/src/types.ts | Clean-room 2D dynamic geometry types, object specs, and computed values | Point2D, ConstructionObject, ComputedValue | P13-T06 | OK |
+| packages/construction-core/src/dag.ts | Directed acyclic graph with Kahn's topological sort and cycle detection | getDependencies, wouldCreateCycle, topologicalSort, getDescendants | P13-T06 | OK |
+| packages/construction-core/src/geometry.ts | Analytical geometry calculations (midpoints, lines, perpendiculars, intersections, circles, polygons, angles) | computeMidpoint, computeLine, computeCircle3P, computeLineLineIntersection | P13-T06 | OK |
+| packages/construction-core/src/engine.ts | ConstructionEngine orchestrating DAG recomputation, propagation of undefined, toJSON/fromJSON | ConstructionEngine | P13-T06 | OK |
+| packages/construction-core/src/index.ts | Main export bundle for @ai-classroom/construction-core | * | P13-T06 | OK |
+| packages/construction-core/src/engine.test.ts | Unit tests for construction engine invariants, intersection vectors, circumcircle, cycle rejection, and perf benchmark | — | P13-T06 | OK |
 
 
 
