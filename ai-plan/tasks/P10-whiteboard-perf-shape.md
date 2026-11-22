@@ -86,9 +86,9 @@ Refs: perfect-freehand https://github.com/steveruizok/perfect-freehand · simpli
 ### P10-T07 — 3D overlay performance   [tier: MID] [deps: T03]
 Allowed paths: `apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx`, its test, the existing SolidViewer file (find via AUDIT).
 Steps:
-- [ ] 1. Every R3F `<Canvas>`: `frameloop="demand"`, `dpr={weak ? 1 : [1, 1.5]}` (reuse `useWeakDevice`), call `invalidate()` from controls `onChange` and on prop change.
-- [ ] 2. Overlay positions update imperatively from the viewport subscriber (`style.transform`/left/top via refs), not through React state.
-- [ ] 3. At most 3 live WebGL canvases; others render a static snapshot image (`gl.domElement.toDataURL()` captured on blur) until clicked. Unmount canvases that are far outside the viewport.
+- [x] 1. Every R3F `<Canvas>`: `frameloop="demand"`, `dpr={weak ? 1 : [1, 1.5]}` (reuse `useWeakDevice`), call `invalidate()` from controls `onChange` and on prop change.
+- [x] 2. Overlay positions update imperatively from the viewport subscriber (`style.transform`/left/top via refs), not through React state.
+- [x] 3. At most 3 live WebGL canvases; others render a static snapshot image (`gl.domElement.toDataURL()` captured on blur) until clicked. Unmount canvases that are far outside the viewport.
 Verify: overlay tests pass; with 1 solid on the board the idle GPU/CPU use is ~0 (`frameloop` demand) — note in DIAGNOSIS.
 Refs: R3F on-demand rendering (REFERENCES).
 

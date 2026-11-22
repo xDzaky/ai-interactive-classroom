@@ -12,12 +12,13 @@
  *  - Parameter panel: inputs to tweak solid parameters
  */
 import { Suspense, useRef, useState, useEffect, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, invalidate } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import { buildThreeGeometry } from "@/lib/threeGeometry";
 import type { SolidParams } from "@ai-classroom/geometry-core";
 import { computeGeometry } from "@ai-classroom/geometry-core";
+import { useWeakDevice } from "@/lib/useWeakDevice";
 
 // ---------------------------------------------------------------------------
 // 3D Solid mesh (inner R3F component)
@@ -38,13 +39,6 @@ function SolidMesh({ params, lowQuality: _lq, clipPlane, color = "#6366f1", wire
     () => buildThreeGeometry(params),
     [params]
   );
-
-  // Gentle auto-rotation
-  useFrame((_state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.3;
-    }
-  });
 
   const material = new THREE.MeshStandardMaterial({
     color,
@@ -92,6 +86,7 @@ export interface SolidViewerProps {
   width?: number | string;
   height?: number | string;
   showPanel?: boolean;
+  onSnapshot?: (dataUrl: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,20 +176,35 @@ export function SolidViewer({
   width = "100%",
   height = 400,
   showPanel = true,
+  onSnapshot,
 }: SolidViewerProps) {
+  const isWeak = useWeakDevice();
+  const lowQuality = isWeak;
   const [localParams, setLocalParams] = useState<SolidParams>(params);
   const [clipEnabled, setClipEnabled] = useState(false);
   const [wireframe, setWireframe] = useState(false);
-  const [lowQuality] = useState(() =>
-    // Detect weak GPU: navigator.deviceMemory < 4 or hardwareConcurrency < 4
-    typeof navigator !== "undefined" &&
-    ((navigator as { deviceMemory?: number }).deviceMemory ?? 8) < 4
-  );
   const [webglError, setWebglError] = useState(false);
+  const glRef = useRef<THREE.WebGLRenderer | null>(null);
+
+  const captureSnapshot = () => {
+    if (glRef.current && onSnapshot) {
+      try {
+        const dataUrl = glRef.current.domElement.toDataURL("image/webp", 0.7);
+        onSnapshot(dataUrl);
+      } catch {
+        // Ignore canvas export failures
+      }
+    }
+  };
 
   useEffect(() => {
     setLocalParams(params);
+    invalidate();
   }, [params]);
+
+  useEffect(() => {
+    invalidate();
+  }, [localParams, clipEnabled, wireframe, lowQuality]);
 
   const handleChange = (p: SolidParams) => {
     setLocalParams(p);
@@ -230,30 +240,38 @@ export function SolidViewer({
   }
 
   return (
-    <div className="flex gap-3" aria-label={`Visualisasi 3D: ${localParams.type}`}>
+    <div
+      className="flex gap-3"
+      aria-label={`Visualisasi 3D: ${localParams.type}`}
+      onBlur={captureSnapshot}
+    >
       {/* Three.js Canvas */}
       <div
         className="relative flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-900"
         style={{ height }}
       >
         <Canvas
-          gl={{ antialias: !lowQuality, localClippingEnabled: true }}
+          frameloop="demand"
+          dpr={isWeak ? 1 : [1, 1.5]}
+          gl={{ antialias: !lowQuality, localClippingEnabled: true, preserveDrawingBuffer: true }}
           camera={{ position: [4, 3, 6], fov: 45 }}
-          shadows
+          shadows={!lowQuality}
           onCreated={({ gl }) => {
+            glRef.current = gl;
             if (!gl.getContext()) setWebglError(true);
+            invalidate();
           }}
         >
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
-            <directionalLight position={[5, 10, 5]} intensity={1} castShadow />
+            <directionalLight position={[5, 10, 5]} intensity={1} castShadow={!lowQuality} />
             <SolidMesh
               params={localParams}
               lowQuality={lowQuality}
               clipPlane={clipPlane}
               wireframe={wireframe}
             />
-            <OrbitControls makeDefault />
+            <OrbitControls makeDefault onChange={() => invalidate()} />
             {!lowQuality && <Environment preset="city" />}
           </Suspense>
         </Canvas>

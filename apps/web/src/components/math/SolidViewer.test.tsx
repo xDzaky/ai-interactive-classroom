@@ -10,6 +10,7 @@ vi.mock("@react-three/fiber", () => ({
   Canvas: ({ children }: { children: React.ReactNode; [k: string]: unknown }) =>
     <div data-testid="r3f-canvas">{children}</div>,
   useFrame: vi.fn(),
+  invalidate: vi.fn(),
 }));
 vi.mock("@react-three/drei", () => ({
   OrbitControls: () => null,

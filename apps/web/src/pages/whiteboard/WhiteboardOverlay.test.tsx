@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
+import { ViewportController } from "@/lib/viewport";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -182,5 +183,55 @@ describe("WhiteboardOverlay", () => {
     // sx = 100*1 + 50 = 150, sy = 100*1 + 50 = 150
     expect(solidDiv.style.left).toBe("150px");
     expect(solidDiv.style.top).toBe("150px");
+  });
+
+  it("limits active live 3D canvases to at most 3", () => {
+    let props = addVizSolid(makeProps(), "s1", { x: 0, y: 0 });
+    props = addVizSolid(props, "s2", { x: 100, y: 0 });
+    props = addVizSolid(props, "s3", { x: 200, y: 0 });
+    props = addVizSolid(props, "s4", { x: 300, y: 0 });
+
+    render(React.createElement(WhiteboardOverlay, props));
+
+    // First 3 should be live SolidViewers
+    expect(screen.queryByTestId("viz-solid-placeholder-s1")).toBeNull();
+    expect(screen.queryByTestId("viz-solid-placeholder-s2")).toBeNull();
+    expect(screen.queryByTestId("viz-solid-placeholder-s3")).toBeNull();
+    // 4th should be inactive placeholder
+    const p4 = screen.getByTestId("viz-solid-placeholder-s4");
+    expect(p4).toBeTruthy();
+
+    // Clicking placeholder activates s4
+    fireEvent.click(p4);
+    // Now s4 is active, and s1 is deactivated (max 3 kept)
+    expect(screen.queryByTestId("viz-solid-placeholder-s4")).toBeNull();
+    expect(screen.getByTestId("viz-solid-placeholder-s1")).toBeTruthy();
+  });
+
+  it("updates overlay position imperatively via ViewportController", () => {
+    const vc = new ViewportController({ initial: { x: 10, y: 20, scale: 1 } });
+    const props = addVizSolid(makeProps({ viewportController: vc }), "s1", { x: 50, y: 50 });
+
+    render(React.createElement(WhiteboardOverlay, props));
+    const solidDiv = screen.getByTestId("viz-solid-s1");
+    // Initial: 50*1 + 10 = 60, 50*1 + 20 = 70
+    expect(solidDiv.style.left).toBe("60px");
+    expect(solidDiv.style.top).toBe("70px");
+
+    // Pan viewport imperatively
+    vc.panBy(40, 30);
+    vc.apply();
+
+    // New: 50*1 + 50 = 100, 50*1 + 50 = 100
+    expect(solidDiv.style.left).toBe("100px");
+    expect(solidDiv.style.top).toBe("100px");
+  });
+
+  it("unmounts live canvas when solid is far outside viewport (>800px margin)", () => {
+    // Solid placed at x=4000, y=4000 (well outside 800x600 viewport + 800px margin)
+    const props = addVizSolid(makeProps(), "s-far", { x: 4000, y: 4000 });
+    render(React.createElement(WhiteboardOverlay, props));
+
+    expect(screen.getByTestId("viz-solid-placeholder-s-far")).toBeTruthy();
   });
 });

@@ -1485,3 +1485,19 @@ Date: 2026-11-22T01:07:30Z
 ## START — P10-T07 | 3D overlay perf (frameloop demand, DPR cap, context limit)
 Date: 2026-11-22T01:09:00Z
 Tier: MID
+
+## DONE — P10-T07 | 3D overlay perf (frameloop demand, DPR cap, context limit)
+Date: 2026-11-22T01:22:00Z
+- Updated `apps/web/src/components/math/SolidViewer.tsx`:
+  - Set R3F `<Canvas>` to `frameloop="demand"` and `preserveDrawingBuffer: true`
+  - Integrated `useWeakDevice()` to clamp DPR to `1` on weak devices (`[1, 1.5]` on desktop) and disable shadow passes + environment map
+  - Added `OrbitControls` `onChange={() => invalidate()}` and invalidation on parameter changes
+  - Removed unconditioned `useFrame` auto-rotation so idle CPU/GPU is 0
+  - Added snapshot capture on blur / demand
+- Updated `apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx`:
+  - Subscribed to `ViewportController` to update overlay DOM styles (`left`, `top`, `width`, `height`) imperatively via refs without React re-renders
+  - Capped active live WebGL canvases at 3 (LRU / FIFO activation); inactive solids render snapshot images or interactive placeholder cards
+  - Unmounts live canvases when positioned far outside viewport (> 800px margin)
+- Updated tests in `SolidViewer.test.tsx` and added 3 new tests in `WhiteboardOverlay.test.tsx` (all 22 tests passing)
+- Appended findings and measurement notes to `docs/perf/DIAGNOSIS.md`
+- Verified: `tsc --noEmit` passed cleanly, full test suite green

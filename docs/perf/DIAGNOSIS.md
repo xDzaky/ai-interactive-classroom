@@ -81,3 +81,24 @@ Baseline production p95 frame time: **68.5 ms** (target budget: ≤ 20 ms).
    - Off-screen objects outside `[worldLeft - 200, worldRight + 200]` and `[worldTop - 200, worldBottom + 200]` are toggled to `node.visible(false)` during rAF `apply()`.
    - Result: Offscreen Konva draw calls reduced from 350 to ~85 when zoomed in (75.7% reduction in rendered canvas entities).
    - Scene zoom frame time dropped from 18.2ms to 9.4ms (p95: 11.1ms, maintaining steady 60fps).
+
+---
+
+## Appendix — P10-T07 3D Overlay Performance Verification
+
+1. **R3F Demand-driven Rendering (`frameloop="demand"`)**:
+   - Replaced continuous frame loop with `frameloop="demand"` and `preserveDrawingBuffer: true`.
+   - Removed unconditioned `useFrame` auto-rotation.
+   - `invalidate()` is explicitly triggered on parameter update, OrbitControls `onChange`, and mount.
+   - Result: Idle GPU/CPU utilization drops to ~0% when 3D solids are on board and untouched.
+
+2. **DPR & Weak Device Clamping**:
+   - Integrated `useWeakDevice()` to clamp DPR to `1` on constrained devices (`[1, 1.5]` on desktop) and disable environment reflection map + shadow passes.
+
+3. **DOM Overlay Viewport Synchronization**:
+   - `WhiteboardOverlay` subscribes directly to `ViewportController` to update DOM styles (`left`, `top`, `width`, `height`) imperatively without React state re-renders during zoom/pan.
+
+4. **WebGL Context Limiting & Culling**:
+   - Active live 3D canvases capped at 3 (`activeSolidIds.slice(-3)`).
+   - 4th+ solid renders a static snapshot (`canvas.toDataURL()`) or placeholder card with click-to-activate handler.
+   - 3D solids positioned outside the viewport (> 800px margin) automatically unmount their WebGL canvas to preserve GPU memory.

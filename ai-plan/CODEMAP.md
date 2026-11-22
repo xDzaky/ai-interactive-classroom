@@ -125,8 +125,9 @@ Rules:
 | apps/web/src/components/math/GraphViewer.test.tsx | 16 vitest tests for GraphViewer (controlled + uncontrolled modes) | — | P03-T05 | OK |
 | apps/web/src/r3f-types.d.ts | Augments React.JSX.IntrinsicElements with ThreeElements for react-jsx compat | — | P03-T05 | OK |
 | apps/web/src/vite-env.d.ts | Vite + R3F type references | — | P03-T05 | OK |
-| apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx | DOM overlay layer for viz_solid + viz_graph BoardObjects over Konva canvas | WhiteboardOverlay, WhiteboardOverlayProps, ViewTransform | P03-T06 | OK |
-| apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx | 11 vitest tests for overlay positioning + rendering | — | P03-T06 | OK |
+| apps/web/src/pages/whiteboard/WhiteboardOverlay.tsx | DOM overlay layer for viz_solid + viz_graph with imperative transform and 3-canvas WebGL cap | WhiteboardOverlay, WhiteboardOverlayProps, ViewTransform | P10-T07 | OK |
+| apps/web/src/pages/whiteboard/WhiteboardOverlay.test.tsx | 14 vitest tests for overlay positioning, imperative transform, and WebGL limit | — | P10-T07 | OK |
+| apps/web/src/components/math/SolidViewer.tsx | 3D R3F solid viewer with demand frameloop, DPR clamp, and snapshot support | SolidViewer, SolidViewerProps | P10-T07 | OK |
 | apps/api/database/migrations/2026_11_21_200001_create_rooms_table.php | rooms migration (uuid pk, classroom_id, host_id, code, status, mode, settings, starts_at, ends_at) | — | P04-T01 | LOCKED |
 | apps/api/database/migrations/2026_11_21_200002_create_participants_table.php | participants migration (uuid pk, room_id, user_id nullable, alias, role, token_hash, joined_at, left_at) | — | P04-T01 | LOCKED |
 | apps/api/database/migrations/2026_11_21_200003_create_whiteboards_table.php | whiteboards migration (uuid pk, room_id, name, scene_data) | — | P04-T01 | LOCKED |
