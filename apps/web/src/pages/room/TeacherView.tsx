@@ -14,7 +14,6 @@ import {
 } from "@ai-classroom/whiteboard-core";
 import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
-import { WhiteboardOverlay } from "@/pages/whiteboard/WhiteboardOverlay";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { useWhiteboardTool } from "@/hooks/useWhiteboardTool";
 import { endRoom } from "@/lib/api/rooms";
@@ -28,7 +27,6 @@ import { RandomPicker } from "@/components/room/RandomPicker";
 import { GroupGenerator } from "@/components/room/GroupGenerator";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { ObjectsPanel, type BoardObjectItem } from "@/components/workspace/ObjectsPanel";
-import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
 import type { SolidType } from "@ai-classroom/geometry-core";
 
@@ -289,7 +287,7 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           />
         </aside>
 
-        {/* Center: canvas + Tongchuang 3D/Graph Overlay */}
+        {/* Center: canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
         <main
           className="relative flex-1 overflow-hidden bg-[#2d333f]"
           aria-label="Papan tulis"
@@ -310,19 +308,15 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
             height={canvasSize.height}
             showGrid
             readOnly={false}
+            activeTool={toolState.activeTool}
+            color={toolState.color}
+            strokeWidth={toolState.strokeWidth}
+            onToolChange={setTool}
+            onColorChange={setColor}
+            onStrokeWidthChange={setStrokeWidth}
+            onInsertSolid={handleInsertSolid}
+            onOpenTemplates={() => setTemplateModalOpen(true)}
           />
-          <div className="pointer-events-none absolute inset-0 z-10">
-            <WhiteboardOverlay
-              boardState={boardState}
-              width={canvasSize.width}
-              height={canvasSize.height}
-              defaultWidgetSize={300}
-              tongchuangMode={true}
-              onDeleteObject={(id) =>
-                handleEvent({ event_type: "object.deleted", payload: { id } })
-              }
-            />
-          </div>
         </main>
 
         {/* Right: participant list (real-time via ParticipantList) */}
@@ -345,18 +339,6 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
         roomId={roomId}
         open={deviceModalOpen}
         onClose={() => setDeviceModalOpen(false)}
-      />
-
-      {/* Signature Tongchuang Floating White Circular AI Radial Wheel */}
-      <TongchuangRadialWheel
-        activeTool={toolState.activeTool}
-        color={toolState.color}
-        strokeWidth={toolState.strokeWidth}
-        onToolChange={setTool}
-        onColorChange={setColor}
-        onStrokeWidthChange={setStrokeWidth}
-        onInsertSolid={handleInsertSolid}
-        onOpenTemplates={() => setTemplateModalOpen(true)}
       />
 
       {/* Lesson Template Library Modal */}

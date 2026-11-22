@@ -28,7 +28,6 @@ import {
 } from "@ai-classroom/whiteboard-core";
 import type {
   BoardState,
-  BoardObject,
   WhiteboardEvent,
   WhiteboardHistory,
 } from "@ai-classroom/whiteboard-core";
@@ -37,13 +36,10 @@ import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
 import type Konva from "konva";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
-import { WhiteboardOverlay } from "@/pages/whiteboard/WhiteboardOverlay";
 import { ToolBar } from "@/components/whiteboard/ToolBar";
-import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import { FormulaToGraphModal } from "@/components/whiteboard/FormulaToGraphModal";
 import { VoiceCommandBar } from "@/components/whiteboard/VoiceCommandBar";
 import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
-import { AiExplainModal } from "@/components/whiteboard/AiExplainModal";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceCommands";
 import { exportStageToPng } from "@/lib/exportPng";
@@ -111,7 +107,6 @@ export default function PersonalRoomPage() {
   const [showVoiceBar, setShowVoiceBar] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
-  const [explainObj, setExplainObj] = useState<BoardObject | null>(null);
   const [solidParams, setSolidParams] = useState<SolidParams>({ type: "cube", s: 4 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
@@ -219,35 +214,6 @@ export default function PersonalRoomPage() {
       setShowFormulaModal(false);
     },
     [canvasSize.width, canvasSize.height, handleEvent]
-  );
-
-  const handleDeleteOverlayObject = useCallback(
-    (id: string) => {
-      handleEvent({
-        event_type: "object.deleted",
-        payload: { id },
-      });
-    },
-    [handleEvent]
-  );
-
-  const handleDuplicateOverlayObject = useCallback(
-    (obj: BoardObject) => {
-      const p = obj.props as Record<string, unknown>;
-      handleEvent({
-        event_type: "object.created",
-        payload: {
-          id: `${obj.id}-copy-${Date.now().toString(36)}`,
-          object_type: obj.object_type,
-          props: {
-            ...p,
-            x: (typeof p.x === "number" ? p.x : 120) + 40,
-            y: (typeof p.y === "number" ? p.y : 80) + 40,
-          },
-        },
-      });
-    },
-    [handleEvent]
   );
 
   const handleClearBoard = useCallback(() => {
@@ -410,8 +376,9 @@ export default function PersonalRoomPage() {
           />
         </aside>
 
-        {/* Main Matte Blackboard Canvas + Transparent 3D/Graph Overlay */}
+        {/* Main Matte Blackboard Canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
         <main
+          ref={overlayContainerRef}
           className="relative flex-1 overflow-hidden bg-[#2d333f]"
           aria-label="Papan tulis pribadi"
         >
@@ -425,28 +392,23 @@ export default function PersonalRoomPage() {
             activeTool={activeTool}
             color={color}
             strokeWidth={strokeWidth}
+            onToolChange={setActiveTool}
+            onColorChange={setColor}
+            onStrokeWidthChange={setStrokeWidth}
             onUndo={handleUndo}
             onRedo={handleRedo}
             canUndo={history.past.length > 0}
             canRedo={history.future.length > 0}
+            isListeningVoice={voice.isListening}
+            onInsertSolid={handleInsertSolidOnBoard}
+            onOpenFormulaGraph={() => setShowFormulaModal(true)}
+            onToggleVoice={() => setShowVoiceBar((v) => !v)}
+            onOpenSummary={() => setShowSummaryModal(true)}
+            onOpenTemplates={() => setShowTemplatesModal(true)}
             stageRef={stageRef}
           />
 
-          {/* Live Transparent Tongchuang 3D Solids & 2D Graphs on top of the board */}
-          <div ref={overlayContainerRef} className="pointer-events-none absolute inset-0 z-10">
-            <WhiteboardOverlay
-              boardState={boardState}
-              width={canvasSize.width}
-              height={canvasSize.height}
-              defaultWidgetSize={320}
-              tongchuangMode={true}
-              onDeleteObject={handleDeleteOverlayObject}
-              onDuplicateObject={handleDuplicateOverlayObject}
-              onExplainObject={(obj) => setExplainObj(obj)}
-            />
-          </div>
-
-          {/* Signature Tongchuang Floating White Bottom Dock (Screenshots 2 & 3) */}
+          {/* Signature Tongchuang Floating White Bottom Dock */}
           <div
             data-testid="tongchuang-bottom-dock"
             className="pointer-events-auto absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 select-none"
@@ -487,24 +449,6 @@ export default function PersonalRoomPage() {
         </main>
       </div>
 
-      {/* Signature iFLYTEK Tongchuang Floating White Circular AI Radial Wheel */}
-      <TongchuangRadialWheel
-        activeTool={activeTool}
-        color={color}
-        strokeWidth={strokeWidth}
-        canUndo={history.past.length > 0}
-        isListeningVoice={voice.isListening}
-        onToolChange={setActiveTool}
-        onColorChange={setColor}
-        onStrokeWidthChange={setStrokeWidth}
-        onUndo={handleUndo}
-        onInsertSolid={handleInsertSolidOnBoard}
-        onOpenFormulaGraph={() => setShowFormulaModal(true)}
-        onToggleVoice={() => setShowVoiceBar((v) => !v)}
-        onOpenSummary={() => setShowSummaryModal(true)}
-        onOpenTemplates={() => setShowTemplatesModal(true)}
-      />
-
       {/* Voice / Text Command Pill (P15-T02) */}
       {showVoiceBar && (
         <VoiceCommandBar
@@ -541,11 +485,6 @@ export default function PersonalRoomPage() {
         onClose={() => setShowTemplatesModal(false)}
         onSelectTemplate={handleSelectTemplate}
       />
-
-      {/* Contextual AI Explain Modal for 3D Overlay Objects */}
-      {explainObj && (
-        <AiExplainModal target={explainObj} onClose={() => setExplainObj(null)} />
-      )}
 
       {/* Fullscreen 3D Studio Modal */}
       {show3dModal && (

@@ -54,9 +54,11 @@ import {
 import {
   resolveActions,
   WHITEBOARD_ACTIONS,
+  is2DConvertible,
+  getPrimarySelected,
   type ActionContext,
 } from "@/features/whiteboard/actionRegistry";
-import { WhiteboardContextMenu } from "@/components/whiteboard/WhiteboardContextMenu";
+import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import { SelectionToolbar } from "@/components/whiteboard/SelectionToolbar";
 import { ShapeToSolidMenu } from "@/components/whiteboard/ShapeToSolidMenu";
 import {
@@ -65,6 +67,7 @@ import {
   type Input2DShape,
 } from "@/lib/shapeToSolid";
 import { AiExplainModal } from "@/components/whiteboard/AiExplainModal";
+import type { SolidType } from "@ai-classroom/geometry-core";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,6 +97,12 @@ export interface WhiteboardCanvasProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  isListeningVoice?: boolean;
+  onInsertSolid?: (solidType: SolidType) => void;
+  onOpenFormulaGraph?: () => void;
+  onToggleVoice?: () => void;
+  onOpenSummary?: () => void;
+  onOpenTemplates?: () => void;
 }
 
 interface ViewTransform {
@@ -548,12 +557,21 @@ export function WhiteboardCanvas({
   activeTool = "pen",
   color = "#f8fafc",
   strokeWidth = 3,
+  onToolChange,
+  onColorChange,
+  onStrokeWidthChange,
   autoShapeMode,
   onAutoShapeModeChange,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
+  isListeningVoice,
+  onInsertSolid,
+  onOpenFormulaGraph,
+  onToggleVoice,
+  onOpenSummary,
+  onOpenTemplates,
 }: WhiteboardCanvasProps) {
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
@@ -1823,12 +1841,33 @@ export function WhiteboardCanvas({
         <Layer id="ui-layer" ref={uiLayerRef} listening={activeTool === "select"} />
       </Stage>
 
-      {/* 3D solid and 2D math graph interactive DOM overlay (P03-T06, P10-T07, P11-T04) */}
+      {/* 3D solid and 2D math graph interactive DOM overlay (Pure Three.js — React 19 native) */}
       <WhiteboardOverlay
         boardState={boardState}
         viewportController={viewportController}
         width={width}
         height={height}
+        defaultWidgetSize={320}
+        tongchuangMode={true}
+        onDeleteObject={(id) =>
+          commitEvent({ event_type: "object.deleted", payload: { id } })
+        }
+        onExplainObject={(obj) => setExplainTarget(obj)}
+        onDuplicateObject={(obj) => {
+          const p = obj.props as Record<string, unknown>;
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id: `${obj.id}-copy-${uid()}`,
+              object_type: obj.object_type,
+              props: {
+                ...p,
+                x: (typeof p.x === "number" ? p.x : 120) + 40,
+                y: (typeof p.y === "number" ? p.y : 80) + 40,
+              },
+            },
+          });
+        }}
       />
 
       {/* Zoom controls */}
@@ -1909,17 +1948,65 @@ export function WhiteboardCanvas({
         />
       )}
 
-      {/* Right-click & Long-press Context Menu (P11-T02) */}
-      {contextMenu && (
-        <WhiteboardContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          actions={resolvedActions}
-          actionContext={actionContext}
-          onClose={() => setContextMenu(null)}
-          onSelectColor={handleSetSelectedColor}
-        />
-      )}
+      {/* Right-click & Long-press Tongchuang Circular AI Radial Wheel (Object Mode vs Canvas Mode) */}
+      {contextMenu && (() => {
+        const primaryItem = getPrimarySelected(actionContext);
+        const primaryObj = primaryItem && "object_type" in primaryItem ? primaryItem : null;
+        const canConvert3D = is2DConvertible(actionContext);
+        const isLocked = Boolean(primaryObj && (primaryObj.props as Record<string, unknown>)?.locked);
+
+        return (
+          <div data-testid="whiteboard-context-menu">
+            <TongchuangRadialWheel
+              mode={selectedIds.length > 0 ? "object" : "canvas"}
+              position={contextMenu}
+              onClose={() => setContextMenu(null)}
+              activeTool={activeTool}
+              color={color}
+              strokeWidth={strokeWidth}
+              canUndo={canUndo}
+              isListeningVoice={isListeningVoice}
+              onToolChange={onToolChange}
+              onColorChange={onColorChange}
+              onStrokeWidthChange={onStrokeWidthChange}
+              onUndo={onUndo}
+              onInsertSolid={onInsertSolid}
+              onOpenFormulaGraph={onOpenFormulaGraph}
+              onToggleVoice={onToggleVoice}
+              onOpenSummary={onOpenSummary}
+              onOpenTemplates={onOpenTemplates}
+              selectedCount={selectedIds.length}
+              canConvert3D={canConvert3D}
+              isLocked={isLocked}
+              onConvert3D={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "convert_3d");
+                act?.run(actionContext);
+              }}
+              onExplainAi={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "explain_ai");
+                act?.run(actionContext);
+              }}
+              onDuplicate={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "duplicate");
+                act?.run(actionContext);
+              }}
+              onDelete={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "delete");
+                act?.run(actionContext);
+              }}
+              onToggleLock={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "toggle_lock");
+                act?.run(actionContext);
+              }}
+              onBringToFront={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "bring_to_front");
+                act?.run(actionContext);
+              }}
+              onRecolorObject={handleSetSelectedColor}
+            />
+          </div>
+        );
+      })()}
 
       {/* 2D to 3D Shape Conversion Proposal Menu (P11-T08, P12-T03) */}
       {convert3DShape && (

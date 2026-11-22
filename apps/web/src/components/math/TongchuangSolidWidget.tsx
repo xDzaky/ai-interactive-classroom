@@ -1,25 +1,25 @@
-/// <reference types="@react-three/fiber" />
 /**
- * TongchuangSolidWidget.tsx — P12 / P13
+ * TongchuangSolidWidget.tsx — P12 / P13 (Pure Three.js — React 19 native)
  * Interactive 3D math solid widget rendered directly on the dark matte blackboard,
- * modeled on the iFLYTEK Tongchuang AI Blackboard (讯飞同窗AI黑板):
+ * modeled on the iFLYTEK Tongchuang AI Blackboard (讯飞同窗AI黑板).
  *
- * - Transparent WebGL canvas blended directly onto the chalkboard (no boxed black panel)
- * - Crisp white wireframe edges + translucent faces + clickable white/pink vertex & edge-midpoint nodes
- * - 360° free OrbitControls + Auto-Rotate + View Presets (Depan, Atas, Samping, Isometrik)
- * - Smooth 2D -> 3D extrusion/morph entry animation (t: 0 -> 1)
+ * Uses native THREE.WebGLRenderer + OrbitControls + THREE.Raycaster (zero @react-three/fiber),
+ * eliminating React 19 reconciler incompatibility while delivering smooth 60fps 3D interaction:
+ * - Transparent WebGL canvas blended directly onto the chalkboard
+ * - Crisp white wireframe edges + translucent faces + clickable white/pink vertex & midpoint nodes
+ * - 360° free OrbitControls + Auto-Rotate + View Presets (Isometrik, Depan, Atas, Samping)
+ * - Smooth 2D -> 3D extrusion/morph entry animation
  * - 3-Point Cross-Section (Irisan Bidang) with vivid blue polygon + live side-by-side 2D extracted
- *   projection showing exact interior angles in degrees (e.g. 110°, 120°, 130°)
- * - Interactive Unfold/Fold Net animation with live dihedral angle badge (e.g. 83°) & coral-highlighted face
+ *   projection showing exact interior angles in degrees (e.g. 60°, 110°, 120°, 130°)
+ * - Interactive Unfold/Fold Net animation with live dihedral angle badge (e.g. 83°) & orange face
  * - Exploded View (Pisah Bagian) separating faces along normals
  * - Floating crisp white Tongchuang contextual action bar with green confirm button
  */
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { SolidParams, Polyhedron, PolyKind, Vec3, SectionPolygon } from '@ai-classroom/geometry-core';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { SolidParams, Polyhedron, Vec3, SectionPolygon } from '@ai-classroom/geometry-core';
 import {
   buildPolyhedron,
   computeGeometry,
@@ -65,10 +65,6 @@ export interface ProjectedSection2D {
   perimeter: number;
 }
 
-/**
- * Projects a 3D cross-section polygon onto its local 2D plane and computes
- * exact interior angles at every vertex (for the side-by-side Tongchuang diagram).
- */
 export function projectSectionPolygon2D(section: SectionPolygon): ProjectedSection2D {
   const pts = section.points;
   const n = pts.length;
@@ -76,13 +72,11 @@ export function projectSectionPolygon2D(section: SectionPolygon): ProjectedSecti
     return { points2D: [], anglesDeg: [], sideLengths: [], area: section.area, perimeter: section.perimeter };
   }
 
-  // Compute centroid
   const cx = pts.reduce((s, p) => s + p[0], 0) / n;
   const cy = pts.reduce((s, p) => s + p[1], 0) / n;
   const cz = pts.reduce((s, p) => s + p[2], 0) / n;
   const origin: Vec3 = [cx, cy, cz];
 
-  // Local orthonormal basis (u, v) on the polygon plane
   const e0 = vecSub(pts[1], pts[0]);
   const e1 = vecSub(pts[2], pts[0]);
   const normal = vecCross(e0, e1);
@@ -97,7 +91,6 @@ export function projectSectionPolygon2D(section: SectionPolygon): ProjectedSecti
     return { x: vecDot(d, u), y: vecDot(d, v) };
   });
 
-  // Normalize into a 120x120 SVG box (padding 22px)
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const p of raw2D) {
     if (p.x < minX) minX = p.x;
@@ -115,7 +108,6 @@ export function projectSectionPolygon2D(section: SectionPolygon): ProjectedSecti
     y: 60 - (p.y - midY) * scale,
   }));
 
-  // Compute exact interior angles and side lengths in 3D
   const anglesDeg: number[] = [];
   const sideLengths: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -159,75 +151,6 @@ function buildPolyhedronFromParams(params: SolidParams): Polyhedron | null {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Inner R3F Camera Controller (presets + auto-rotate + snapshot)
-// ---------------------------------------------------------------------------
-
-function CameraRig({
-  preset,
-  presetTick,
-  autoRotate,
-  onSnapshot,
-}: {
-  preset: CameraPreset;
-  presetTick: number;
-  autoRotate: boolean;
-  onSnapshot?: (url: string) => void;
-}) {
-  const { camera, gl } = useThree();
-  const snappedRef = useRef(false);
-
-  useEffect(() => {
-    const pos: Record<CameraPreset, [number, number, number]> = {
-      iso: [7.5, 6, 8.5],
-      front: [0, 0, 11],
-      top: [0, 11, 0.01],
-      side: [11, 0, 0],
-    };
-    const [x, y, z] = pos[preset];
-    camera.position.set(x, y, z);
-    camera.lookAt(0, 0, 0);
-  }, [preset, presetTick, camera]);
-
-  useFrame(() => {
-    if (!snappedRef.current && onSnapshot && gl?.domElement) {
-      snappedRef.current = true;
-      try {
-        const url = gl.domElement.toDataURL('image/png');
-        if (url && url.startsWith('data:image/')) onSnapshot(url);
-      } catch {
-        // ignore in headless/mocked tests
-      }
-    }
-  });
-
-  return (
-    <OrbitControls
-      makeDefault
-      enableDamping
-      dampingFactor={0.08}
-      autoRotate={autoRotate}
-      autoRotateSpeed={2.2}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Inner R3F Polyhedron Scene (wireframe, nodes, cross-section, unfold, explode)
-// ---------------------------------------------------------------------------
-
-interface PolyhedronSceneProps {
-  polyhedron: Polyhedron;
-  mode: SolidToolMode;
-  selectedNodes: string[];
-  onToggleNode: (nodeId: string) => void;
-  sectionPolygon: SectionPolygon | null;
-  unfoldT: number;
-  explodeT: number;
-  showLabels: boolean;
-  morphT: number;
-}
-
 interface InteractiveNode {
   id: string;
   label: string;
@@ -243,7 +166,6 @@ function getInteractiveNodes(polyhedron: Polyhedron): InteractiveNode[] {
     kind: 'vertex',
   }));
 
-  // Add edge midpoints for rich Tongchuang 3-point slicing (Screenshots 3 & 4)
   polyhedron.edges.forEach(([u, v], idx) => {
     const p1 = polyhedron.vertices[u];
     const p2 = polyhedron.vertices[v];
@@ -260,238 +182,8 @@ function getInteractiveNodes(polyhedron: Polyhedron): InteractiveNode[] {
   return nodes;
 }
 
-function PolyhedronScene({
-  polyhedron,
-  mode,
-  selectedNodes,
-  onToggleNode,
-  sectionPolygon,
-  unfoldT,
-  explodeT,
-  showLabels,
-  morphT,
-}: PolyhedronSceneProps) {
-  const { vertices, faces, edges } = polyhedron;
-  const threeVertices = useMemo(() => vertices.map((v) => toThree(v)), [vertices]);
-
-  const center = useMemo(() => {
-    const sum = threeVertices.reduce(
-      (acc, v) => [acc[0] + v[0], acc[1] + v[1], acc[2] + v[2]],
-      [0, 0, 0]
-    );
-    const n = threeVertices.length || 1;
-    return [sum[0] / n, sum[1] / n, sum[2] / n] as [number, number, number];
-  }, [threeVertices]);
-
-  // Individual face geometries with outward normals for Explode & Unfold modes
-  const faceMeshes = useMemo(() => {
-    return faces.map((faceIndices, fIdx) => {
-      const geom = new THREE.BufferGeometry();
-      const positions: number[] = [];
-      const v0 = threeVertices[faceIndices[0]];
-      for (let i = 1; i < faceIndices.length - 1; i++) {
-        const v1 = threeVertices[faceIndices[i]];
-        const v2 = threeVertices[faceIndices[i + 1]];
-        positions.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
-      }
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geom.computeVertexNormals();
-
-      const normalMath = computeFaceNormal(faceIndices, vertices);
-      const normalThree = toThree(normalMath);
-      const nLen = Math.hypot(normalThree[0], normalThree[1], normalThree[2]) || 1;
-      const unitNormal: [number, number, number] = [
-        normalThree[0] / nLen,
-        normalThree[1] / nLen,
-        normalThree[2] / nLen,
-      ];
-
-      // Compute face center for hinge rotation in unfold mode
-      const fCenter: [number, number, number] = [0, 0, 0];
-      for (const vi of faceIndices) {
-        fCenter[0] += threeVertices[vi][0];
-        fCenter[1] += threeVertices[vi][1];
-        fCenter[2] += threeVertices[vi][2];
-      }
-      fCenter[0] /= faceIndices.length;
-      fCenter[1] /= faceIndices.length;
-      fCenter[2] /= faceIndices.length;
-
-      return { fIdx, geom, unitNormal, fCenter };
-    });
-  }, [faces, threeVertices, vertices]);
-
-  const edgesGeometry = useMemo(() => {
-    const geom = new THREE.BufferGeometry();
-    const positions: number[] = [];
-    for (const [u, v] of edges) {
-      const p1 = threeVertices[u];
-      const p2 = threeVertices[v];
-      positions.push(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
-    }
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    return geom;
-  }, [edges, threeVertices]);
-
-  const sectionGeom = useMemo(() => {
-    if (!sectionPolygon || sectionPolygon.points.length < 3) return null;
-    const geom = new THREE.BufferGeometry();
-    const pts = sectionPolygon.points.map((p) => toThree(p));
-    const positions: number[] = [];
-    const v0 = pts[0];
-    for (let i = 1; i < pts.length - 1; i++) {
-      const v1 = pts[i];
-      const v2 = pts[i + 1];
-      positions.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
-    }
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geom.computeVertexNormals();
-
-    const outlineGeom = new THREE.BufferGeometry();
-    const outlinePos: number[] = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p1 = pts[i];
-      const p2 = pts[(i + 1) % pts.length];
-      outlinePos.push(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
-    }
-    outlineGeom.setAttribute('position', new THREE.Float32BufferAttribute(outlinePos, 3));
-    return { meshGeom: geom, outlineGeom };
-  }, [sectionPolygon]);
-
-  const interactiveNodes = useMemo(() => getInteractiveNodes(polyhedron), [polyhedron]);
-  const dihedralDeg = Math.round(90 + unfoldT * 90);
-  const scaleY = Math.max(0.04, morphT);
-
-  return (
-    <group scale={[1, scaleY, 1]} position={[-center[0], -center[1] * scaleY, -center[2]]}>
-      {/* Faces with Explode / Unfold displacement */}
-      {faceMeshes.map(({ fIdx, geom, unitNormal }) => {
-        const offsetDist = explodeT * 1.4 + (fIdx > 0 ? unfoldT * 0.9 : 0);
-        const isHighlightedFoldFace = mode === 'unfold' && fIdx === 1;
-        return (
-          <mesh
-            key={fIdx}
-            geometry={geom}
-            position={[
-              unitNormal[0] * offsetDist,
-              unitNormal[1] * offsetDist,
-              unitNormal[2] * offsetDist,
-            ]}
-          >
-            <meshStandardMaterial
-              color={isHighlightedFoldFace ? '#f97316' : '#94a3b8'}
-              transparent
-              opacity={isHighlightedFoldFace ? 0.72 : explodeT > 0.05 ? 0.42 : 0.12}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
-          </mesh>
-        );
-      })}
-
-      {/* Crisp white Tongchuang chalk wireframe */}
-      <lineSegments geometry={edgesGeometry}>
-        <lineBasicMaterial color="#f8fafc" transparent opacity={0.95} />
-      </lineSegments>
-
-      {/* Vivid blue cross-section polygon (Screenshots 3 & 4) */}
-      {sectionGeom && (
-        <group>
-          <mesh geometry={sectionGeom.meshGeom}>
-            <meshBasicMaterial
-              color="#2563eb"
-              transparent
-              opacity={0.72}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
-          </mesh>
-          <lineSegments geometry={sectionGeom.outlineGeom}>
-            <lineBasicMaterial color="#93c5fd" depthTest={false} />
-          </lineSegments>
-        </group>
-      )}
-
-      {/* Dihedral angle badge in Unfold mode (Screenshot 1: "83°") */}
-      {mode === 'unfold' && (
-        <Html position={[center[0], center[1] + 1.4, center[2]]} center style={{ pointerEvents: 'none' }}>
-          <div
-            data-testid="dihedral-angle-badge"
-            className="rounded-lg bg-slate-900/85 px-2 py-0.5 text-sm font-extrabold text-white shadow-lg border border-orange-400/70"
-          >
-            {180 - dihedralDeg === 0 ? '180°' : `${Math.max(0, 180 - Math.round(unfoldT * 97))}°`}
-          </div>
-        </Html>
-      )}
-
-      {/* White vertex nodes + pink edge midpoint nodes in Section mode */}
-      {interactiveNodes.map((node) => {
-        if (node.kind === 'midpoint' && mode !== 'section') return null;
-        const tPos = toThree(node.pos);
-        const isSelected = selectedNodes.includes(node.id);
-        const radius = node.kind === 'vertex' ? 0.14 : 0.12;
-
-        return (
-          <group key={node.id} position={tPos}>
-            <mesh
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleNode(node.id);
-              }}
-            >
-              <sphereGeometry args={[isSelected ? radius * 1.45 : radius, 14, 14]} />
-              <meshStandardMaterial
-                color={isSelected ? '#ec4899' : node.kind === 'midpoint' ? '#f472b6' : '#ffffff'}
-                emissive={isSelected ? '#ec4899' : '#e2e8f0'}
-                emissiveIntensity={isSelected ? 0.85 : 0.35}
-              />
-            </mesh>
-            {showLabels && node.kind === 'vertex' && (
-              <Html position={[0.24, 0.24, 0]} center style={{ pointerEvents: 'none' }}>
-                <span
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shadow ${
-                    isSelected
-                      ? 'bg-pink-500 text-white ring-2 ring-white'
-                      : 'bg-slate-900/75 text-white border border-white/30'
-                  }`}
-                >
-                  {node.label}
-                </span>
-              </Html>
-            )}
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Curved Solid Scene (Cylinder, Cone, Sphere, Torus)
-// ---------------------------------------------------------------------------
-
-function CurvedSolidScene({ params, morphT, mode }: { params: SolidParams; morphT: number; mode: SolidToolMode }) {
-  const { geometry } = useMemo(() => buildThreeGeometry(params), [params]);
-  const scaleY = Math.max(0.04, morphT);
-  return (
-    <group scale={[1, scaleY, 1]}>
-      <mesh geometry={geometry}>
-        <meshStandardMaterial
-          color={mode === 'unfold' ? '#f97316' : '#38bdf8'}
-          transparent
-          opacity={0.35}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh geometry={geometry}>
-        <meshBasicMaterial color="#f8fafc" wireframe transparent opacity={0.85} />
-      </mesh>
-    </group>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main TongchuangSolidWidget
+// Main TongchuangSolidWidget (Pure Three.js WebGLRenderer)
 // ---------------------------------------------------------------------------
 
 export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
@@ -508,6 +200,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   compact = false,
 }) => {
   const isWeakDevice = useWeakDevice();
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const [webglError, setWebglError] = useState(false);
+
   const [mode, setMode] = useState<SolidToolMode>('orbit');
   const [autoRotate, setAutoRotate] = useState(false);
   const [preset, setPreset] = useState<CameraPreset>('iso');
@@ -517,23 +212,63 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [unfoldT, setUnfoldT] = useState(0);
   const [isUnfolding, setIsUnfolding] = useState(false);
   const [explodeT, setExplodeT] = useState(0);
-  const [morphT, setMorphT] = useState(0.05);
 
-  // Smooth 2D -> 3D extrusion entry animation (P12-T05)
-  useEffect(() => {
-    let raf = 0;
-    let start: number | null = null;
-    const step = (ts: number) => {
-      if (start === null) start = ts;
-      const progress = Math.min(1, (ts - start) / 650);
-      // easeOutCubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setMorphT(eased);
-      if (progress < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [params.type]);
+  // Projected 2D screen positions for vertex labels (A-H)
+  const [vertexOverlays, setVertexOverlays] = useState<
+    { id: string; label: string; x: number; y: number; selected: boolean }[]
+  >([]);
+
+  const polyhedron = useMemo(() => buildPolyhedronFromParams(params), [params]);
+  const geoStats = useMemo(() => {
+    try {
+      return computeGeometry(params);
+    } catch {
+      return null;
+    }
+  }, [params]);
+
+  const interactiveNodes = useMemo(
+    () => (polyhedron ? getInteractiveNodes(polyhedron) : []),
+    [polyhedron]
+  );
+
+  const sectionPolygon = useMemo<SectionPolygon | null>(() => {
+    if (!polyhedron || mode !== 'section' || selectedNodes.length !== 3) return null;
+    const pts = selectedNodes
+      .map((nid) => interactiveNodes.find((n) => n.id === nid)?.pos)
+      .filter((p): p is Vec3 => Boolean(p));
+    if (pts.length !== 3) return null;
+    const plane = planeFrom3Points(pts[0], pts[1], pts[2]);
+    if (!plane) return null;
+    return intersectPolyhedronPlane(polyhedron, plane);
+  }, [polyhedron, mode, selectedNodes, interactiveNodes]);
+
+  const projected2D = useMemo(
+    () => (sectionPolygon ? projectSectionPolygon2D(sectionPolygon) : null),
+    [sectionPolygon]
+  );
+
+  // Refs for latest state inside rAF / event handlers
+  const stateRef = useRef({
+    mode,
+    autoRotate,
+    unfoldT,
+    explodeT,
+    showLabels,
+    selectedNodes,
+  });
+  stateRef.current = { mode, autoRotate, unfoldT, explodeT, showLabels, selectedNodes };
+
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const rootGroupRef = useRef<THREE.Group | null>(null);
+  const faceEntriesRef = useRef<
+    { mesh: THREE.Mesh; mat: THREE.MeshStandardMaterial; normal: [number, number, number]; fIdx: number }[]
+  >([]);
+  const nodeMeshesRef = useRef<{ mesh: THREE.Mesh; node: InteractiveNode }[]>([]);
+  const sectionGroupRef = useRef<THREE.Group | null>(null);
+  const centerRef = useRef<[number, number, number]>([0, 0, 0]);
+  const morphStartRef = useRef<number>(performance.now());
 
   // Play/Pause unfold animation
   useEffect(() => {
@@ -557,21 +292,361 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     return () => cancelAnimationFrame(raf);
   }, [isUnfolding]);
 
-  const polyhedron = useMemo(() => buildPolyhedronFromParams(params), [params]);
-  const geoStats = useMemo(() => {
+  // Apply camera presets
+  useEffect(() => {
+    const cam = cameraRef.current;
+    const ctrl = controlsRef.current;
+    if (!cam || !ctrl) return;
+    const pos: Record<CameraPreset, [number, number, number]> = {
+      iso: [7.5, 6, 8.5],
+      front: [0, 0, 11],
+      top: [0, 11, 0.01],
+      side: [11, 0, 0],
+    };
+    const [x, y, z] = pos[preset];
+    cam.position.set(x, y, z);
+    ctrl.target.set(0, 0, 0);
+    ctrl.update();
+  }, [preset, presetTick]);
+
+  // Build Three.js WebGL scene
+  useEffect(() => {
+    const container = mountRef.current;
+    if (!container) return;
+
+    let renderer: THREE.WebGLRenderer;
     try {
-      return computeGeometry(params);
+      renderer = new THREE.WebGLRenderer({
+        antialias: !isWeakDevice,
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
     } catch {
-      return null;
+      setWebglError(true);
+      return;
     }
-  }, [params]);
 
-  const interactiveNodes = useMemo(
-    () => (polyhedron ? getInteractiveNodes(polyhedron) : []),
-    [polyhedron]
-  );
+    const w = Math.max(200, container.clientWidth || 300);
+    const h = Math.max(180, container.clientHeight || 260);
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isWeakDevice ? 1 : 2));
+    renderer.setClearColor(0x000000, 0);
+    container.innerHTML = '';
+    container.appendChild(renderer.domElement);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
 
-  // Auto-select a default 3-point section when entering Section mode so teacher immediately sees it
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+    camera.position.set(7.5, 6, 8.5);
+    cameraRef.current = camera;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.autoRotateSpeed = 2.4;
+    controlsRef.current = controls;
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
+    dir1.position.set(10, 14, 10);
+    scene.add(dir1);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    dir2.position.set(-8, -10, -8);
+    scene.add(dir2);
+
+    const rootGroup = new THREE.Group();
+    scene.add(rootGroup);
+    rootGroupRef.current = rootGroup;
+    faceEntriesRef.current = [];
+    nodeMeshesRef.current = [];
+
+    const sectionGroup = new THREE.Group();
+    rootGroup.add(sectionGroup);
+    sectionGroupRef.current = sectionGroup;
+
+    if (polyhedron) {
+      const threeVerts = polyhedron.vertices.map((v) => toThree(v));
+      const cSum = threeVerts.reduce(
+        (acc, v) => [acc[0] + v[0], acc[1] + v[1], acc[2] + v[2]],
+        [0, 0, 0]
+      );
+      const n = threeVerts.length || 1;
+      const center: [number, number, number] = [cSum[0] / n, cSum[1] / n, cSum[2] / n];
+      centerRef.current = center;
+
+      // Faces
+      polyhedron.faces.forEach((faceIndices, fIdx) => {
+        const geom = new THREE.BufferGeometry();
+        const positions: number[] = [];
+        const v0 = threeVerts[faceIndices[0]];
+        for (let i = 1; i < faceIndices.length - 1; i++) {
+          const v1 = threeVerts[faceIndices[i]];
+          const v2 = threeVerts[faceIndices[i + 1]];
+          positions.push(
+            v0[0] - center[0], v0[1] - center[1], v0[2] - center[2],
+            v1[0] - center[0], v1[1] - center[1], v1[2] - center[2],
+            v2[0] - center[0], v2[1] - center[1], v2[2] - center[2]
+          );
+        }
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.computeVertexNormals();
+
+        const normalThree = toThree(computeFaceNormal(faceIndices, polyhedron.vertices));
+        const nLen = Math.hypot(normalThree[0], normalThree[1], normalThree[2]) || 1;
+        const unitNormal: [number, number, number] = [
+          normalThree[0] / nLen,
+          normalThree[1] / nLen,
+          normalThree[2] / nLen,
+        ];
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x94a3b8,
+          transparent: true,
+          opacity: 0.14,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        rootGroup.add(mesh);
+        faceEntriesRef.current.push({ mesh, mat, normal: unitNormal, fIdx });
+      });
+
+      // Crisp white Tongchuang wireframe edges
+      const edgeGeom = new THREE.BufferGeometry();
+      const edgePos: number[] = [];
+      for (const [u, v] of polyhedron.edges) {
+        const p1 = threeVerts[u];
+        const p2 = threeVerts[v];
+        edgePos.push(
+          p1[0] - center[0], p1[1] - center[1], p1[2] - center[2],
+          p2[0] - center[0], p2[1] - center[1], p2[2] - center[2]
+        );
+      }
+      edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
+      const edgeLines = new THREE.LineSegments(
+        edgeGeom,
+        new THREE.LineBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.95 })
+      );
+      rootGroup.add(edgeLines);
+
+      // Interactive vertex + midpoint spheres
+      const sphereGeom = new THREE.SphereGeometry(0.15, 14, 14);
+      for (const node of interactiveNodes) {
+        const tp = toThree(node.pos);
+        const mat = new THREE.MeshStandardMaterial({
+          color: node.kind === 'vertex' ? 0xffffff : 0xf472b6,
+          emissive: node.kind === 'vertex' ? 0xe2e8f0 : 0xec4899,
+          emissiveIntensity: 0.4,
+        });
+        const mesh = new THREE.Mesh(sphereGeom, mat);
+        mesh.position.set(tp[0] - center[0], tp[1] - center[1], tp[2] - center[2]);
+        mesh.visible = node.kind === 'vertex';
+        rootGroup.add(mesh);
+        nodeMeshesRef.current.push({ mesh, node });
+      }
+    } else {
+      centerRef.current = [0, 0, 0];
+      const { geometry } = buildThreeGeometry(params);
+      const fillMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.32,
+        side: THREE.DoubleSide,
+      });
+      rootGroup.add(new THREE.Mesh(geometry, fillMat));
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0xf8fafc,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.85,
+      });
+      rootGroup.add(new THREE.Mesh(geometry, wireMat));
+    }
+
+    // Raycaster for clicking vertex / edge-midpoint nodes
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let downPos = { x: 0, y: 0 };
+
+    const onPointerDown = (e: PointerEvent) => {
+      downPos = { x: e.clientX, y: e.clientY };
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      const visibleMeshes = nodeMeshesRef.current.filter((n) => n.mesh.visible).map((n) => n.mesh);
+      const hits = raycaster.intersectObjects(visibleMeshes, false);
+      if (hits.length > 0) {
+        const hitObj = hits[0].object;
+        const found = nodeMeshesRef.current.find((n) => n.mesh === hitObj);
+        if (found) {
+          setMode('section');
+          setSelectedNodes((prev) => {
+            if (prev.includes(found.node.id)) return prev.filter((x) => x !== found.node.id);
+            return prev.length >= 3 ? [prev[1], prev[2], found.node.id] : [...prev, found.node.id];
+          });
+        }
+      }
+    };
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+    // ResizeObserver
+    const ro = new ResizeObserver(() => {
+      if (!container) return;
+      const nw = Math.max(180, container.clientWidth);
+      const nh = Math.max(160, container.clientHeight);
+      camera.aspect = nw / nh;
+      camera.updateProjectionMatrix();
+      renderer.setSize(nw, nh);
+    });
+    ro.observe(container);
+
+    // Animation loop
+    morphStartRef.current = performance.now();
+    let snapped = false;
+    let frameCount = 0;
+    let rafId = 0;
+
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+      const st = stateRef.current;
+
+      // 2D -> 3D extrusion morph animation
+      const elapsed = Math.min(1, (performance.now() - morphStartRef.current) / 600);
+      const morphT = Math.max(0.05, 1 - Math.pow(1 - elapsed, 3));
+      rootGroup.scale.set(1, morphT, 1);
+
+      // Update faces for Explode / Unfold
+      for (const entry of faceEntriesRef.current) {
+        const dist = st.explodeT * 1.35 + (entry.fIdx > 0 ? st.unfoldT * 0.9 : 0);
+        entry.mesh.position.set(
+          entry.normal[0] * dist,
+          entry.normal[1] * dist,
+          entry.normal[2] * dist
+        );
+        const isFoldFace = st.mode === 'unfold' && entry.fIdx === 1;
+        entry.mat.color.setHex(isFoldFace ? 0xf97316 : 0x94a3b8);
+        entry.mat.opacity = isFoldFace ? 0.72 : st.explodeT > 0.05 ? 0.42 : 0.14;
+      }
+
+      // Update node visibility & highlight
+      for (const item of nodeMeshesRef.current) {
+        item.mesh.visible = item.node.kind === 'vertex' || st.mode === 'section';
+        const isSel = st.selectedNodes.includes(item.node.id);
+        item.mesh.scale.setScalar(isSel ? 1.45 : 1);
+        const mat = item.mesh.material as THREE.MeshStandardMaterial;
+        mat.color.setHex(isSel ? 0xec4899 : item.node.kind === 'midpoint' ? 0xf472b6 : 0xffffff);
+        mat.emissive.setHex(isSel ? 0xec4899 : 0xe2e8f0);
+      }
+
+      controls.autoRotate = st.autoRotate && !isWeakDevice;
+      controls.update();
+      renderer.render(scene, camera);
+
+      if (!snapped && onSnapshot) {
+        snapped = true;
+        try {
+          const url = renderer.domElement.toDataURL('image/png');
+          if (url.startsWith('data:image/')) onSnapshot(url);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Project vertex labels every 3rd frame to keep React light
+      frameCount++;
+      if (polyhedron && st.showLabels && frameCount % 3 === 0) {
+        const cw = renderer.domElement.clientWidth || w;
+        const ch = renderer.domElement.clientHeight || h;
+        const nextOverlays = nodeMeshesRef.current
+          .filter((item) => item.node.kind === 'vertex')
+          .map((item) => {
+            const worldPos = new THREE.Vector3();
+            item.mesh.getWorldPosition(worldPos);
+            worldPos.project(camera);
+            return {
+              id: item.node.id,
+              label: item.node.label,
+              x: (worldPos.x * 0.5 + 0.5) * cw,
+              y: (-worldPos.y * 0.5 + 0.5) * ch,
+              selected: st.selectedNodes.includes(item.node.id),
+            };
+          });
+        setVertexOverlays(nextOverlays);
+      }
+    };
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      controls.dispose();
+      renderer.dispose();
+    };
+  }, [polyhedron, interactiveNodes, params, isWeakDevice, onSnapshot]);
+
+  // Rebuild cross-section polygon mesh whenever sectionPolygon changes
+  useEffect(() => {
+    const group = sectionGroupRef.current;
+    if (!group) return;
+    while (group.children.length > 0) {
+      const child = group.children[0];
+      group.remove(child);
+    }
+    if (!sectionPolygon || sectionPolygon.points.length < 3) return;
+
+    const center = centerRef.current;
+    const pts = sectionPolygon.points.map((p) => {
+      const t = toThree(p);
+      return [t[0] - center[0], t[1] - center[1], t[2] - center[2]] as [number, number, number];
+    });
+
+    const meshGeom = new THREE.BufferGeometry();
+    const pos: number[] = [];
+    for (let i = 1; i < pts.length - 1; i++) {
+      pos.push(...pts[0], ...pts[i], ...pts[i + 1]);
+    }
+    meshGeom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    meshGeom.computeVertexNormals();
+    group.add(
+      new THREE.Mesh(
+        meshGeom,
+        new THREE.MeshBasicMaterial({
+          color: 0x2563eb,
+          transparent: true,
+          opacity: 0.72,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      )
+    );
+
+    const outGeom = new THREE.BufferGeometry();
+    const outPos: number[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      outPos.push(...pts[i], ...pts[(i + 1) % pts.length]);
+    }
+    outGeom.setAttribute('position', new THREE.Float32BufferAttribute(outPos, 3));
+    group.add(
+      new THREE.LineSegments(
+        outGeom,
+        new THREE.LineBasicMaterial({ color: 0x93c5fd, depthTest: false })
+      )
+    );
+  }, [sectionPolygon]);
+
   const enterSectionMode = () => {
     setMode('section');
     if (polyhedron && selectedNodes.length < 3 && polyhedron.labels.length >= 6) {
@@ -579,29 +654,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
   };
 
-  const handleToggleNode = (nodeId: string) => {
-    if (mode !== 'section') setMode('section');
-    setSelectedNodes((prev) => {
-      if (prev.includes(nodeId)) return prev.filter((x) => x !== nodeId);
-      return prev.length >= 3 ? [prev[1], prev[2], nodeId] : [...prev, nodeId];
-    });
-  };
-
-  const sectionPolygon = useMemo<SectionPolygon | null>(() => {
-    if (!polyhedron || mode !== 'section' || selectedNodes.length !== 3) return null;
-    const pts = selectedNodes
-      .map((nid) => interactiveNodes.find((n) => n.id === nid)?.pos)
-      .filter((p): p is Vec3 => Boolean(p));
-    if (pts.length !== 3) return null;
-    const plane = planeFrom3Points(pts[0], pts[1], pts[2]);
-    if (!plane) return null;
-    return intersectPolyhedronPlane(polyhedron, plane);
-  }, [polyhedron, mode, selectedNodes, interactiveNodes]);
-
-  const projected2D = useMemo(
-    () => (sectionPolygon ? projectSectionPolygon2D(sectionPolygon) : null),
-    [sectionPolygon]
-  );
+  const dihedralDeg = Math.max(0, 180 - Math.round(unfoldT * 97));
 
   return (
     <div
@@ -609,13 +662,13 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       onClick={onSelect}
       className="relative flex h-full w-full flex-col items-center justify-center select-none"
     >
-      {/* Main Interactive Stage: 3D Canvas + Side-by-Side 2D Cross-Section Projection */}
+      {/* Main Interactive Stage */}
       <div className="relative flex h-full w-full items-center justify-center">
         {/* Side-by-Side Extracted 2D Cross-Section SVG with Interior Angles (Screenshots 3 & 4) */}
         {mode === 'section' && projected2D && projected2D.points2D.length >= 3 && (
           <div
             data-testid="extracted-section-2d"
-            className="pointer-events-none absolute -left-36 top-4 z-20 flex flex-col items-center rounded-2xl border border-blue-400/40 bg-slate-800/85 p-2.5 text-white shadow-2xl backdrop-blur-md"
+            className="pointer-events-none absolute -left-36 top-4 z-20 flex flex-col items-center rounded-2xl border border-blue-400/40 bg-slate-800/90 p-2.5 text-white shadow-2xl backdrop-blur-md"
           >
             <div className="mb-1 text-[10px] font-semibold tracking-wide text-blue-300 uppercase">
               Penampang Irisan
@@ -649,49 +702,52 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           </div>
         )}
 
-        {/* Transparent WebGL Canvas directly on the chalkboard */}
-        <div className="h-full w-full">
-          <Canvas
-            camera={{ position: [7.5, 6, 8.5], fov: 42 }}
-            gl={{ antialias: !isWeakDevice, alpha: true, preserveDrawingBuffer: true }}
-            style={{ background: 'transparent' }}
+        {/* Transparent Pure-Three.js WebGL Mount */}
+        <div ref={mountRef} data-testid="three-webgl-mount" className="h-full w-full cursor-grab active:cursor-grabbing" />
+
+        {webglError && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-300 bg-slate-900/70 rounded-xl">
+            WebGL tidak tersedia di browser ini.
+          </div>
+        )}
+
+        {/* Projected Vertex Labels (A-H) */}
+        {showLabels &&
+          vertexOverlays.map((v) => (
+            <span
+              key={v.id}
+              style={{
+                left: `${v.x}px`,
+                top: `${v.y}px`,
+                transform: 'translate(-50%, -130%)',
+              }}
+              className={`pointer-events-none absolute z-10 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shadow ${
+                v.selected
+                  ? 'bg-pink-500 text-white ring-2 ring-white'
+                  : 'bg-slate-900/80 text-white border border-white/30'
+              }`}
+            >
+              {v.label}
+            </span>
+          ))}
+
+        {/* Dihedral Angle Badge in Unfold mode (Screenshot 1: "83°") */}
+        {mode === 'unfold' && (
+          <div
+            data-testid="dihedral-angle-badge"
+            className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-lg border border-orange-400/70 bg-slate-900/85 px-2.5 py-0.5 text-sm font-extrabold text-white shadow-lg"
           >
-            <ambientLight intensity={0.85} />
-            <directionalLight position={[10, 14, 10]} intensity={1.1} />
-            <directionalLight position={[-8, -10, -8]} intensity={0.4} />
+            {dihedralDeg}°
+          </div>
+        )}
 
-            {polyhedron ? (
-              <PolyhedronScene
-                polyhedron={polyhedron}
-                mode={mode}
-                selectedNodes={selectedNodes}
-                onToggleNode={handleToggleNode}
-                sectionPolygon={sectionPolygon}
-                unfoldT={unfoldT}
-                explodeT={explodeT}
-                showLabels={showLabels}
-                morphT={morphT}
-              />
-            ) : (
-              <CurvedSolidScene params={params} morphT={morphT} mode={mode} />
-            )}
-
-            <CameraRig
-              preset={preset}
-              presetTick={presetTick}
-              autoRotate={autoRotate && !isWeakDevice}
-              onSnapshot={onSnapshot}
-            />
-          </Canvas>
-        </div>
-
-        {/* Measurement HUD Overlay (P13-T03) */}
+        {/* Measurement HUD Overlay */}
         {mode === 'measure' && geoStats && (
           <div
             data-testid="solid-measure-hud"
             className="absolute right-2 top-2 z-20 rounded-xl border border-emerald-400/40 bg-slate-900/85 px-3 py-2 text-[11px] text-white shadow-xl backdrop-blur-md"
           >
-            <div className="font-bold text-emerald-300 mb-1">{label ?? params.type.toUpperCase()}</div>
+            <div className="mb-1 font-bold text-emerald-300">{label ?? params.type.toUpperCase()}</div>
             <div>Volume: <strong className="font-mono">{geoStats.volume.toFixed(2)} cm³</strong></div>
             <div>Luas Permukaan: <strong className="font-mono">{geoStats.surface_area.toFixed(2)} cm²</strong></div>
             {params.type === 'cube' && (
@@ -704,7 +760,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         )}
       </div>
 
-      {/* Mode Sub-Sliders (Unfold / Explode / View Presets) */}
+      {/* Mode Sub-Sliders */}
       {selected && mode === 'unfold' && (
         <div className="z-20 mb-1.5 flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-1 text-xs text-slate-800 shadow-lg">
           <button
@@ -775,7 +831,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         </div>
       )}
 
-      {/* CRISP WHITE TONGCHUANG CONTEXTUAL ACTION BAR (Screenshots 1, 3, 4) */}
+      {/* CRISP WHITE TONGCHUANG CONTEXTUAL ACTION BAR */}
       {selected && (
         <div
           role="toolbar"
@@ -917,7 +973,6 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
             </button>
           )}
 
-          {/* Signature Tongchuang Green Confirm Button */}
           <button
             type="button"
             data-testid={`solid-btn-confirm-${id}`}

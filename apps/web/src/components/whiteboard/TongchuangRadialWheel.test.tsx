@@ -2,10 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TongchuangRadialWheel } from './TongchuangRadialWheel';
 
-describe('TongchuangRadialWheel', () => {
-  it('renders the white circular wheel with center AI button and 6 radial slots', () => {
+describe('TongchuangRadialWheel (Right-click Canvas & Object modes)', () => {
+  it('renders canvas-mode radial wheel when right-clicked on empty board', () => {
     render(
       <TongchuangRadialWheel
+        mode="canvas"
+        position={{ x: 400, y: 300 }}
         activeTool="pen"
         color="#f8fafc"
         strokeWidth={3}
@@ -23,16 +25,13 @@ describe('TongchuangRadialWheel', () => {
     expect(screen.getByTestId('wheel-slot-eraser')).toBeTruthy();
   });
 
-  it('expands concentric color and stroke width arc when pen slot is clicked', () => {
+  it('expands concentric color arc in canvas mode and selects a color', () => {
     const onColorChange = vi.fn();
     render(
       <TongchuangRadialWheel
-        activeTool="pen"
-        color="#f8fafc"
-        strokeWidth={3}
-        onToolChange={vi.fn()}
+        mode="canvas"
+        position={{ x: 400, y: 300 }}
         onColorChange={onColorChange}
-        onStrokeWidthChange={vi.fn()}
       />
     );
 
@@ -47,12 +46,8 @@ describe('TongchuangRadialWheel', () => {
     const onInsertSolid = vi.fn();
     render(
       <TongchuangRadialWheel
-        activeTool="pen"
-        color="#f8fafc"
-        strokeWidth={3}
-        onToolChange={vi.fn()}
-        onColorChange={vi.fn()}
-        onStrokeWidthChange={vi.fn()}
+        mode="canvas"
+        position={{ x: 400, y: 300 }}
         onInsertSolid={onInsertSolid}
       />
     );
@@ -64,22 +59,32 @@ describe('TongchuangRadialWheel', () => {
     expect(onInsertSolid).toHaveBeenCalledWith('cube');
   });
 
-  it('opens AI smart arc when center AI button is clicked and closes on Escape', () => {
+  it('renders object-mode radial wheel with Convert 3D, Color, Duplicate, Delete, and AI Explain', () => {
+    const onConvert3D = vi.fn();
+    const onExplainAi = vi.fn();
+    const onRecolorObject = vi.fn();
     render(
       <TongchuangRadialWheel
-        activeTool="pen"
-        color="#f8fafc"
-        strokeWidth={3}
-        onToolChange={vi.fn()}
-        onColorChange={vi.fn()}
-        onStrokeWidthChange={vi.fn()}
+        mode="object"
+        selectedCount={1}
+        canConvert3D={true}
+        position={{ x: 400, y: 300 }}
+        onConvert3D={onConvert3D}
+        onExplainAi={onExplainAi}
+        onRecolorObject={onRecolorObject}
       />
     );
 
-    fireEvent.click(screen.getByTestId('wheel-center-ai'));
-    expect(screen.getByTestId('radial-ai-arc')).toBeTruthy();
+    expect(screen.getByTestId('wheel-slot-convert3d')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wheel-slot-convert3d'));
+    expect(onConvert3D).toHaveBeenCalledTimes(1);
 
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByTestId('radial-ai-arc')).toBeNull();
+    fireEvent.click(screen.getByTestId('wheel-slot-obj_color'));
+    expect(screen.getByTestId('radial-object-color-arc')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wheel-obj-color-#3b82f6'));
+    expect(onRecolorObject).toHaveBeenCalledWith('#3b82f6');
+
+    fireEvent.click(screen.getByTestId('wheel-center-ai'));
+    expect(onExplainAi).toHaveBeenCalledTimes(1);
   });
 });

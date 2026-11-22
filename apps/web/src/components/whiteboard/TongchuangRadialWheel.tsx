@@ -1,39 +1,59 @@
 /**
  * TongchuangRadialWheel.tsx — P11-T02
- * Signature floating white circular AI Radial Wheel inspired by iFLYTEK Tongchuang AI Blackboard (讯飞同窗AI黑板).
+ * Context-aware white circular AI Radial Wheel triggered on Right-Click (or long-press / Shift+F10),
+ * inspired by iFLYTEK Tongchuang AI Blackboard (讯飞同窗AI黑板).
  *
- * Visual anatomy (matching reference screenshots):
- * - Draggable white circular disc (~128px) with soft elevation shadow
- * - Center glowing "AI" circular hub button (opens contextual AI & 3D actions arc)
- * - 6 radial tool icons around the inner disc (Select, Pen+Color Arc, 3D Solids Arc, Eraser, Undo, Voice/AI)
- * - Concentric expandable white pill arcs for 10 chalk/pen colors + stroke widths
+ * Two automatic modes:
+ * - mode="object" (right-click on an object):
+ *     Center "AI" -> Jelaskan AI
+ *     6 slots -> Ubah ke 3D / Rumus→Grafik, Warna (expands 10-color arc), Duplikat, Hapus, Kunci, Ke Depan
+ * - mode="canvas" (right-click on empty canvas):
+ *     Center "AI" -> expands AI Smart Hub arc (Kubus 3D, Rumus→Grafik, Suara AI, Template, Ringkasan)
+ *     6 slots -> Seleksi, Pena & Warna (expands 10-color + stroke-width arcs), Bangun 3D (expands 7 solids), Penghapus, Undo, Suara AI
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { ToolType } from '@/hooks/useWhiteboardTool';
 import type { SolidType } from '@ai-classroom/geometry-core';
 
-export type RadialSubArc = 'none' | 'pen' | 'solid' | 'ai';
+export type RadialSubArc = 'none' | 'pen' | 'solid' | 'ai' | 'object_color';
 
 export interface TongchuangRadialWheelProps {
-  activeTool: ToolType;
-  color: string;
-  strokeWidth: number;
+  /** Whether right-clicked on a selected object or empty canvas */
+  mode?: 'canvas' | 'object';
+  /** Screen position (clientX, clientY) where the radial wheel opens */
+  position?: { x: number; y: number };
+  /** Callback to close the right-click radial wheel */
+  onClose?: () => void;
+
+  // Canvas-mode props
+  activeTool?: ToolType;
+  color?: string;
+  strokeWidth?: number;
   canUndo?: boolean;
   isListeningVoice?: boolean;
-  onToolChange: (tool: ToolType) => void;
-  onColorChange: (color: string) => void;
-  onStrokeWidthChange: (width: number) => void;
+  onToolChange?: (tool: ToolType) => void;
+  onColorChange?: (color: string) => void;
+  onStrokeWidthChange?: (width: number) => void;
   onUndo?: () => void;
   onInsertSolid?: (solidType: SolidType) => void;
   onOpenFormulaGraph?: () => void;
   onToggleVoice?: () => void;
   onOpenSummary?: () => void;
   onOpenTemplates?: () => void;
-  defaultPosition?: { x: number; y: number };
-}
 
-const STORAGE_KEY = 'tongchuang_ai_wheel_pos';
+  // Object-mode props
+  selectedCount?: number;
+  canConvert3D?: boolean;
+  isLocked?: boolean;
+  onConvert3D?: () => void;
+  onExplainAi?: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  onToggleLock?: () => void;
+  onBringToFront?: () => void;
+  onRecolorObject?: (color: string) => void;
+}
 
 const WHEEL_COLORS = [
   { label: 'Putih Kapur', value: '#f8fafc' },
@@ -66,9 +86,12 @@ const QUICK_SOLIDS: { type: SolidType; label: string; icon: string }[] = [
 ];
 
 export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
-  activeTool,
-  color,
-  strokeWidth,
+  mode = 'canvas',
+  position,
+  onClose,
+  activeTool = 'pen',
+  color = '#f8fafc',
+  strokeWidth = 3,
   canUndo = false,
   isListeningVoice = false,
   onToolChange,
@@ -80,151 +103,217 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
   onToggleVoice,
   onOpenSummary,
   onOpenTemplates,
-  defaultPosition,
+  selectedCount = 0,
+  canConvert3D = false,
+  isLocked = false,
+  onConvert3D,
+  onExplainAi,
+  onDuplicate,
+  onDelete,
+  onToggleLock,
+  onBringToFront,
+  onRecolorObject,
 }) => {
+  const wheelRef = useRef<HTMLDivElement | null>(null);
   const [expandedArc, setExpandedArc] = useState<RadialSubArc>('none');
-  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-    if (defaultPosition) return defaultPosition;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore storage errors
-    }
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 720;
-    return { x: Math.max(120, w - 160), y: Math.max(180, h - 190) };
-  });
 
-  const dragRef = useRef<{
-    dragging: boolean;
-    moved: boolean;
-    offsetX: number;
-    offsetY: number;
-  }>({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
+  // Clamp wheel position safely inside viewport (accounting for expanded outer arcs)
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const h = typeof window !== 'undefined' ? window.innerHeight : 720;
+  const rawX = position?.x ?? w / 2;
+  const rawY = position?.y ?? h / 2;
+  const clampedX = Math.max(150, Math.min(w - 150, rawX));
+  const clampedY = Math.max(150, Math.min(h - 150, rawY));
 
+  // Click outside to close
   useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragRef.current.dragging) return;
-      dragRef.current.moved = true;
-      const nx = Math.max(84, Math.min(window.innerWidth - 84, e.clientX - dragRef.current.offsetX));
-      const ny = Math.max(84, Math.min(window.innerHeight - 84, e.clientY - dragRef.current.offsetY));
-      setPosition({ x: nx, y: ny });
-    };
-
-    const onPointerUp = () => {
-      if (!dragRef.current.dragging) return;
-      dragRef.current.dragging = false;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(position));
-      } catch {
-        // ignore
+    if (!onClose) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wheelRef.current && !wheelRef.current.contains(e.target as Node)) {
+        onClose();
       }
     };
+    window.addEventListener('mousedown', handleClickOutside, { capture: true });
+    return () => window.removeEventListener('mousedown', handleClickOutside, { capture: true });
+  }, [onClose]);
 
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-    };
-  }, [position]);
-
-  // Global Shift+F10 and Escape support (WCAG 2.2 AA)
+  // Escape closes expanded arc first, then wheel
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && expandedArc !== 'none') {
-        setExpandedArc('none');
-      } else if (e.shiftKey && e.key === 'F10') {
-        e.preventDefault();
-        setExpandedArc((prev) => (prev === 'ai' ? 'none' : 'ai'));
+      if (e.key === 'Escape') {
+        if (expandedArc !== 'none') {
+          setExpandedArc('none');
+        } else {
+          onClose?.();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [expandedArc]);
-
-  const startDrag = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button[data-no-drag="true"]')) return;
-    dragRef.current = {
-      dragging: true,
-      moved: false,
-      offsetX: e.clientX - position.x,
-      offsetY: e.clientY - position.y,
-    };
-  };
+  }, [expandedArc, onClose]);
 
   const toggleArc = (arc: RadialSubArc) => {
-    if (dragRef.current.moved) return;
     setExpandedArc((prev) => (prev === arc ? 'none' : arc));
   };
 
-  // 6 ring slots around the 128px white wheel (radius = 44px)
-  const ringSlots = [
-    {
-      id: 'select',
-      label: 'Seleksi (V)',
-      icon: '↖',
-      angleDeg: -90,
-      active: activeTool === 'select',
-      onClick: () => {
-        onToolChange('select');
-        setExpandedArc('none');
-      },
-    },
-    {
-      id: 'pen',
-      label: 'Pena & Warna',
-      icon: '✏️',
-      angleDeg: -30,
-      active: activeTool === 'pen' || activeTool === 'highlighter' || expandedArc === 'pen',
-      onClick: () => {
-        onToolChange('pen');
-        toggleArc('pen');
-      },
-    },
-    {
-      id: 'solid3d',
-      label: 'Bangun Ruang 3D',
-      icon: '🧊',
-      angleDeg: 30,
-      active: expandedArc === 'solid',
-      onClick: () => toggleArc('solid'),
-    },
-    {
-      id: 'eraser',
-      label: 'Penghapus',
-      icon: '⌫',
-      angleDeg: 90,
-      active: activeTool === 'eraser',
-      onClick: () => {
-        onToolChange('eraser');
-        setExpandedArc('none');
-      },
-    },
-    {
-      id: 'undo',
-      label: 'Undo (Ctrl+Z)',
-      icon: '↩',
-      angleDeg: 150,
-      active: false,
-      disabled: !canUndo,
-      onClick: () => onUndo?.(),
-    },
-    {
-      id: 'voice',
-      label: isListeningVoice ? 'Matikan Suara' : 'Perintah Suara AI',
-      icon: isListeningVoice ? '🔴' : '🎙️',
-      angleDeg: -150,
-      active: isListeningVoice,
-      onClick: () => onToggleVoice?.(),
-    },
-  ];
+  // ── 6 Radial Slots depending on mode ("object" vs "canvas") ──────────────
+  const ringSlots =
+    mode === 'object'
+      ? [
+          canConvert3D
+            ? {
+                id: 'convert3d',
+                label: 'Ubah ke 3D',
+                icon: '🧊',
+                angleDeg: -90,
+                active: false,
+                disabled: false,
+                onClick: () => {
+                  onConvert3D?.();
+                  onClose?.();
+                },
+              }
+            : {
+                id: 'graph',
+                label: 'Rumus → Grafik',
+                icon: '📈',
+                angleDeg: -90,
+                active: false,
+                disabled: false,
+                onClick: () => {
+                  onOpenFormulaGraph?.();
+                  onClose?.();
+                },
+              },
+          {
+            id: 'obj_color',
+            label: 'Ubah Warna',
+            icon: '🎨',
+            angleDeg: -30,
+            active: expandedArc === 'object_color',
+            disabled: false,
+            onClick: () => toggleArc('object_color'),
+          },
+          {
+            id: 'duplicate',
+            label: 'Duplikat (Ctrl+D)',
+            icon: '📋',
+            angleDeg: 30,
+            active: false,
+            disabled: false,
+            onClick: () => {
+              onDuplicate?.();
+              onClose?.();
+            },
+          },
+          {
+            id: 'delete',
+            label: 'Hapus (Del)',
+            icon: '🗑️',
+            angleDeg: 90,
+            active: false,
+            disabled: false,
+            onClick: () => {
+              onDelete?.();
+              onClose?.();
+            },
+          },
+          {
+            id: 'lock',
+            label: isLocked ? 'Buka Kunci' : 'Kunci Objek',
+            icon: isLocked ? '🔓' : '🔒',
+            angleDeg: 150,
+            active: isLocked,
+            disabled: false,
+            onClick: () => {
+              onToggleLock?.();
+              onClose?.();
+            },
+          },
+          {
+            id: 'front',
+            label: 'Bawa ke Depan',
+            icon: '⬆️',
+            angleDeg: -150,
+            active: false,
+            disabled: false,
+            onClick: () => {
+              onBringToFront?.();
+              onClose?.();
+            },
+          },
+        ]
+      : [
+          {
+            id: 'select',
+            label: 'Seleksi (V)',
+            icon: '↖',
+            angleDeg: -90,
+            active: activeTool === 'select',
+            disabled: false,
+            onClick: () => {
+              onToolChange?.('select');
+              onClose?.();
+            },
+          },
+          {
+            id: 'pen',
+            label: 'Pena & Warna',
+            icon: '✏️',
+            angleDeg: -30,
+            active: activeTool === 'pen' || activeTool === 'highlighter' || expandedArc === 'pen',
+            disabled: false,
+            onClick: () => {
+              onToolChange?.('pen');
+              toggleArc('pen');
+            },
+          },
+          {
+            id: 'solid3d',
+            label: 'Sisipkan Bangun 3D',
+            icon: '🧊',
+            angleDeg: 30,
+            active: expandedArc === 'solid',
+            disabled: false,
+            onClick: () => toggleArc('solid'),
+          },
+          {
+            id: 'eraser',
+            label: 'Penghapus',
+            icon: '⌫',
+            angleDeg: 90,
+            active: activeTool === 'eraser',
+            disabled: false,
+            onClick: () => {
+              onToolChange?.('eraser');
+              onClose?.();
+            },
+          },
+          {
+            id: 'undo',
+            label: 'Undo (Ctrl+Z)',
+            icon: '↩',
+            angleDeg: 150,
+            active: false,
+            disabled: !canUndo,
+            onClick: () => {
+              onUndo?.();
+              onClose?.();
+            },
+          },
+          {
+            id: 'voice',
+            label: isListeningVoice ? 'Matikan Suara' : 'Perintah Suara AI',
+            icon: isListeningVoice ? '🔴' : '🎙️',
+            angleDeg: -150,
+            active: isListeningVoice,
+            disabled: false,
+            onClick: () => {
+              onToggleVoice?.();
+              onClose?.();
+            },
+          },
+        ];
 
   const aiArcItems = [
     {
@@ -233,25 +322,25 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
       icon: '🧊',
       onClick: () => {
         onInsertSolid?.('cube');
-        setExpandedArc('none');
+        onClose?.();
       },
     },
     {
       id: 'ai-graph',
-      label: 'Rumus → Grafik',
+      label: 'Grafik',
       icon: '📈',
       onClick: () => {
         onOpenFormulaGraph?.();
-        setExpandedArc('none');
+        onClose?.();
       },
     },
     {
       id: 'ai-voice',
-      label: 'Suara AI',
+      label: 'Suara',
       icon: '🎙️',
       onClick: () => {
         onToggleVoice?.();
-        setExpandedArc('none');
+        onClose?.();
       },
     },
     {
@@ -260,34 +349,84 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
       icon: '📚',
       onClick: () => {
         onOpenTemplates?.();
-        setExpandedArc('none');
+        onClose?.();
       },
     },
     {
       id: 'ai-summary',
-      label: 'Ringkasan',
+      label: 'Ringkas',
       icon: '📝',
       onClick: () => {
         onOpenSummary?.();
-        setExpandedArc('none');
+        onClose?.();
       },
     },
   ];
 
   return (
     <div
+      ref={wheelRef}
       data-testid="tongchuang-radial-wheel"
-      role="region"
-      aria-label="Roda AI Tongchuang"
-      onPointerDown={startDrag}
-      className="fixed z-40 select-none touch-none"
+      role="menu"
+      aria-label={mode === 'object' ? 'Menu Radial Objek' : 'Menu Radial Kanvas AI'}
+      onContextMenu={(e) => e.preventDefault()}
+      className="fixed z-50 select-none animate-in fade-in zoom-in-95 duration-150"
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        left: `${clampedX}px`,
+        top: `${clampedY}px`,
         transform: 'translate(-50%, -50%)',
       }}
     >
-      {/* Concentric Expanded Arc: PEN COLORS + STROKE WIDTHS (Screenshot 2) */}
+      {/* Mode Badge above wheel */}
+      <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/95 px-2.5 py-0.5 text-[10px] font-bold text-slate-700 shadow-md">
+        {mode === 'object' ? `Objek Terpilih (${Math.max(1, selectedCount)})` : 'Menu Kanvas AI'}
+      </div>
+
+      {/* Concentric Arc: OBJECT RECOLOR (10 colors) */}
+      {expandedArc === 'object_color' && (
+        <div
+          role="menu"
+          aria-label="Ubah Warna Objek"
+          data-testid="radial-object-color-arc"
+          className="pointer-events-none absolute inset-0"
+        >
+          {WHEEL_COLORS.map((c, idx) => {
+            const angleDeg = -115 + (idx / (WHEEL_COLORS.length - 1)) * 270;
+            const rad = (angleDeg * Math.PI) / 180;
+            const r = 92;
+            const x = Math.round(Math.cos(rad) * r);
+            const y = Math.round(Math.sin(rad) * r);
+
+            return (
+              <button
+                key={c.value}
+                type="button"
+                role="menuitem"
+                data-testid={`wheel-obj-color-${c.value}`}
+                aria-label={`Ubah warna ${c.label}`}
+                title={c.label}
+                onClick={() => {
+                  onRecolorObject?.(c.value);
+                  onClose?.();
+                }}
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                }}
+                className="pointer-events-auto absolute flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-lg transition-transform hover:scale-115 active:scale-95"
+              >
+                <span
+                  className="h-4 w-4 rounded-full border border-slate-300/60"
+                  style={{ backgroundColor: c.value }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Concentric Arc: PEN COLORS + STROKE WIDTHS (Canvas mode) */}
       {expandedArc === 'pen' && (
         <div
           role="menu"
@@ -295,11 +434,8 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
           data-testid="radial-pen-arc"
           className="pointer-events-none absolute inset-0"
         >
-          {/* Inner Arc: 10 vivid chalk/pen color dots */}
           {WHEEL_COLORS.map((c, idx) => {
-            const startAngle = -115;
-            const endAngle = 155;
-            const angleDeg = startAngle + (idx / (WHEEL_COLORS.length - 1)) * (endAngle - startAngle);
+            const angleDeg = -115 + (idx / (WHEEL_COLORS.length - 1)) * 270;
             const rad = (angleDeg * Math.PI) / 180;
             const r = 90;
             const x = Math.round(Math.cos(rad) * r);
@@ -311,13 +447,13 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 key={c.value}
                 type="button"
                 role="menuitem"
-                data-no-drag="true"
                 data-testid={`wheel-color-${c.value}`}
                 aria-label={`Warna ${c.label}`}
                 title={c.label}
                 onClick={() => {
-                  onColorChange(c.value);
-                  onToolChange('pen');
+                  onColorChange?.(c.value);
+                  onToolChange?.('pen');
+                  onClose?.();
                 }}
                 style={{
                   left: '50%',
@@ -336,7 +472,6 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
             );
           })}
 
-          {/* Outer Arc: Stroke width presets + Highlighter */}
           {STROKE_WIDTHS.map((sw, idx) => {
             const angleDeg = -85 + idx * 24;
             const rad = (angleDeg * Math.PI) / 180;
@@ -350,12 +485,12 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 key={sw.value}
                 type="button"
                 role="menuitem"
-                data-no-drag="true"
                 aria-label={`Ketebalan ${sw.label}`}
                 title={`Ketebalan: ${sw.label} (${sw.value}px)`}
                 onClick={() => {
-                  onStrokeWidthChange(sw.value);
-                  onToolChange('pen');
+                  onStrokeWidthChange?.(sw.value);
+                  onToolChange?.('pen');
+                  onClose?.();
                 }}
                 style={{
                   left: '50%',
@@ -376,30 +511,10 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
               </button>
             );
           })}
-
-          {/* Highlighter button at end of outer arc */}
-          <button
-            type="button"
-            role="menuitem"
-            data-no-drag="true"
-            aria-label="Stabilo"
-            title="Stabilo"
-            onClick={() => onToolChange('highlighter')}
-            style={{
-              left: '50%',
-              top: '50%',
-              transform: `translate(calc(-50% + ${Math.round(Math.cos((15 * Math.PI) / 180) * 130)}px), calc(-50% + ${Math.round(Math.sin((15 * Math.PI) / 180) * 130)}px))`,
-            }}
-            className={`pointer-events-auto absolute flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs shadow-lg transition-transform hover:scale-110 ${
-              activeTool === 'highlighter' ? 'ring-2 ring-amber-400 bg-amber-50' : 'border border-slate-200'
-            }`}
-          >
-            🖊
-          </button>
         </div>
       )}
 
-      {/* Concentric Expanded Arc: QUICK 3D SOLIDS */}
+      {/* Concentric Arc: QUICK 3D SOLIDS */}
       {expandedArc === 'solid' && (
         <div
           role="menu"
@@ -419,13 +534,12 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 key={s.type}
                 type="button"
                 role="menuitem"
-                data-no-drag="true"
                 data-testid={`wheel-solid-${s.type}`}
                 aria-label={`Sisipkan ${s.label} 3D`}
                 title={`Sisipkan ${s.label} 3D`}
                 onClick={() => {
                   onInsertSolid?.(s.type);
-                  setExpandedArc('none');
+                  onClose?.();
                 }}
                 style={{
                   left: '50%',
@@ -442,7 +556,7 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
         </div>
       )}
 
-      {/* Concentric Expanded Arc: AI SMART HUB */}
+      {/* Concentric Arc: AI SMART HUB */}
       {expandedArc === 'ai' && (
         <div
           role="menu"
@@ -462,7 +576,6 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 key={item.id}
                 type="button"
                 role="menuitem"
-                data-no-drag="true"
                 data-testid={`wheel-${item.id}`}
                 aria-label={item.label}
                 title={item.label}
@@ -475,22 +588,18 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 className="pointer-events-auto absolute flex h-12 w-12 flex-col items-center justify-center rounded-full border border-cyan-200 bg-white/95 text-slate-800 shadow-xl transition-transform hover:scale-110 hover:bg-cyan-50 hover:text-cyan-700 active:scale-95"
               >
                 <span className="text-sm leading-none">{item.icon}</span>
-                <span className="mt-0.5 text-[8px] font-semibold leading-none">{item.label.split(' ')[0]}</span>
+                <span className="mt-0.5 text-[8px] font-semibold leading-none">{item.label}</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* MAIN WHITE CIRCULAR DISC (Exact Tongchuang AI Wheel look) */}
-      <div
-        className="relative flex h-32 w-32 cursor-move items-center justify-center rounded-full border border-slate-200/90 bg-white/95 shadow-[0_12px_36px_rgba(0,0,0,0.42)] backdrop-blur-md"
-        title="Seret untuk memindahkan Roda AI"
-      >
-        {/* 6 Radial Tool Buttons */}
+      {/* MAIN WHITE CIRCULAR DISC */}
+      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 shadow-[0_12px_36px_rgba(0,0,0,0.45)] backdrop-blur-md">
         {ringSlots.map((slot) => {
           const rad = (slot.angleDeg * Math.PI) / 180;
-          const r = 44;
+          const r = 48;
           const x = Math.round(Math.cos(rad) * r);
           const y = Math.round(Math.sin(rad) * r);
 
@@ -498,11 +607,10 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
             <button
               key={slot.id}
               type="button"
-              data-no-drag="true"
+              role="menuitem"
               data-testid={`wheel-slot-${slot.id}`}
               disabled={slot.disabled}
               aria-label={slot.label}
-              aria-pressed={slot.active}
               title={slot.label}
               onClick={slot.onClick}
               style={{
@@ -510,12 +618,14 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 top: '50%',
                 transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
               }}
-              className={`absolute flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all active:scale-90 ${
+              className={`absolute flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all active:scale-90 ${
                 slot.disabled
                   ? 'cursor-not-allowed text-slate-300'
+                  : slot.id === 'delete'
+                  ? 'text-slate-600 hover:bg-red-50 hover:text-red-600'
                   : slot.active
                   ? 'bg-cyan-500/15 text-cyan-700 ring-1 ring-cyan-400/60 font-bold'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
               }`}
             >
               <span>{slot.icon}</span>
@@ -526,13 +636,19 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
         {/* Center Glowing "AI" Hub Button */}
         <button
           type="button"
-          data-no-drag="true"
+          role="menuitem"
           data-testid="wheel-center-ai"
-          aria-expanded={expandedArc === 'ai'}
-          aria-label="Buka Menu Cerdas AI"
-          title="Klik untuk Aksi Cerdas AI (Shift+F10)"
-          onClick={() => toggleArc('ai')}
-          className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 text-base font-extrabold tracking-tight transition-all active:scale-95 ${
+          aria-label={mode === 'object' ? 'Jelaskan Objek dengan AI' : 'Buka Menu Cerdas AI'}
+          title={mode === 'object' ? 'Jelaskan Objek dengan AI' : 'Menu Cerdas AI'}
+          onClick={() => {
+            if (mode === 'object') {
+              onExplainAi?.();
+              onClose?.();
+            } else {
+              toggleArc('ai');
+            }
+          }}
+          className={`relative z-10 flex h-13 w-13 items-center justify-center rounded-full border-2 text-base font-extrabold tracking-tight transition-all active:scale-95 ${
             expandedArc === 'ai'
               ? 'border-cyan-400 bg-gradient-to-tr from-cyan-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.55)]'
               : 'border-cyan-300/80 bg-gradient-to-b from-white to-slate-50 text-slate-700 shadow-[0_0_14px_rgba(56,189,248,0.35)] hover:border-cyan-400 hover:text-cyan-700'
