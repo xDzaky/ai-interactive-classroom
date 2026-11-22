@@ -127,7 +127,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P10-T10 | MID  | deps: T09    | Synthetic corpus generator + negative set + dev stroke recorder
 - [x] P10-T11 | MID  | deps: T09    | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
 - [x] P10-T12 | HIGH | deps: T10,T11 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
-- [ ] P10-T13 | MID  | deps: T12    | OPTIONAL: extra planar shapes (jajargenjang, trapesium, layang-layang, siku-siku, sudut)
+- [x] P10-T13 | MID  | deps: T12    | OPTIONAL: extra planar shapes (jajargenjang, trapesium, layang-layang, siku-siku, sudut)
 - [x] P10-RV  | HIGH | deps: T01-T12 | Phase review
 
 ## P11 — Solid geometry / bangun ruang (iFLYTEK-style) · `tasks/P11-solid-geometry.md`

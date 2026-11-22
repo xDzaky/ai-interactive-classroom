@@ -147,4 +147,45 @@ describe('recognizeShape', () => {
     const resZigzag = recognizeShape(zigzag);
     expect(resZigzag.decision).toBe('keep');
   });
+
+  describe('extra planar shapes (P10-T13)', () => {
+    it('recognizes parallelogram (jajargenjang)', () => {
+      const pgramCorners = [
+        { x: 0, y: 0 },
+        { x: 60, y: 0 },
+        { x: 80, y: 40 },
+        { x: 20, y: 40 },
+      ];
+      const pgram = makePolyline(pgramCorners, 16);
+      const res = recognizeShape(pgram);
+      expect(res.best).not.toBeNull();
+      expect(res.best!.kind).toBe('parallelogram');
+    });
+
+    it('recognizes trapezoid (trapesium)', () => {
+      const trapCorners = [
+        { x: 20, y: 0 },
+        { x: 80, y: 0 },
+        { x: 100, y: 50 },
+        { x: 0, y: 50 },
+      ];
+      const trap = makePolyline(trapCorners, 16);
+      const res = recognizeShape(trap);
+      expect(res.best).not.toBeNull();
+      expect(res.best!.kind).toBe('trapezoid');
+    });
+
+    it('recognizes kite (layang-layang)', () => {
+      const kiteCorners = [
+        { x: 50, y: 0 },
+        { x: 80, y: 40 },
+        { x: 50, y: 100 },
+        { x: 20, y: 40 },
+      ];
+      const kite = makePolyline(kiteCorners, 16);
+      const res = recognizeShape(kite);
+      expect(res.best).not.toBeNull();
+      expect(res.best!.kind).toBe('kite');
+    });
+  });
 });

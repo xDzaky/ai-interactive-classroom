@@ -1749,6 +1749,20 @@ Date: 2026-11-22T03:35:00Z
   - Verified responsive workspace redesign and Kurikulum Merdeka starter lesson templates
 - Verified: All 157 tests pass, `tsc --noEmit` clean, `check-third-party.mjs` passes (OK)
 
+## START — P10-T13 | Extra Planar Shapes (Jajargenjang, Trapesium, Layang-Layang)
+Date: 2026-11-22T03:38:00Z
+Tier: MID
+
+## DONE — P10-T13 | Extra Planar Shapes (Jajargenjang, Trapesium, Layang-Layang)
+Date: 2026-11-22T03:42:00Z
+- Completed `P10-T13`:
+  - Extended `packages/sketch-core/src/types.ts` with `parallelogram`, `trapezoid`, `kite` in `ShapeKind`
+  - Extended `packages/sketch-core/src/recognizer.ts` with quadrilateral side and slope parallelism classification
+  - Added unit tests in `packages/sketch-core/src/recognizer.test.ts` (3 new tests, 21/21 passing)
+  - Synthetic corpus gates remain verified at 93.9% accuracy and 99.3% negative rejection
+- Verified: `sketch-core` tests 21/21 pass, `check-third-party.mjs` clean (OK)
+
+
 
 
 

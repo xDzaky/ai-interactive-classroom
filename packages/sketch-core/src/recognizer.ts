@@ -272,6 +272,24 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
         quadKind = 'rect';
       } else if (allSidesEqual && !all90) {
         quadKind = 'rhombus';
+      } else if (oppEqual && !all90) {
+        quadKind = 'parallelogram';
+      } else if (
+        (Math.abs(s0 - s1) / Math.max(s0, s1) <= 0.15 && Math.abs(s2 - s3) / Math.max(s2, s3) <= 0.15) ||
+        (Math.abs(s1 - s2) / Math.max(s1, s2) <= 0.15 && Math.abs(s3 - s0) / Math.max(s3, s0) <= 0.15)
+      ) {
+        quadKind = 'kite';
+      } else {
+        // Check trapezoid: one pair of opposite sides approximately parallel
+        const v0 = [refined[1].x - refined[0].x, refined[1].y - refined[0].y];
+        const v2 = [refined[2].x - refined[3].x, refined[2].y - refined[3].y];
+        const v1 = [refined[2].x - refined[1].x, refined[2].y - refined[1].y];
+        const v3 = [refined[3].x - refined[0].x, refined[3].y - refined[0].y];
+        const cross02 = Math.abs(v0[0] * v2[1] - v0[1] * v2[0]) / ((Math.hypot(v0[0], v0[1]) * Math.hypot(v2[0], v2[1])) || 1);
+        const cross13 = Math.abs(v1[0] * v3[1] - v1[1] * v3[0]) / ((Math.hypot(v1[0], v1[1]) * Math.hypot(v3[0], v3[1])) || 1);
+        if (cross02 <= 0.20 || cross13 <= 0.20) {
+          quadKind = 'trapezoid';
+        }
       }
 
       // Check axis snapping for rect / square

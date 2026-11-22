@@ -18,6 +18,9 @@ export type ShapeKind =
   | 'rect'
   | 'square'
   | 'rhombus'
+  | 'parallelogram'
+  | 'trapezoid'
+  | 'kite'
   | 'pentagon'
   | 'hexagon'
   | 'star';
