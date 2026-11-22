@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ai-classroom/geometry-core": "workspace:*",
+    "@ai-classroom/curriculum-schema": "workspace:*",
     "@ai-classroom/math-core": "workspace:*",
     "@ai-classroom/shared-types": "workspace:*",
     "@ai-classroom/sketch-core": "workspace:*",

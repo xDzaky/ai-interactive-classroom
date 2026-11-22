@@ -32,6 +32,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@ai-classroom/curriculum-schema": path.resolve(__dirname, "../../packages/curriculum-schema/src"),
+      "@ai-classroom/whiteboard-core": path.resolve(__dirname, "../../packages/whiteboard-core/src"),
     },
   },
   server: {

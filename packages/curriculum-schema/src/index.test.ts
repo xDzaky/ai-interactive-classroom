@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { SubjectSchema, CurriculumSchema, LessonTopicSchema } from "./index";
+import { SubjectSchema, CurriculumSchema, LessonTopicSchema, LessonTemplateSchema } from "./index";
+
 
 describe("curriculum-schema", () => {
   it("validates SubjectSchema", () => {
@@ -21,5 +22,29 @@ describe("curriculum-schema", () => {
       learning_objectives: ["Identify prisms and pyramids", "Calculate surface area"],
     };
     expect(LessonTopicSchema.safeParse(topic).success).toBe(true);
+  });
+
+  it("validates LessonTemplateSchema for Kurikulum Merdeka (P13-T08)", () => {
+    const template = {
+      id: "tpl-cube-diagonal",
+      title: "Kubus ABCD.EFGH & Diagonal Ruang",
+      elementCode: "geometri",
+      phase: "Fase E",
+      grade: "Kelas 10",
+      description: "Eksplorasi diagonal bidang dan diagonal ruang pada kubus.",
+      teacherNotes: "Gunakan fitur ukur jarak titik A ke G untuk menunjukkan rumus s√3.",
+      studentQuestions: [
+        "Berapa panjang diagonal bidang AC jika rusuk kubus 6 cm?",
+        "Hitung panjang diagonal ruang AG!",
+      ],
+      boardState: {
+        roomId: "demo-room",
+        activeSceneId: "scene-1",
+        scenes: { "scene-1": { id: "scene-1", name: "Scene 1", strokes: [], objects: {} } },
+      },
+    };
+
+    const parseResult = LessonTemplateSchema.safeParse(template);
+    expect(parseResult.success).toBe(true);
   });
 });

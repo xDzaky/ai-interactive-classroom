@@ -1710,4 +1710,24 @@ Date: 2026-11-22T03:20:00Z
   - Created `apps/web/src/components/math/SolidContextToolbar.test.tsx` (3/3 tests passing)
 - Verified: All 20 web vitest tests passing, `tsc --noEmit` clean (0 errors), `check-third-party.mjs` clean (OK)
 
+## START — P13-T08 | Lesson-Template Library & Kurikulum Merdeka Taxonomy
+Date: 2026-11-22T03:22:00Z
+Tier: MID
+
+## DONE — P13-T08 | Lesson-Template Library & Kurikulum Merdeka Taxonomy
+Date: 2026-11-22T03:26:00Z
+- Completed `P13-T08`:
+  - Extended `packages/curriculum-schema/src/index.ts` with:
+    - `KurikulumMerdekaElementSchema`: `bilangan`, `aljabar`, `pengukuran`, `geometri`, `analisis_data_peluang`
+    - `CurriculumPhaseSchema`: `Fase A` through `Fase F`
+    - `LessonTemplateSchema`: id, title, elementCode, phase, grade, description, teacherNotes, studentQuestions, boardState
+  - Created `packages/curriculum-schema/src/index.test.ts` (3/3 tests passing)
+  - Implemented `apps/web/src/features/templates/lessonTemplates.ts` with 10 original starter lesson templates
+  - Created `apps/web/src/features/templates/lessonTemplates.test.ts` (3/3 tests passing)
+  - Implemented `apps/web/src/features/templates/TemplatePickerModal.tsx` (accessible modal, category tabs, keyword search, detailed preview card with teacher notes and student questions, "Gunakan Template" action)
+  - Created `apps/web/src/features/templates/TemplatePickerModal.test.tsx` (4/4 tests passing)
+  - Created `docs/templates/README.md`
+- Verified: All 157 tests across geometry-core, whiteboard-core, curriculum-schema, sketch-core, and web pass cleanly; `tsc --noEmit` clean (0 errors); `check-third-party.mjs` clean (OK)
+
+
 

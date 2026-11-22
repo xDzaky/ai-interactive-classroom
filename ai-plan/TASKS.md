@@ -163,7 +163,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P13-T05 | MID   | deps: T00      | OPTIONAL (path A only): feature-flagged GeoGebra Apps embed for NON-COMMERCIAL pilot
 - [ ] P13-T06 | HIGH  | deps: T02,T04  | construction-core: own dependency-graph engine (only if T04 says "build")
 - [x] P13-T07 | MID   | deps: T03      | Apply design spec: workspace layout (objects panel, grouped toolbar, mode presets)
-- [ ] P13-T08 | MID   | deps: T03,P11-T11 | Lesson-template library + Kurikulum Merdeka taxonomy (original content)
+- [x] P13-T08 | MID   | deps: T03,P11-T11 | Lesson-template library + Kurikulum Merdeka taxonomy (original content)
 - [ ] P13-RV  | HIGH  | deps: T01-T04,T07 | Phase review (incl. guard script and license audit)
 
 ---

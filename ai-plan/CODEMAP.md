@@ -396,5 +396,13 @@ Rules:
 | apps/web/src/components/workspace/ModePresetSelector.test.tsx | Unit tests for ModePresetSelector component | — | P13-T07 | OK |
 | apps/web/src/components/workspace/WorkspaceLayout.tsx | Responsive classroom workspace layout integrating navbar, objects panel, toolbar | WorkspaceLayout | P13-T07 | OK |
 | apps/web/src/components/workspace/WorkspaceLayout.test.tsx | Unit tests for WorkspaceLayout component | — | P13-T07 | OK |
+| packages/curriculum-schema/src/index.ts | Kurikulum Merdeka taxonomy & LessonTemplate schema | LessonTemplateSchema, KurikulumMerdekaElementSchema, CurriculumPhaseSchema | P13-T08 | OK |
+| packages/curriculum-schema/src/index.test.ts | Unit tests for curriculum-schema and LessonTemplateSchema | — | P13-T08 | OK |
+| apps/web/src/features/templates/lessonTemplates.ts | 10 starter lesson templates matching Kurikulum Merdeka elements | STARTER_LESSON_TEMPLATES | P13-T08 | OK |
+| apps/web/src/features/templates/lessonTemplates.test.ts | Unit tests for starter lesson templates validation | — | P13-T08 | OK |
+| apps/web/src/features/templates/TemplatePickerModal.tsx | Modal dialog for browsing, filtering, and selecting lesson templates | TemplatePickerModal | P13-T08 | OK |
+| apps/web/src/features/templates/TemplatePickerModal.test.tsx | Unit tests for TemplatePickerModal component | — | P13-T08 | OK |
+| docs/templates/README.md | Documentation of Kurikulum Merdeka taxonomy and 10 original starter lesson templates | — | P13-T08 | OK |
+
 
 

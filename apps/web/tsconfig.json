@@ -17,7 +17,8 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ai-classroom/curriculum-schema": ["../../packages/curriculum-schema/src/index.ts"]
     }
   },
   "include": ["src"],
