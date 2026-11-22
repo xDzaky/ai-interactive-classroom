@@ -1418,3 +1418,7 @@ Date: 2026-11-21T17:50:34Z
 - Created apps/web/e2e/perf-zoom.spec.ts
 - Created docs/perf/BASELINE.md with baseline measurements and profiler hotspots
 - Verify: tsc clean (0 errors), 333/333 vitest passed
+
+## START — P10-T02 | Diagnose by experiment
+Date: 2026-11-22T00:23:36Z
+Tier: MID
