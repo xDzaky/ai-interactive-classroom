@@ -1456,3 +1456,7 @@ Date: 2026-11-22T00:48:45Z
 - Documented in `exportPng.ts` that PNG export excludes grid
 - Added unit tests: `gridSpec.test.ts` (5 tests), `GridBackground.test.tsx` (3 tests)
 - Verified: `tsc --noEmit` clean, 52/52 test files passed (347/347 tests)
+
+## START — P10-T05 | Layer split, memoization, listening(false), culling
+Date: 2026-11-22T00:50:00Z
+Tier: MID

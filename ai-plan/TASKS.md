@@ -119,7 +119,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P10-T02 | MID  | deps: T01    | Diagnose root cause by experiments (evidence before fixes)
 - [x] P10-T03 | MID  | deps: T02    | Imperative viewport controller (zoom/pan without React re-render)
 - [x] P10-T04 | MID  | deps: T02    | Grid as CSS background + adaptive spacing (no per-line nodes)
-- [ ] P10-T05 | MID  | deps: T03    | Layer split, memoization, listening(false), culling
+- [~] P10-T05 | MID  | deps: T03    | Layer split, memoization, listening(false), culling (claimed by MID 2026-11-22T07:50:00Z)
 - [ ] P10-T06 | MID  | deps: T03    | Stroke rendering: cached paths, point reduction on commit
 - [ ] P10-T07 | MID  | deps: T03    | 3D overlay perf (frameloop demand, DPR cap, context limit)
 - [ ] P10-T08 | MID  | deps: T03-T07 | Re-measure against budgets, write result doc
