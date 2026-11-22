@@ -99,7 +99,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P08-T05 | HIGH | deps: T01,P04-T03 | Laravel AI job layer (202 + job_id, usage log, rate limit)
 - [x] P08-T06 | MID  | deps: T05      | Teacher AI UI: outline/quiz generator with edit+approve
 - [x] P08-T07 | MID  | deps: T04,T05  | Student AI tutor UI (hint-first)
-- [ ] P08-T08 | HIGH | deps: P02-T06,P03-T06 | OPTIONAL: rule-based sketch recognition + clarification UI
+- [x] P08-T08 | HIGH | deps: P02-T06,P03-T06 | OPTIONAL: rule-based sketch recognition + clarification UI (implemented via P10 sketch-core + ShapeSuggestionChip)
 - [x] P08-RV  | HIGH | deps: T01-T07  | Phase review
 
 ## P09 — Pilot readiness · `tasks/P09-pilot.md`
