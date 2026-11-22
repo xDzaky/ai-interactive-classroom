@@ -66,6 +66,49 @@ export const TransformSchema = z.object({
 export type Transform = z.infer<typeof TransformSchema>;
 
 // ---------------------------------------------------------------------------
+// VizSolid Extension Schemas (P11-T07 & CONTRACTS-REFS-ADDENDUM.md § A1)
+// ---------------------------------------------------------------------------
+
+export const VizSolidDisplaySchema = z.object({
+  labels: z.boolean().default(true),
+  hiddenEdges: z.boolean().default(true),
+  faces: z.boolean().default(true),
+  faceOpacity: z.number().min(0).max(1).default(0.18),
+  projection: z.enum(['perspective', 'orthographic']).default('perspective'),
+});
+export type VizSolidDisplay = z.infer<typeof VizSolidDisplaySchema>;
+
+export const VizSolidSectionSchema = z.union([
+  z.object({
+    mode: z.literal('vertices'),
+    vertexIds: z.tuple([z.string(), z.string(), z.string()]),
+  }),
+  z.object({
+    mode: z.literal('parallel'),
+    axis: z.enum(['x', 'y', 'z']),
+    offset: z.number(),
+  }),
+  z.null(),
+]);
+export type VizSolidSection = z.infer<typeof VizSolidSectionSchema>;
+
+export const VizSolidMeasureItemSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['distance', 'angle']),
+  vertexIds: z.array(z.string()),
+});
+export type VizSolidMeasureItem = z.infer<typeof VizSolidMeasureItemSchema>;
+
+export const VizSolidExtSchema = z.object({
+  display: VizSolidDisplaySchema.optional(),
+  section: VizSolidSectionSchema.optional(),
+  cutAway: z.boolean().optional(),
+  unfoldT: z.number().min(0).max(1).optional(),
+  measures: z.array(VizSolidMeasureItemSchema).optional(),
+});
+export type VizSolidExt = z.infer<typeof VizSolidExtSchema>;
+
+// ---------------------------------------------------------------------------
 // Scene and Board state
 // ---------------------------------------------------------------------------
 

@@ -136,12 +136,13 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P11-T03 | HIGH | deps: T02    | geometry-core: plane/line math, convex cross-section, angles, distances
 - [x] P11-T04 | MID  | deps: T02    | Web: PolyhedronViewer (hidden dashed edges, vertex handles, labels)
 - [x] P11-T05 | HIGH | deps: T03,T04 | Section (irisan) tool: 3 vertices / parallel plane, filled polygon, cut-away, info card
-- [ ] P11-T06 | MID  | deps: T03,T04 | Measure tool: distance, angle, diagonal shortcuts with formulas
-- [ ] P11-T07 | MID  | deps: T05    | Sync viz state (section/labels/unfold) via existing events + reducer + replay safe
-- [ ] P11-T08 | MID  | deps: T04,P10-T12 | Datar→Ruang: turn a recognized 2D shape into a solid (context chooser)
-- [ ] P11-T09 | HIGH | deps: T03    | Jaring-jaring: unfold/fold animation (general convex + cylinder/cone)
+- [x] P11-T06 | MID  | deps: T03,T04 | Measure tool: distance, angle, diagonal shortcuts with formulas
+- [x] P11-T07 | MID  | deps: T05    | Sync viz state (section/labels/unfold) via existing events + reducer + replay safe
+- [x] P11-T08 | MID  | deps: T04,P10-T12 | Datar→Ruang: turn a recognized 2D shape into a solid (context chooser)
+- [x] P11-T09 | HIGH | deps: T03    | Jaring-jaring: unfold/fold animation (general convex + cylinder/cone)
 - [ ] P11-T10 | HIGH | deps: T08,P10-T12 | OPTIONAL: wireframe sketch→solid recognition (cube/pyramid/prism/cylinder/cone)
-- [ ] P11-T11 | LOW  | deps: T06    | i18n glossary (Indonesian terms) + a11y labels
+- [x] P11-T11 | LOW  | deps: T06    | i18n glossary (Indonesian terms) + a11y labels
+
 - [ ] P11-RV  | HIGH | deps: T01-T09 | Phase review
 
 ## P12 — Board UX + compatibility (optional, inspired by iFLYTEK demo) · `tasks/P12-board-ux-optional.md`

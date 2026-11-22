@@ -1646,3 +1646,37 @@ Date: 2026-11-22T03:00:00Z
   - Selection reset and OrbitControls integration
 - Created `apps/web/src/components/math/PolyhedronViewer.test.tsx` (3/3 tests passing)
 - Verified: `tsc --noEmit` clean (0 errors), vitest passing, `check:third-party` passed (OK)
+
+## START — P11-T06, P11-T07, P11-T08, P11-T09, P11-T11 | 3D Measurement, Reducer Sync, Datar→Ruang, Unfolding Net & i18n
+Date: 2026-11-22T03:05:00Z
+Tier: HIGH
+
+## DONE — P11-T06, P11-T07, P11-T08, P11-T09, P11-T11 | 3D Measurement, Reducer Sync, Datar→Ruang, Unfolding Net & i18n
+Date: 2026-11-22T03:10:00Z
+- Completed `P11-T06`:
+  - Implemented `packages/geometry-core/src/measure.ts`:
+    - `computeSegmentLength`, `computeVertexAngleDeg`, `computePointLineDistance3D`, `computeSkewLineDistance`
+    - Indonesian diagonal formulas: `diagonal_bidang` ($s\sqrt{2}$) and `diagonal_ruang` ($s\sqrt{3}$)
+  - Created `packages/geometry-core/src/measure.test.ts` (6/6 tests passing)
+  - Implemented `apps/web/src/components/math/MeasureTool.tsx` with vertex selection and formula card
+  - Created `apps/web/src/components/math/MeasureTool.test.tsx` (4/4 tests passing)
+- Completed `P11-T07`:
+  - Created `packages/geometry-core/fixtures/solids-p11.json` test vectors
+  - Updated `packages/whiteboard-core/src/index.ts` with solid extension schemas
+  - Updated `packages/whiteboard-core/src/reducer.ts` with one-level merge into `display` and inverse undo/redo restoration
+  - Updated `packages/whiteboard-core/src/reducer.test.ts` (23/23 tests passing)
+- Completed `P11-T08`:
+  - Implemented `apps/web/src/lib/shapeToSolid.ts` converting recognized 2D shapes to 3D solids (grid scale: 20 world units = 1 cm)
+  - Created `apps/web/src/lib/shapeToSolid.test.ts` (3/3 tests passing)
+  - Implemented `apps/web/src/components/whiteboard/ShapeToSolidMenu.tsx`
+  - Created `apps/web/src/components/whiteboard/ShapeToSolidMenu.test.tsx` (2/2 tests passing)
+- Completed `P11-T09`:
+  - Implemented `packages/geometry-core/src/unfold.ts` with BFS spanning tree face adjacency, dihedral hinge fold angles, and curved nets (cylinder, cone)
+  - Created `packages/geometry-core/src/unfold.test.ts` (6/6 tests passing, preserving surface area invariant)
+  - Implemented `apps/web/src/components/math/UnfoldAnimation.tsx` with slider $t \in [0, 1]$ and Play/Pause animation
+  - Created `apps/web/src/components/math/UnfoldAnimation.test.tsx` (3/3 tests passing)
+- Completed `P11-T11`:
+  - Added Indonesian geometry 3D translations and ARIA keys in `apps/web/src/i18n/locales/id.json`
+  - Created `docs/glossary-id.md` documenting Indonesian SMA/SMP geometry curriculum terms
+- Verified: All geometry-core (49/49), whiteboard-core (23/23), and web tests pass; `check-third-party.mjs` clean (OK)
+

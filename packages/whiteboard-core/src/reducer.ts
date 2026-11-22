@@ -111,9 +111,26 @@ export function applyEvent(
       const existing = scene.objects[p.id];
       if (!existing) return [state, { type: "noop" }];
       const oldProps = existing.props;
+
+      // Cleanly merge props, with one-level merge for nested display settings (P11-T07)
+      const mergedProps: Record<string, unknown> = { ...existing.props };
+      for (const [key, val] of Object.entries(p.props_patch)) {
+        if (
+          key === "display" &&
+          typeof val === "object" &&
+          val !== null &&
+          typeof mergedProps.display === "object" &&
+          mergedProps.display !== null
+        ) {
+          mergedProps.display = { ...(mergedProps.display as Record<string, unknown>), ...(val as Record<string, unknown>) };
+        } else {
+          mergedProps[key] = val;
+        }
+      }
+
       const updated: BoardObject = {
         ...existing,
-        props: { ...existing.props, ...p.props_patch },
+        props: mergedProps,
         updated_at: Date.now(),
       };
       const newScene: SceneState = {

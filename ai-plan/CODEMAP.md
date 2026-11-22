@@ -370,3 +370,18 @@ Rules:
 | apps/web/src/lib/coords.ts | Math to Three.js coordinate conversions (Z-up to Y-up) | toThree, fromThree | P11-T04 | OK |
 | apps/web/src/components/math/PolyhedronViewer.tsx | Interactive 3D Polyhedron viewer with vertex handles and cross-section plane | PolyhedronViewer | P11-T04 | OK |
 | apps/web/src/components/math/PolyhedronViewer.test.tsx | Unit tests for PolyhedronViewer and section info card | — | P11-T04 | OK |
+| packages/geometry-core/src/measure.ts | Pure 3D measurement, angles, and Indonesian diagonal shortcut formulas | computeSegmentLength, computeVertexAngleDeg, computeDiagonalFormula | P11-T06 | OK |
+| packages/geometry-core/src/measure.test.ts | Unit tests for 3D segment distances, vertex angles, and diagonal formulas | — | P11-T06 | OK |
+| apps/web/src/components/math/MeasureTool.tsx | Interactive 3D measurement tool with vertex selection and formula card | MeasureTool | P11-T06 | OK |
+| apps/web/src/components/math/MeasureTool.test.tsx | Unit tests for MeasureTool component | — | P11-T06 | OK |
+| packages/geometry-core/fixtures/solids-p11.json | Shared JSON fixtures and analytical test vectors for 3D solid geometry | — | P11-T07 | OK |
+| apps/web/src/lib/shapeToSolid.ts | Mapping recognized 2D shapes to 3D solid proposals with grid scaling | shapeToSolidProposals | P11-T08 | OK |
+| apps/web/src/lib/shapeToSolid.test.ts | Unit tests for 2D shape to 3D solid conversions | — | P11-T08 | OK |
+| apps/web/src/components/whiteboard/ShapeToSolidMenu.tsx | Floating contextual menu to instantiate 3D solids from recognized 2D shapes | ShapeToSolidMenu | P11-T08 | OK |
+| apps/web/src/components/whiteboard/ShapeToSolidMenu.test.tsx | Unit tests for ShapeToSolidMenu component | — | P11-T08 | OK |
+| packages/geometry-core/src/unfold.ts | BFS spanning tree unfold planner and curved solid net calculations | unfoldPlan, curvedSolidNet, computeFaceArea | P11-T09 | OK |
+| packages/geometry-core/src/unfold.test.ts | Unit tests for unfold surface area invariant and curved nets | — | P11-T09 | OK |
+| apps/web/src/components/math/UnfoldAnimation.tsx | Interactive slider & play/pause animation for 3D to 2D net unfolding | UnfoldAnimation | P11-T09 | OK |
+| apps/web/src/components/math/UnfoldAnimation.test.tsx | Unit tests for UnfoldAnimation component | — | P11-T09 | OK |
+| docs/glossary-id.md | Indonesian curriculum glossary for 3D solid geometry (Dimensi Tiga) | — | P11-T11 | OK |
+

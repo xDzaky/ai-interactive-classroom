@@ -322,4 +322,54 @@ describe("pushHistory + undo + redo", () => {
     }
     expect(h.past.length).toBeLessThanOrEqual(3);
   });
+
+  it("P11-T07: patches viz_solid display fields with one-level merge and supports undo", () => {
+    let s = makeState();
+    let h = createHistory();
+
+    // 1. Create a viz_solid object with initial display settings
+    const createEv: WhiteboardEvent = {
+      event_type: "object.created",
+      payload: {
+        id: "solid-1",
+        object_type: "viz_solid",
+        props: {
+          solid_type: "cube",
+          params: { type: "cube", s: 5 },
+          display: { labels: true, hiddenEdges: true, faces: true, faceOpacity: 0.18 },
+        },
+      },
+    };
+    ({ state: s, history: h } = pushHistory(s, h, createEv));
+
+    // 2. Patch display with partial update { faceOpacity: 0.5 }
+    const patchEv: WhiteboardEvent = {
+      event_type: "object.updated",
+      payload: {
+        id: "solid-1",
+        props_patch: {
+          display: { faceOpacity: 0.5 },
+          unfoldT: 0.25,
+        },
+      },
+    };
+    ({ state: s, history: h } = pushHistory(s, h, patchEv));
+
+    // Verify one-level merge: faceOpacity updated, labels and hiddenEdges preserved
+    const scene = s.scenes[s.active_scene_id];
+    const solidObj = scene.objects["solid-1"];
+    expect(solidObj).toBeDefined();
+    const props = solidObj.props as any;
+    expect(props.display.faceOpacity).toBe(0.5);
+    expect(props.display.labels).toBe(true);
+    expect(props.display.hiddenEdges).toBe(true);
+    expect(props.unfoldT).toBe(0.25);
+
+    // 3. Undo: restores previous props
+    ({ state: s, history: h } = undo(s, h));
+    const restoredObj = s.scenes[s.active_scene_id].objects["solid-1"];
+    const restoredProps = restoredObj.props as any;
+    expect(restoredProps.display.faceOpacity).toBe(0.18);
+    expect(restoredProps.unfoldT).toBeUndefined();
+  });
 });

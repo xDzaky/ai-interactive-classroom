@@ -1,0 +1,44 @@
+{
+  "test_vectors_plane_unit_cube": [
+    {
+      "name": "horizontal_mid_plane",
+      "plane": { "n": [0, 0, 1], "d": 0.5 },
+      "expected_points": 4,
+      "expected_area": 1.0
+    },
+    {
+      "name": "diagonal_corner_plane",
+      "p1": [1, 0, 0],
+      "p2": [0, 1, 0],
+      "p3": [0, 0, 1],
+      "expected_points": 3,
+      "expected_area": 0.8660254037844386
+    },
+    {
+      "name": "mid_hexagonal_plane",
+      "plane": { "n": [0.5773502691896258, 0.5773502691896258, 0.5773502691896258], "d": 0.8660254037844386 },
+      "expected_points": 6,
+      "expected_area": 1.299038105676658
+    },
+    {
+      "name": "vertical_diagonal_plane",
+      "plane": { "n": [0.7071067811865475, -0.7071067811865475, 0], "d": 0 },
+      "expected_points": 4,
+      "expected_area": 1.4142135623730951
+    }
+  ],
+  "test_vectors_measurements": {
+    "dihedral_angle_deg": 54.735610317245346,
+    "angle_ac_ag_deg": 35.264389682754654,
+    "dist_g_plane": 1.1547005383792515
+  },
+  "test_vectors_solids": [
+    { "type": "cube", "params": { "side": 5 }, "surface_area": 150.0, "volume": 125.0 },
+    { "type": "cuboid", "params": { "length": 3, "width": 4, "height": 5 }, "surface_area": 94.0, "volume": 60.0 },
+    { "type": "prism", "params": { "a": 3, "b": 4, "height": 10 }, "surface_area": 132.0, "volume": 60.0 },
+    { "type": "pyramid", "params": { "base": 6, "height": 4 }, "surface_area": 96.0, "volume": 48.0 },
+    { "type": "cylinder", "params": { "r": 7, "h": 10 }, "surface_area": 747.6990515543707, "volume": 1539.3804002589986 },
+    { "type": "cone", "params": { "r": 3, "h": 4 }, "surface_area": 75.39822368615503, "volume": 37.69911184307752 },
+    { "type": "sphere", "params": { "r": 3 }, "surface_area": 113.09733552923255, "volume": 113.09733552923255 }
+  ]
+}
