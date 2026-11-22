@@ -384,4 +384,17 @@ Rules:
 | apps/web/src/components/math/UnfoldAnimation.tsx | Interactive slider & play/pause animation for 3D to 2D net unfolding | UnfoldAnimation | P11-T09 | OK |
 | apps/web/src/components/math/UnfoldAnimation.test.tsx | Unit tests for UnfoldAnimation component | — | P11-T09 | OK |
 | docs/glossary-id.md | Indonesian curriculum glossary for 3D solid geometry (Dimensi Tiga) | — | P11-T11 | OK |
+| apps/web/src/components/whiteboard/RadialMenu.tsx | Draggable circular radial quick-action menu for stylus & touch | RadialMenu | P12-T01 | OK |
+| apps/web/src/components/whiteboard/RadialMenu.test.tsx | Unit tests for RadialMenu component | — | P12-T01 | OK |
+| apps/web/src/components/math/SolidContextToolbar.tsx | Floating contextual toolbar under selected 3D solid with display controls | SolidContextToolbar | P12-T02 | OK |
+| apps/web/src/components/math/SolidContextToolbar.test.tsx | Unit tests for SolidContextToolbar component | — | P12-T02 | OK |
+| apps/web/src/components/workspace/ObjectsPanel.tsx | Algebra/Objects list panel with visibility toggle, lock, rename, and delete | ObjectsPanel | P13-T07 | OK |
+| apps/web/src/components/workspace/ObjectsPanel.test.tsx | Unit tests for ObjectsPanel component | — | P13-T07 | OK |
+| apps/web/src/components/workspace/GroupedToolBar.tsx | Grouped toolbar with flyout popovers for 2D, 3D, graphing, text, and AI | GroupedToolBar | P13-T07 | OK |
+| apps/web/src/components/workspace/GroupedToolBar.test.tsx | Unit tests for GroupedToolBar component | — | P13-T07 | OK |
+| apps/web/src/components/workspace/ModePresetSelector.tsx | Mode preset selector (Menggambar, Geometri, Bangun Ruang, Grafik 2D) | ModePresetSelector | P13-T07 | OK |
+| apps/web/src/components/workspace/ModePresetSelector.test.tsx | Unit tests for ModePresetSelector component | — | P13-T07 | OK |
+| apps/web/src/components/workspace/WorkspaceLayout.tsx | Responsive classroom workspace layout integrating navbar, objects panel, toolbar | WorkspaceLayout | P13-T07 | OK |
+| apps/web/src/components/workspace/WorkspaceLayout.test.tsx | Unit tests for WorkspaceLayout component | — | P13-T07 | OK |
+
 

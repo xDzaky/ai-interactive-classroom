@@ -1680,3 +1680,34 @@ Date: 2026-11-22T03:10:00Z
   - Created `docs/glossary-id.md` documenting Indonesian SMA/SMP geometry curriculum terms
 - Verified: All geometry-core (49/49), whiteboard-core (23/23), and web tests pass; `check-third-party.mjs` clean (OK)
 
+## START — P13-T07, P12-T01, P12-T02 | Workspace Layout, Grouped Toolbar, Radial Menu & Solid Context Toolbar
+Date: 2026-11-22T03:15:00Z
+Tier: HIGH
+
+## DONE — P13-T07, P12-T01, P12-T02 | Workspace Layout, Grouped Toolbar, Radial Menu & Solid Context Toolbar
+Date: 2026-11-22T03:20:00Z
+- Completed `P13-T07`:
+  - Implemented `apps/web/src/components/workspace/ObjectsPanel.tsx`:
+    - Algebra/Objects list categorized into 3D Solids, 2D Shapes, Graphs, and Notes/Text
+    - Live visibility toggle (eye icon), lock toggle, inline rename (double-click/Enter), and delete
+    - Filter/search input and selection synchronization
+  - Created `apps/web/src/components/workspace/ObjectsPanel.test.tsx` (4/4 tests passing)
+  - Implemented `apps/web/src/components/workspace/GroupedToolBar.tsx`:
+    - Categorized tool groups with flyout popovers (Draw, Shapes, 2D Geometry, 3D Solids, Graph, Text, AI Tutor)
+    - Keyboard shortcut indicators and click-outside dismissal
+  - Created `apps/web/src/components/workspace/GroupedToolBar.test.tsx` (4/4 tests passing)
+  - Implemented `apps/web/src/components/workspace/ModePresetSelector.tsx`:
+    - Mode presets: "Menggambar", "Geometri", "Bangun Ruang", "Grafik 2D"
+  - Created `apps/web/src/components/workspace/ModePresetSelector.test.tsx` (3/3 tests passing)
+  - Implemented `apps/web/src/components/workspace/WorkspaceLayout.tsx`:
+    - Unified responsive layout with navbar, collapsible ObjectsPanel, floating grouped toolbar, undo/redo, export PNG
+  - Created `apps/web/src/components/workspace/WorkspaceLayout.test.tsx` (3/3 tests passing)
+- Completed `P12-T01`:
+  - Implemented `apps/web/src/components/whiteboard/RadialMenu.tsx` (draggable floating radial dial with touch targets >= 44px, keyboard navigation, localStorage position persistence)
+  - Created `apps/web/src/components/whiteboard/RadialMenu.test.tsx` (3/3 tests passing)
+- Completed `P12-T02`:
+  - Implemented `apps/web/src/components/math/SolidContextToolbar.tsx` (floating contextual toolbar with camera reset, labels toggle, dashed hidden edges toggle, opacity slider, section, measure, unfold, and delete)
+  - Created `apps/web/src/components/math/SolidContextToolbar.test.tsx` (3/3 tests passing)
+- Verified: All 20 web vitest tests passing, `tsc --noEmit` clean (0 errors), `check-third-party.mjs` clean (OK)
+
+

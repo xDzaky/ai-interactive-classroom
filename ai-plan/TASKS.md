@@ -146,8 +146,8 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P11-RV  | HIGH | deps: T01-T09 | Phase review
 
 ## P12 — Board UX + compatibility (optional, inspired by iFLYTEK demo) · `tasks/P12-board-ux-optional.md`
-- [ ] P12-T01 | MID  | deps: P11-T04 | Radial quick-action menu (floating dial)
-- [ ] P12-T02 | MID  | deps: P11-T06 | Floating contextual toolbar under selected 3D object
+- [x] P12-T01 | MID  | deps: P11-T04 | Radial quick-action menu (floating dial)
+- [x] P12-T02 | MID  | deps: P11-T06 | Floating contextual toolbar under selected 3D object
 - [ ] P12-T03 | MID  | deps: P12-T01,P08-T05 | OPTIONAL: handwriting → LaTeX via vision LLM → graph (teacher-confirmed)
 - [ ] P12-T04 | MID  | deps: P10-T08 | Multi-pointer writing (several pens/fingers at once) + large-touch mode for smart displays
 - [ ] P12-T05 | LOW  | deps: P12-T04 | Device matrix update + Playwright device emulation checks
@@ -157,12 +157,12 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 ## P13 — GeoGebra study, clean-room, UX redesign · `tasks/P13-geogebra-study-ux.md`
 - [x] P13-T00 | HUMAN | deps: -        | LEGAL GATE: choose path A/B/C and record ADR-P13 in DECISIONS.md (Path C chosen by Dzaky 2026-11-22)
 - [x] P13-T01 | LOW   | deps: T00      | Third-party policy doc + guard script wired into CI/verify
-- [ ] P13-T02 | HIGH  | deps: T00,P11-T03 | Clean-room READER sessions → behavior specs in docs/study/geogebra/ (no code copied)
-- [ ] P13-T03 | MID   | deps: T00      | UX study (use the apps manually) → own design spec + tokens (no assets copied)
-- [ ] P13-T04 | MID   | deps: T00      | Spike: JSXGraph as 2D dynamic-geometry engine (license + fit) → build-vs-adopt decision
+- [x] P13-T02 | HIGH  | deps: T00,P11-T03 | Clean-room READER sessions → behavior specs in docs/study/geogebra/ (no code copied)
+- [x] P13-T03 | MID   | deps: T00      | UX study (use the apps manually) → own design spec + tokens (no assets copied)
+- [x] P13-T04 | MID   | deps: T00      | Spike: JSXGraph as 2D dynamic-geometry engine (license + fit) → build-vs-adopt decision
 - [ ] P13-T05 | MID   | deps: T00      | OPTIONAL (path A only): feature-flagged GeoGebra Apps embed for NON-COMMERCIAL pilot
 - [ ] P13-T06 | HIGH  | deps: T02,T04  | construction-core: own dependency-graph engine (only if T04 says "build")
-- [ ] P13-T07 | MID   | deps: T03      | Apply design spec: workspace layout (objects panel, grouped toolbar, mode presets)
+- [x] P13-T07 | MID   | deps: T03      | Apply design spec: workspace layout (objects panel, grouped toolbar, mode presets)
 - [ ] P13-T08 | MID   | deps: T03,P11-T11 | Lesson-template library + Kurikulum Merdeka taxonomy (original content)
 - [ ] P13-RV  | HIGH  | deps: T01-T04,T07 | Phase review (incl. guard script and license audit)
 
