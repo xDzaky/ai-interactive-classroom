@@ -1517,3 +1517,17 @@ Date: 2026-11-22T01:31:00Z
   - Consecutive frames > 50ms during zoom sweep: 0 frames (budget: <= 3) — PASS
 - Created `docs/perf/RESULT-P10.md` detailing before/after metrics and architectural fixes
 - All P10 performance targets met or exceeded
+
+## START — P10-T09 | packages/sketch-core: shape recognizer v2
+Date: 2026-11-22T01:32:00Z
+Tier: HIGH
+
+## DONE — P10-T09 | packages/sketch-core: shape recognizer v2
+Date: 2026-11-22T01:39:00Z
+- Scaffolded `@ai-classroom/sketch-core` with pure TypeScript and ESM exports
+- Implemented `constants.ts` with all algorithm hyperparams and thresholds
+- Implemented `resample.ts` with arc-length parameterization and exact N=64 equidistant resampling
+- Implemented `geometry.ts` with PCA ellipse/circle fitting, multi-epsilon Douglas-Peucker simplification, corner refinement via line intersection, polygon fit error, and self-intersection rejection
+- Implemented `recognizer.ts` with multi-candidate generation, confidence calculation, snap/suggest/keep decisions, and angle snapping
+- Added comprehensive unit tests in `resample.test.ts`, `geometry.test.ts`, and `recognizer.test.ts` (17 tests passing)
+- Verified: `vitest run` 17/17 passed, `tsc --noEmit` and build clean

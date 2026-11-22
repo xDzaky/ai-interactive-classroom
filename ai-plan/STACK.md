@@ -82,6 +82,7 @@ Never add a package not listed here. If you need one, write a PROPOSED entry in 
 | typescript | Types |
 | zod | Schema validation |
 | vitest | Tests |
+| @ai-classroom/sketch-core | Geometric shape recognizer v2 (confidence scoring, multi-candidate, rejection) |
 
 ---
 

@@ -130,9 +130,9 @@ Algorithm (implement exactly; constants in one `constants.ts`):
 6. Decision: best.confidence ≥ 0.80 AND (best − second) ≥ 0.10 → `snap`; best ≥ 0.55 → `suggest`; else `keep`. `reason` is a short English string for debugging.
 7. Angle snapping: rotation within ±7° → axis-aligned (rect/square/rhombus/triangle base); keep real rotation otherwise.
 Steps:
-- [ ] 1. Package scaffold + `constants.ts` + `resample.ts` + `geometry.ts` (RDP, circle/ellipse fit, polygon metrics) with unit tests for each pure function (e.g., RDP on a noisy straight line → 2 points; resample of a 100-length line → 64 points spaced 100/63).
-- [ ] 2. `recognizeShape` per the spec above. Return `candidates` sorted by confidence.
-- [ ] 3. Tests with ideal inputs: circle (64 pts) → `circle` snap, confidence ≥ 0.95; square from any start vertex, CW and CCW → `square` ≥ 0.90; equilateral triangle → `triangle`; a thick "S", a figure "8", a heart, a spiral, a zigzag → `keep`.
+- [x] 1. Package scaffold + `constants.ts` + `resample.ts` + `geometry.ts` (RDP, circle/ellipse fit, polygon metrics) with unit tests for each pure function (e.g., RDP on a noisy straight line → 2 points; resample of a 100-length line → 64 points spaced 100/63).
+- [x] 2. `recognizeShape` per the spec above. Return `candidates` sorted by confidence.
+- [x] 3. Tests with ideal inputs: circle (64 pts) → `circle` snap, confidence ≥ 0.95; square from any start vertex, CW and CCW → `square` ≥ 0.90; equilateral triangle → `triangle`; a thick "S", a figure "8", a heart, a spiral, a zigzag → `keep`.
 Verify: `pnpm --filter @ai-classroom/sketch-core exec vitest run` pass; `tsc --noEmit` pass.
 Refs: $1 recognizer paper/site (idea reference) https://depts.washington.edu/acelab/proj/dollar/index.html · shape correction thesis (chapter 3) https://ii.uni.wroc.pl/media/uploads/2023/11/16/skalski-switaa-uwr-28-inz-68629-225406-224964.pdf · RDP reference https://github.com/mourner/simplify-js/blob/master/simplify.js
 

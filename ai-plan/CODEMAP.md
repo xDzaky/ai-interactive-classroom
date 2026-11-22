@@ -345,3 +345,9 @@ Rules:
 | apps/web/src/pages/whiteboard/objects/StrokeNode.tsx | Memoized Konva stroke node using cached outline points | StrokeNode | P10-T06 | OK |
 | docs/perf/DIAGNOSIS.md | Hypothesis-driven perf experiments (E1-E8) and optimization appendices | — | P10-T02 | OK |
 | docs/perf/RESULT-P10.md | Final performance gate report comparing baseline vs post-optimization results | — | P10-T08 | OK |
+| packages/sketch-core/src/types.ts | Pt, ShapeKind, ShapeGeometry, ShapeCandidate, RecognizeOptions, RecognizeResult | * | P10-T09 | OK |
+| packages/sketch-core/src/constants.ts | Constants and decision thresholds for recognizer v2 | CONSTANTS | P10-T09 | OK |
+| packages/sketch-core/src/resample.ts | Polyline arc length, point distance filter, equidistant resampling | ptDistance, pathLength, filterMinDistance, resample | P10-T09 | OK |
+| packages/sketch-core/src/geometry.ts | PCA ellipse fit, RDP simplification, polygon corner refinement, fit error | computeBBox, ramerDouglasPeucker, fitEllipsePCA, computePolygonFitError | P10-T09 | OK |
+| packages/sketch-core/src/recognizer.ts | recognizeShape entry point implementing multi-candidate scoring and rejection | recognizeShape | P10-T09 | OK |
+| packages/sketch-core/src/index.ts | Package exports for @ai-classroom/sketch-core | * | P10-T09 | OK |
