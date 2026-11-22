@@ -1630,3 +1630,19 @@ Date: 2026-11-22T02:55:00Z
     - `pointLineDistance`, `lineLineDistance` (skew lines), `dihedralAngleDeg`
   - Created `packages/geometry-core/src/section.test.ts` (7/7 tests passing)
 - Verified: `geometry-core` tests passing 37/37, `check:third-party` passes clean (OK)
+
+## START — P11-T04 & P11-T05 | Web PolyhedronViewer & Cross-Section Tool
+Date: 2026-11-22T02:56:00Z
+Tier: HIGH
+
+## DONE — P11-T04 & P11-T05 | Web PolyhedronViewer & Cross-Section Tool
+Date: 2026-11-22T03:00:00Z
+- Implemented `apps/web/src/lib/coords.ts` with `toThree` and `fromThree` mapping $Z$-up math coordinates to $Y$-up Three.js coordinates
+- Implemented `apps/web/src/components/math/PolyhedronViewer.tsx`:
+  - Renders 3D polyhedra with semi-transparent faces and wireframe edges
+  - Clickable vertex handles with Indonesian labels (`A`–`H` / `T.ABCD` / `ABC.DEF`)
+  - Selecting 3 vertices dynamically constructs plane and computes cross-section polygon
+  - Highlighted blue section polygon overlay with perimeter and area calculation card
+  - Selection reset and OrbitControls integration
+- Created `apps/web/src/components/math/PolyhedronViewer.test.tsx` (3/3 tests passing)
+- Verified: `tsc --noEmit` clean (0 errors), vitest passing, `check:third-party` passed (OK)

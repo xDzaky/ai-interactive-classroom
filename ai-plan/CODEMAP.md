@@ -367,3 +367,6 @@ Rules:
 | docs/ux/geogebra-ux-notes.md | Clean-room UX study of GeoGebra and Mathtalking interaction models | — | P13-T03 | OK |
 | docs/ux/design-spec.md | Design tokens, responsive workspace layout, and component specifications | — | P13-T03 | OK |
 | docs/spikes/jsxgraph.md | Spike and evaluation matrix for JSXGraph MIT dynamic geometry engine | — | P13-T04 | OK |
+| apps/web/src/lib/coords.ts | Math to Three.js coordinate conversions (Z-up to Y-up) | toThree, fromThree | P11-T04 | OK |
+| apps/web/src/components/math/PolyhedronViewer.tsx | Interactive 3D Polyhedron viewer with vertex handles and cross-section plane | PolyhedronViewer | P11-T04 | OK |
+| apps/web/src/components/math/PolyhedronViewer.test.tsx | Unit tests for PolyhedronViewer and section info card | — | P11-T04 | OK |
