@@ -11,6 +11,7 @@
  * All coordinates are in world-space (after view transform inversion).
  */
 import { useCallback, useRef } from "react";
+import type { ViewportController } from "@/lib/viewport";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +44,8 @@ export interface UsePointerEventsOptions {
   onDrawEnd: (pt: WorldPoint, type: "pen" | "mouse" | "touch") => void;
   /** If true, disable all drawing (read-only mode) */
   readOnly?: boolean;
+  /** Optional imperative ViewportController (P10-T03: avoids React re-renders on zoom/pan) */
+  viewportController?: ViewportController;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +96,7 @@ export function usePointerEvents({
   onDrawMove,
   onDrawEnd,
   readOnly = false,
+  viewportController,
 }: UsePointerEventsOptions): PointerEventHandlers {
   // Track all active pointers (for multi-touch)
   const activePointers = useRef<Map<number, React.PointerEvent["nativeEvent"]>>(new Map());
@@ -192,13 +196,17 @@ export function usePointerEvents({
         const pinch = pinchRef.current;
         if (pinch && Math.abs(newDist - pinch.dist) > MIN_PINCH_DELTA) {
           const scaleFactor = newDist / pinch.dist;
-          const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * scaleFactor));
           const mid = midpoint(pts[0], pts[1]);
-          onViewChange({
-            scale: newScale,
-            x: mid.x - ((mid.x - view.x) / view.scale) * newScale,
-            y: mid.y - ((mid.y - view.y) / view.scale) * newScale,
-          });
+          if (viewportController) {
+            viewportController.zoomAt(mid.x, mid.y, scaleFactor);
+          } else {
+            const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * scaleFactor));
+            onViewChange({
+              scale: newScale,
+              x: mid.x - ((mid.x - view.x) / view.scale) * newScale,
+              y: mid.y - ((mid.y - view.y) / view.scale) * newScale,
+            });
+          }
           pinchRef.current = { dist: newDist, midX: mid.x, midY: mid.y };
         }
         return;
@@ -208,7 +216,13 @@ export function usePointerEvents({
       if (type === "touch" && panStart.current && count === 1) {
         const dx = e.clientX - panStart.current.pointerX;
         const dy = e.clientY - panStart.current.pointerY;
-        onViewChange({ ...view, x: panStart.current.viewX + dx, y: panStart.current.viewY + dy });
+        if (viewportController) {
+          viewportController.panBy(dx, dy);
+          panStart.current.pointerX = e.clientX;
+          panStart.current.pointerY = e.clientY;
+        } else {
+          onViewChange({ ...view, x: panStart.current.viewX + dx, y: panStart.current.viewY + dy });
+        }
         return;
       }
 

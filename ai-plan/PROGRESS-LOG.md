@@ -1434,3 +1434,11 @@ Date: 2026-11-22T00:24:29Z
 ## START — P10-T03 | Imperative viewport controller
 Date: 2026-11-22T00:25:13Z
 Tier: MID
+
+## DONE — P10-T03 | Imperative viewport controller
+Date: 2026-11-22T00:39:40Z
+- Implemented `ViewportController` in `apps/web/src/lib/viewport.ts` with `{scale, x, y}`, `zoomAt` invariant preserving world point under cursor, exponential smooth wheel curve `Math.exp(-deltaY * 0.0015)`, and rAF batchDraw
+- Updated `usePointerEvents.ts` to support imperative ViewportController for pinch & touch panning
+- Updated `WhiteboardCanvas.tsx`: removed React `useState` for view transform, debounced zoom percentage display (120ms), connected Stage and zoom buttons to ViewportController
+- Added 6 unit tests in `apps/web/src/lib/viewport.test.ts` (100% pass)
+- Verified: `tsc --noEmit` clean, 50/50 test files passed (339/339 tests)

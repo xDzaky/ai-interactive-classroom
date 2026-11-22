@@ -11,7 +11,7 @@
  *   no React state involved until the stroke is committed.
  * - Sketch recognition fires on pointerUp for pen tool.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Line, Rect, Circle, Text as KonvaText, Arrow } from "react-konva";
 import Konva from "konva";
 import { getStroke } from "perfect-freehand";
@@ -23,6 +23,7 @@ import type {
 } from "@ai-classroom/whiteboard-core";
 import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
+import { ViewportController } from "@/lib/viewport";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -632,11 +633,35 @@ export function WhiteboardCanvas({
   onUndo,
   onRedo,
 }: WhiteboardCanvasProps) {
-  const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
   const previewLayerRef = useRef<Konva.Layer | null>(null);
   const lastTouchDist = useRef<number>(0);
+
+  // ---------------------------------------------------------------------------
+  // Imperative Viewport Controller (P10-T03: zero React re-render on zoom/pan)
+  // ---------------------------------------------------------------------------
+  const viewportController = useMemo(
+    () => new ViewportController({ minScale: MIN_SCALE, maxScale: MAX_SCALE }),
+    [],
+  );
+  const [zoomDisplay, setZoomDisplay] = useState(100);
+
+  useEffect(() => {
+    viewportController.attachStage(stageRef.current);
+    let timer: any = null;
+    const unsub = viewportController.subscribe((v) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setZoomDisplay(Math.round(v.scale * 100));
+      }, 120);
+    });
+    return () => {
+      clearTimeout(timer);
+      unsub();
+      viewportController.destroy();
+    };
+  }, [viewportController, stageRef]);
 
   // ---------------------------------------------------------------------------
   // KEY FIX: Store mutable tool/color/strokeWidth in refs — NO useEffect sync.
@@ -721,11 +746,8 @@ export function WhiteboardCanvas({
     if (!stage) return null;
     const pos = stage.getPointerPosition();
     if (!pos) return null;
-    return {
-      x: (pos.x - stage.x()) / stage.scaleX(),
-      y: (pos.y - stage.y()) / stage.scaleY(),
-    };
-  }, [stageRef]);
+    return viewportController.toWorld(pos.x, pos.y);
+  }, [stageRef, viewportController]);
 
   // ---------------------------------------------------------------------------
   // Imperative preview layer — redraws WITHOUT React setState
@@ -1259,7 +1281,7 @@ export function WhiteboardCanvas({
   );
 
   // ---------------------------------------------------------------------------
-  // Zoom with mouse wheel
+  // Zoom with mouse wheel (P10-T03: smooth exponential factor, imperative)
   // ---------------------------------------------------------------------------
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -1267,39 +1289,19 @@ export function WhiteboardCanvas({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const oldScale = stage.scaleX();
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
+      const pointer = stage.getPointerPosition() ?? { x: width / 2, y: height / 2 };
 
       if (e.evt.ctrlKey || Math.abs(e.evt.deltaY) > 50) {
-        const direction = e.evt.deltaY < 0 ? 1 : -1;
-        const newScale = Math.min(
-          MAX_SCALE,
-          Math.max(MIN_SCALE, oldScale * (direction > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)),
-        );
-        const mousePointTo = {
-          x: (pointer.x - stage.x()) / oldScale,
-          y: (pointer.y - stage.y()) / oldScale,
-        };
-        const newView = {
-          scale: newScale,
-          x: pointer.x - mousePointTo.x * newScale,
-          y: pointer.y - mousePointTo.y * newScale,
-        };
-        setView(newView);
-        stage.scale({ x: newScale, y: newScale });
-        stage.position({ x: newView.x, y: newView.y });
+        // Trackpad / wheel zoom using smooth exponential curve
+        const factor = Math.exp(-e.evt.deltaY * 0.0015);
+        viewportController.zoomAt(pointer.x, pointer.y, factor);
       } else {
         const dx = e.evt.deltaX !== 0 ? -e.evt.deltaX : 0;
         const dy = -e.evt.deltaY;
-        setView((v) => {
-          const nv = { ...v, x: v.x + dx, y: v.y + dy };
-          stage.position({ x: nv.x, y: nv.y });
-          return nv;
-        });
+        viewportController.panBy(dx, dy);
       }
     },
-    [stageRef],
+    [stageRef, viewportController, width, height],
   );
 
   // ---------------------------------------------------------------------------
@@ -1307,9 +1309,9 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const handleDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
-      setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
+      viewportController.set({ x: e.target.x(), y: e.target.y() });
     },
-    [],
+    [viewportController],
   );
 
   // ---------------------------------------------------------------------------
@@ -1332,31 +1334,14 @@ export function WhiteboardCanvas({
         return;
       }
 
-      const oldScale = stage.scaleX();
-      const newScale = Math.min(
-        MAX_SCALE,
-        Math.max(MIN_SCALE, oldScale * (dist / lastTouchDist.current)),
-      );
+      const factor = dist / lastTouchDist.current;
       const midX = (t1.clientX + t2.clientX) / 2;
       const midY = (t1.clientY + t2.clientY) / 2;
       const rect = stage.container().getBoundingClientRect();
-      const px = midX - rect.left;
-      const py = midY - rect.top;
-      const mousePointTo = {
-        x: (px - stage.x()) / oldScale,
-        y: (py - stage.y()) / oldScale,
-      };
-      const newView = {
-        scale: newScale,
-        x: px - mousePointTo.x * newScale,
-        y: py - mousePointTo.y * newScale,
-      };
-      setView(newView);
-      stage.scale({ x: newScale, y: newScale });
-      stage.position({ x: newView.x, y: newView.y });
+      viewportController.zoomAt(midX - rect.left, midY - rect.top, factor);
       lastTouchDist.current = dist;
     },
-    [stageRef],
+    [stageRef, viewportController],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -1440,10 +1425,6 @@ export function WhiteboardCanvas({
         ref={stageRef}
         width={width}
         height={height}
-        x={view.x}
-        y={view.y}
-        scaleX={view.scale}
-        scaleY={view.scale}
         draggable={isDraggable}
         onWheel={handleWheel}
         onDragEnd={handleDragEnd}
@@ -1458,9 +1439,9 @@ export function WhiteboardCanvas({
           <GridLayer
             width={width}
             height={height}
-            scale={view.scale}
-            offsetX={view.x}
-            offsetY={view.y}
+            scale={viewportController.getState().scale}
+            offsetX={viewportController.getState().x}
+            offsetY={viewportController.getState().y}
           />
         )}
         <Layer>{strokeElems}</Layer>
@@ -1472,21 +1453,30 @@ export function WhiteboardCanvas({
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-400 shadow-lg backdrop-blur-sm select-none">
         <button
-          onClick={() => setView((v) => ({ ...v, scale: Math.max(MIN_SCALE, v.scale / ZOOM_STEP) }))}
+          onClick={() => {
+            viewportController.zoomAt(width / 2, height / 2, 1 / ZOOM_STEP);
+            setZoomDisplay(Math.round(viewportController.getState().scale * 100));
+          }}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom out"
         >−</button>
         <span className="w-12 text-center font-mono text-[11px]">
-          {Math.round(view.scale * 100)}%
+          {zoomDisplay}%
         </span>
         <button
-          onClick={() => setView((v) => ({ ...v, scale: Math.min(MAX_SCALE, v.scale * ZOOM_STEP) }))}
+          onClick={() => {
+            viewportController.zoomAt(width / 2, height / 2, ZOOM_STEP);
+            setZoomDisplay(Math.round(viewportController.getState().scale * 100));
+          }}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           aria-label="Zoom in"
         >+</button>
         <div className="mx-1 h-4 w-px bg-slate-700" />
         <button
-          onClick={() => setView({ x: 0, y: 0, scale: 1 })}
+          onClick={() => {
+            viewportController.set({ scale: 1, x: 0, y: 0 });
+            setZoomDisplay(100);
+          }}
           className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
           title="Reset view"
           aria-label="Reset zoom"

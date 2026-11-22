@@ -330,3 +330,7 @@ Rules:
 | apps/web/src/components/ErrorBoundary.test.tsx | 4 tests: render, error catch, onError callback, custom fallback | — | P09-T06 | LOCKED |
 | docs/PILOT-CHECKLIST.md | Go/no-go criteria: infra, security, data, functionality, performance, test suites | — | P09-T07 | LOCKED |
 | docs/DEVICE-COMPATIBILITY.md | Browser/OS/device matrix + performance baselines + network requirements | — | P09-T07 | LOCKED |
+| apps/web/src/dev/perfFixture.ts | Seeded PRNG fixture generator for whiteboard stress test (?perf=NxM) | generatePerfBoardState | P10-T01 | OK |
+| apps/web/src/dev/FpsMeter.tsx | Floating real-time FPS / avg / p95 monitor component | FpsMeter | P10-T01 | OK |
+| apps/web/src/lib/viewport.ts | Imperative ViewportController: batchDraw, zoomAt with invariant, panBy, subscription | ViewportController, ViewportState | P10-T03 | OK |
+| apps/web/src/lib/viewport.test.ts | Unit tests for ViewportController invariant, bounds, pan, subscribers | — | P10-T03 | OK |
