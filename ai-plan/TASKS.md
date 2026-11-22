@@ -124,7 +124,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P10-T07 | MID  | deps: T03    | 3D overlay perf (frameloop demand, DPR cap, context limit)
 - [x] P10-T08 | MID  | deps: T03-T07 | Re-measure against budgets, write result doc
 - [x] P10-T09 | HIGH | deps: P09-RV | packages/sketch-core: shape recognizer v2 (confidence + reject option)
-- [ ] P10-T10 | MID  | deps: T09    | Synthetic corpus generator + negative set + dev stroke recorder
+- [x] P10-T10 | MID  | deps: T09    | Synthetic corpus generator + negative set + dev stroke recorder
 - [ ] P10-T11 | MID  | deps: T09    | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
 - [ ] P10-T12 | HIGH | deps: T10,T11 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
 - [ ] P10-T13 | MID  | deps: T12    | OPTIONAL: extra planar shapes (jajargenjang, trapesium, layang-layang, siku-siku, sudut)

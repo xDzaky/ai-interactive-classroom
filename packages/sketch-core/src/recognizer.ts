@@ -160,7 +160,8 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
     // Merge corners closer than 0.06 * L
     const mergeDist = CONSTANTS.CORNER_MERGE_RATIO * totalLength;
     let merged = true;
-    while (merged && corners.length > 3) {
+    let mergePasses = 25;
+    while (merged && corners.length > 3 && mergePasses-- > 0) {
       merged = false;
       for (let i = 0; i < corners.length; i++) {
         const nextIdx = (i + 1) % corners.length;
@@ -169,7 +170,12 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
             x: (corners[i].x + corners[nextIdx].x) / 2,
             y: (corners[i].y + corners[nextIdx].y) / 2,
           };
-          corners.splice(i, 2, mid);
+          if (i === corners.length - 1) {
+            corners[0] = mid;
+            corners.pop();
+          } else {
+            corners.splice(i, 2, mid);
+          }
           merged = true;
           break;
         }
@@ -178,7 +184,8 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
 
     // Drop corners with interior angle > 165°
     let dropped = true;
-    while (dropped && corners.length > 3) {
+    let dropPasses = 25;
+    while (dropped && corners.length > 3 && dropPasses-- > 0) {
       dropped = false;
       for (let i = 0; i < corners.length; i++) {
         const prev = corners[(i - 1 + corners.length) % corners.length];

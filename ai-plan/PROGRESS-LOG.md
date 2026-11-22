@@ -1531,3 +1531,21 @@ Date: 2026-11-22T01:39:00Z
 - Implemented `recognizer.ts` with multi-candidate generation, confidence calculation, snap/suggest/keep decisions, and angle snapping
 - Added comprehensive unit tests in `resample.test.ts`, `geometry.test.ts`, and `recognizer.test.ts` (17 tests passing)
 - Verified: `vitest run` 17/17 passed, `tsc --noEmit` and build clean
+
+## START — P10-T10 | Synthetic corpus generator + negative set + dev stroke recorder
+Date: 2026-11-22T01:40:00Z
+Tier: MID
+
+## DONE — P10-T10 | Synthetic corpus generator + negative set + dev stroke recorder
+Date: 2026-11-22T01:50:00Z
+- Implemented `packages/sketch-core/src/testing/generate.ts`:
+  - Deterministic PRNG (mulberry32)
+  - Generators for all 11 shape classes with jitter, low-frequency hand wobble (sum of 2 sines), rotation, aspect ratios, gap/overshoot
+  - Generators for 10 negative non-shape classes (scribble, letters S/8, heart, spiral, zigzag, wave, blob, hook, open_arc)
+- Created `packages/sketch-core/src/testing/corpus.test.ts` running multi-class benchmark:
+  - 100% rejection rate on negative non-shapes (150/150 rejected as keep)
+  - 83.0% overall accuracy on noisy synthetic shape dataset
+- Created `apps/web/src/dev/StrokeRecorder.tsx`: dev UI activated via `?record=<label>` with point capture and JSON download
+- Created `docs/shape-recognition.md` stub and `packages/sketch-core/fixtures/human/`
+- Linked `@ai-classroom/sketch-core` in `apps/web/package.json`
+- Verified: `vitest run` (18/18 tests pass in sketch-core), `tsc --noEmit` clean across packages/sketch-core and apps/web

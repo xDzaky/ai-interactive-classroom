@@ -351,3 +351,7 @@ Rules:
 | packages/sketch-core/src/geometry.ts | PCA ellipse fit, RDP simplification, polygon corner refinement, fit error | computeBBox, ramerDouglasPeucker, fitEllipsePCA, computePolygonFitError | P10-T09 | OK |
 | packages/sketch-core/src/recognizer.ts | recognizeShape entry point implementing multi-candidate scoring and rejection | recognizeShape | P10-T09 | OK |
 | packages/sketch-core/src/index.ts | Package exports for @ai-classroom/sketch-core | * | P10-T09 | OK |
+| packages/sketch-core/src/testing/generate.ts | Seeded synthetic shape and negative generator with human hand wobble | generateSyntheticShape, generateSyntheticNegative | P10-T10 | OK |
+| packages/sketch-core/src/testing/corpus.test.ts | Corpus test runner evaluating 11 shape classes and 10 negative classes | — | P10-T10 | OK |
+| apps/web/src/dev/StrokeRecorder.tsx | Dev stroke recorder UI overlay triggered via ?record=<label> | StrokeRecorder | P10-T10 | OK |
+| docs/shape-recognition.md | Architectural documentation and corpus benchmark report for sketch-core | — | P10-T10 | OK |

@@ -139,10 +139,10 @@ Refs: $1 recognizer paper/site (idea reference) https://depts.washington.edu/ace
 ### P10-T10 — Corpus generator, negatives, recorder   [tier: MID] [deps: T09]
 Allowed paths: `packages/sketch-core/src/testing/**`, `packages/sketch-core/fixtures/**`, `apps/web/src/dev/StrokeRecorder.tsx` (new), `docs/shape-recognition.md` (new, stub).
 Steps:
-- [ ] 1. `testing/generate.ts`: seeded generators for the 11 classes. Variation: noise σ = 0.01–0.03×diagonal, tilt ±0–15°, aspect 0.6–1.6 (rect/ellipse), start gap 0–15% of L, overshoot 0–8%, random start vertex, CW/CCW, low-frequency hand wobble (sum of 2 sines).
-- [ ] 2. Negatives: scribble, letters S/8, heart, spiral, zigzag, wave, blob, hook, open arc.
-- [ ] 3. Dev recorder: URL `?record=<label>` captures finished strokes with timestamps and offers a JSON download `{label, points, scale, pointerType}`. HUMAN will record ≥ 20 samples per class on their own device and commit them to `packages/sketch-core/fixtures/human/<label>-*.json`.
-- [ ] 4. Test runner `corpus.test.ts` loads synthetic + human fixtures and prints a per-class table.
+- [x] 1. `testing/generate.ts`: seeded generators for the 11 classes. Variation: noise σ = 0.01–0.03×diagonal, tilt ±0–15°, aspect 0.6–1.6 (rect/ellipse), start gap 0–15% of L, overshoot 0–8%, random start vertex, CW/CCW, low-frequency hand wobble (sum of 2 sines).
+- [x] 2. Negatives: scribble, letters S/8, heart, spiral, zigzag, wave, blob, hook, open arc.
+- [x] 3. Dev recorder: URL `?record=<label>` captures finished strokes with timestamps and offers a JSON download `{label, points, scale, pointerType}`. HUMAN will record ≥ 20 samples per class on their own device and commit them to `packages/sketch-core/fixtures/human/<label>-*.json`.
+- [x] 4. Test runner `corpus.test.ts` loads synthetic + human fixtures and prints a per-class table.
 Verify: corpus test runs; gates are enforced in T12 (print only here).
 
 ### P10-T11 — Integrate recognizer   [tier: MID] [deps: T09]
