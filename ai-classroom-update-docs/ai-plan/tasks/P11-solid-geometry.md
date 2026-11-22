@@ -14,8 +14,8 @@
 ### P11-T01 — Audit existing 3D code   [tier: MID] [deps: P10-T08]
 Allowed paths: `ai-plan/AUDIT-P11.md` (new). No code changes.
 Steps:
-- [ ] 1. Find: `grep -rniE "viz_solid|SolidViewer|computeGeometry|OrbitControls" apps/web/src packages --include=*.ts --include=*.tsx --exclude-dir=node_modules -l`
-- [ ] 2. Write `AUDIT-P11.md`: table of files → role; list the exact `viz_solid` field names (solid type strings, params, view/camera fields), the event(s) used to change them, and how students receive them. List which solids exist today and what the viewer already shows (labels? clip plane? unwrapping?).
+- [x] 1. Find: `grep -rniE "viz_solid|SolidViewer|computeGeometry|OrbitControls" apps/web/src packages --include=*.ts --include=*.tsx --exclude-dir=node_modules -l`
+- [x] 2. Write `AUDIT-P11.md`: table of files → role; list the exact `viz_solid` field names (solid type strings, params, view/camera fields), the event(s) used to change them, and how students receive them. List which solids exist today and what the viewer already shows (labels? clip plane? unwrapping?).
 Verify: AUDIT-P11.md exists and lists exact field names (copy from types, do not guess).
 
 ### P11-T02 — Polyhedron model   [tier: HIGH] [deps: T01]
@@ -33,16 +33,20 @@ Exact definitions (faces are CCW seen from OUTSIDE; indices refer to `labels` or
 - **pyramid** (square base `{base, height}`): labels `T A B C D`; A(0,0,0) B(s,0,0) C(s,s,0) D(0,s,0) T(s/2,s/2,h). Faces: base `[A,D,C,B]`, sides `[A,B,T]`, `[B,C,T]`, `[C,D,T]`, `[D,A,T]`.
 - `edges` = unique edges derived from faces (sorted pairs).
 Steps:
-- [ ] 1. Implement the builders exactly as above.
-- [ ] 2. Tests (all kinds): every face normal (cross product of first two edges) points away from the centroid (`dot(n, faceCentroid − polyCentroid) > 0`); every edge belongs to exactly 2 faces; Euler `V − E + F = 2` (cube 8−12+6, prism 6−9+5, pyramid 5−8+5).
-- [ ] 3. Consistency with existing formulas: sum of face areas equals the existing surface area. Vectors: cube side 5 → 150; cuboid 3×4×5 → 94; prism a3 b4 H10 → 132; pyramid base 6, h 4 → 96. Polyhedron volume via divergence (sum over faces of `dot(v0, cross(v1,v2))/6` over a fan triangulation) equals: 125, 60, 60, 48 respectively.
-- [ ] 4. OPTIONAL: `regularPrism(n, side, height)` / `regularPyramid(n, side, height)` for n = 5, 6 (same tests).
+- [x] 1. Implement the builders exactly as above.
+- [x] 2. Tests (all kinds): every face normal (cross product of first two edges) points away from the centroid (`dot(n, faceCentroid − polyCentroid) > 0`); every edge belongs to exactly 2 faces; Euler `V − E + F = 2` (cube 8−12+6, prism 6−9+5, pyramid 5−8+5).
+- [x] 3. Consistency with existing formulas: sum of face areas equals the existing surface area. Vectors: cube side 5 → 150; cuboid 3×4×5 → 94; prism a3 b4 H10 → 132; pyramid base 6, h 4 → 96. Polyhedron volume via divergence (sum over faces of `dot(v0, cross(v1,v2))/6` over a fan triangulation) equals: 125, 60, 60, 48 respectively.
+- [x] 4. OPTIONAL: `regularPrism(n, side, height)` / `regularPyramid(n, side, height)` for n = 5, 6 (same tests).
 Verify: `pnpm --filter @ai-classroom/geometry-core exec vitest run` pass (adjust the package name to the real one in package.json).
 
 ### P11-T03 — Plane/line math and cross-section   [tier: HIGH] [deps: T02]
 Allowed paths: `packages/geometry-core/src/section.ts`, `section.test.ts`, `index.ts` (additive).
-API:
-```ts
+Steps:
+- [x] 1. Implement planeFrom3Points, intersectSegmentPlane, intersectPolyhedronPlane, pointLineDistance, lineLineDistance, dihedralAngleDeg.
+- [x] 2. Order section points cyclically around their centroid via orthonormal basis (uAxis, vAxis).
+- [x] 3. Compute area via fan triangulation, perimeter, and interior angles in degrees.
+- [x] 4. Unit tests with known mathematical answers (horizontal plane z=1 on cube side 2, 3-vertex plane A-C-H, line-point, skew lines).
+Verify: all tests pass.
 export interface Plane { n: Vec3; d: number }               // n unit normal, points x satisfy n·x = d
 export function planeFromPoints(a: Vec3, b: Vec3, c: Vec3): Plane | null;  // null if collinear
 export interface SectionResult { points: Vec3[]; area: number; perimeter: number; kind: 'triangle'|'quadrilateral'|'pentagon'|'hexagon' }

@@ -357,3 +357,13 @@ Rules:
 | docs/shape-recognition.md | Architectural documentation and corpus benchmark report for sketch-core | — | P10-T10 | OK |
 | apps/web/src/components/whiteboard/ShapeSuggestionChip.tsx | Suggestion chip and revert-to-ink toast overlays for shape recognition | ShapeSuggestionChip, ShapeRevertToast | P10-T11 | OK |
 | apps/web/src/components/whiteboard/ShapeSuggestionChip.test.tsx | Unit tests for ShapeSuggestionChip and ShapeRevertToast | — | P10-T11 | OK |
+| ai-plan/AUDIT-P11.md | Audit of existing 3D codebase, viz_solid contracts, and viewer capabilities | — | P11-T01 | OK |
+| packages/geometry-core/src/polyhedron.ts | 3D Polyhedron builders (cube, cuboid, prism, pyramid) with labels and faces | buildPolyhedron, computeCentroid, computeFaceNormal | P11-T02 | OK |
+| packages/geometry-core/src/polyhedron.test.ts | Unit tests for Polyhedron Euler formula, normals, face areas, and divergence volume | — | P11-T02 | OK |
+| packages/geometry-core/src/section.ts | 3D Plane math, segment intersection, convex polyhedron cross-section polygon | planeFrom3Points, intersectPolyhedronPlane, pointLineDistance, dihedralAngleDeg | P11-T03 | OK |
+| packages/geometry-core/src/section.test.ts | Unit tests for 3D plane cross-sections and geometric distance/angles | — | P11-T03 | OK |
+| docs/THIRD-PARTY-POLICY.md | Third-party software, licensing, and clean-room policy | — | P13-T01 | OK |
+| scripts/check-third-party.mjs | Automated CI guard verifying no third-party licensed code/identifiers leak | — | P13-T01 | OK |
+| docs/ux/geogebra-ux-notes.md | Clean-room UX study of GeoGebra and Mathtalking interaction models | — | P13-T03 | OK |
+| docs/ux/design-spec.md | Design tokens, responsive workspace layout, and component specifications | — | P13-T03 | OK |
+| docs/spikes/jsxgraph.md | Spike and evaluation matrix for JSXGraph MIT dynamic geometry engine | — | P13-T04 | OK |

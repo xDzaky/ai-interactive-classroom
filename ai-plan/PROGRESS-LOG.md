@@ -1601,3 +1601,32 @@ Date: 2026-11-22T02:45:00Z
 - Formulated UI/UX design spec in `docs/ux/design-spec.md` with CSS variable design tokens and responsive rules
 - Conducted dynamic geometry engine spike in `docs/spikes/jsxgraph.md` (JSXGraph MIT evaluation: score 16/18, HYBRID decision)
 - Appended P13 tasks to `ai-plan/TASKS.md` and `ai-plan/tasks/P13-geogebra-study-ux.md`
+
+## START — P11-T01, P11-T02, P11-T03 | Solid Geometry 3D (Polyhedron Models & Cross-Section Math)
+Date: 2026-11-22T02:46:00Z
+Tier: HIGH
+
+## DONE — P11-T01, P11-T02, P11-T03 | Solid Geometry 3D (Polyhedron Models & Cross-Section Math)
+Date: 2026-11-22T02:55:00Z
+- Completed `P11-T01`:
+  - Conducted full audit of existing 3D codebase (`viz_solid`, `SolidViewer.tsx`, `threeGeometry.ts`, `geometry-core`, `coords.ts`)
+  - Documented exact types, events, and gaps in `ai-plan/AUDIT-P11.md`
+- Completed `P11-T02`:
+  - Implemented `packages/geometry-core/src/polyhedron.ts`:
+    - Math coordinate system with $Z$-up
+    - Polyhedron builder for `cube`, `cuboid`, `prism`, `pyramid` with standard Indonesian labels (`ABCD.EFGH`, `T.ABCD`, `ABC.DEF`)
+    - Outward-facing CCW faces and unique sorted edge derivation
+  - Created `packages/geometry-core/src/polyhedron.test.ts` (5/5 tests passing):
+    - Euler characteristic $V - E + F = 2$ validated for all 4 models
+    - Every edge belongs to exactly 2 faces
+    - All face normals point outward from centroid
+    - Surface area and divergence volume match exact analytical test vectors
+- Completed `P11-T03`:
+  - Implemented `packages/geometry-core/src/section.ts`:
+    - `planeFrom3Points`: plane equation $n \cdot x = d$ with collinearity rejection
+    - `intersectSegmentPlane`: parameter $t \in [0, 1]$ intersection
+    - `intersectPolyhedronPlane`: convex cross-section polygon ordered cyclically around centroid via orthonormal basis $(u, v)$
+    - Area via fan triangulation, perimeter, and interior vertex angles
+    - `pointLineDistance`, `lineLineDistance` (skew lines), `dihedralAngleDeg`
+  - Created `packages/geometry-core/src/section.test.ts` (7/7 tests passing)
+- Verified: `geometry-core` tests passing 37/37, `check:third-party` passes clean (OK)

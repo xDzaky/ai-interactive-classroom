@@ -131,9 +131,9 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [ ] P10-RV  | HIGH | deps: T01-T12 | Phase review
 
 ## P11 — Solid geometry / bangun ruang (iFLYTEK-style) · `tasks/P11-solid-geometry.md`
-- [ ] P11-T01 | MID  | deps: P10-T08 | Audit existing 3D code (viz_solid, viewer, geometry) → AUDIT-P11.md
-- [ ] P11-T02 | HIGH | deps: T01    | geometry-core: Polyhedron model (cube, cuboid, prism, pyramid) with labels/faces/edges
-- [ ] P11-T03 | HIGH | deps: T02    | geometry-core: plane/line math, convex cross-section, angles, distances
+- [x] P11-T01 | MID  | deps: P10-T08 | Audit existing 3D code (viz_solid, viewer, geometry) → AUDIT-P11.md
+- [x] P11-T02 | HIGH | deps: T01    | geometry-core: Polyhedron model (cube, cuboid, prism, pyramid) with labels/faces/edges
+- [x] P11-T03 | HIGH | deps: T02    | geometry-core: plane/line math, convex cross-section, angles, distances
 - [ ] P11-T04 | MID  | deps: T02    | Web: PolyhedronViewer (hidden dashed edges, vertex handles, labels)
 - [ ] P11-T05 | HIGH | deps: T03,T04 | Section (irisan) tool: 3 vertices / parallel plane, filled polygon, cut-away, info card
 - [ ] P11-T06 | MID  | deps: T03,T04 | Measure tool: distance, angle, diagonal shortcuts with formulas
