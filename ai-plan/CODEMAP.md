@@ -410,6 +410,14 @@ Rules:
 | packages/construction-core/src/engine.ts | ConstructionEngine orchestrating DAG recomputation, propagation of undefined, toJSON/fromJSON | ConstructionEngine | P13-T06 | OK |
 | packages/construction-core/src/index.ts | Main export bundle for @ai-classroom/construction-core | * | P13-T06 | OK |
 | packages/construction-core/src/engine.test.ts | Unit tests for construction engine invariants, intersection vectors, circumcircle, cycle rejection, and perf benchmark | — | P13-T06 | OK |
+| apps/web/src/styles/tokens.css | Design token variables for surfaces, semantic math accents, typography, spacing, and touch targets | — | P13-T03 | OK |
+| docs/study/geogebra/PROVENANCE.md | Clean-room provenance audit log for reader sessions | — | P13-T02 | OK |
+| docs/study/geogebra/section-plane-polyhedron.md | Clean-room behavior specification for 3D solid cross-section cutting planes | — | P13-T02 | OK |
+| docs/study/geogebra/nets.md | Clean-room behavior specification for polyhedron and curved solid unfolding nets | — | P13-T02 | OK |
+| docs/study/geogebra/view3d-interaction.md | Clean-room behavior specification for 3D camera orbit, pan, zoom, and picking | — | P13-T02 | OK |
+| docs/study/geogebra/dependency-graph.md | Clean-room behavior specification for DAG topological recompute and undefined propagation | — | P13-T02 | OK |
+| docs/study/geogebra/measurement-tools.md | Clean-room behavior specification for angle and distance measurement formulas | — | P13-T02 | OK |
+| docs/study/geogebra/toolbar-structure.md | Clean-room behavior specification for workspace toolbar hierarchy and discoverability | — | P13-T02 | OK |
 
 
 

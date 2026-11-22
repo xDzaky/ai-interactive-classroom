@@ -1,0 +1,40 @@
+/**
+ * tokens.css — P13-T03 Design Tokens
+ * Workspace and semantic math studio design tokens for AI Interactive Classroom.
+ */
+
+:root {
+  /* Surfaces & Backgrounds */
+  --bg-canvas: #0f172a;       /* Slate 900 */
+  --bg-panel: rgba(15, 23, 42, 0.92);
+  --bg-card: rgba(30, 41, 59, 0.85);
+  --border-subtle: rgba(51, 65, 85, 0.60);
+  --border-focus: #6366f1;    /* Indigo 500 */
+
+  /* Semantic Math Accents */
+  --math-point: #10b981;      /* Emerald 500: free point / vertex */
+  --math-line: #38bdf8;       /* Sky 400: line / segment / edge */
+  --math-plane: #f43f5e;      /* Rose 500: 3D cross-section plane */
+  --math-angle: #f59e0b;      /* Amber 500: angle & measure */
+  --math-solid: #8b5cf6;      /* Violet 500: 3D solid */
+
+  /* Text & Typography */
+  --text-primary: #f8fafc;    /* Slate 50 */
+  --text-secondary: #94a3b8;  /* Slate 400 */
+  --text-muted: #64748b;      /* Slate 500 */
+
+  /* Spacing & Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --touch-target-min: 44px;   /* WCAG 2.2 AA target size & smart display */
+}
+
+/* Dark mode / Studio default */
+.dark, [data-theme="dark"] {
+  --bg-canvas: #090d16;
+  --bg-panel: rgba(15, 23, 42, 0.96);
+  --bg-card: rgba(30, 41, 59, 0.90);
+  --border-subtle: rgba(51, 65, 85, 0.75);
+}

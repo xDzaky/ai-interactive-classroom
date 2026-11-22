@@ -1767,6 +1767,24 @@ Date: 2026-11-22T04:05:00Z
   - `src/engine.test.ts`: 8/8 tests passing, verifying invariant drag midpoint update, exact intersection vectors, circumcircle of 3 points, cycle rejection, and 1000-object recompute benchmark (< 16 ms)
 - Verified: `construction-core` tests 8/8 pass, `third-party guard` OK, `tsc` clean (OK)
 
+## START — P13-T02 & P13-T03 | Clean-room Study Specs & Workspace Design Tokens
+Date: 2026-11-22T04:08:00Z
+Tier: MID
+
+## DONE — P13-T02 & P13-T03 | Clean-room Study Specs & Workspace Design Tokens
+Date: 2026-11-22T04:10:00Z
+- Created design tokens in `apps/web/src/styles/tokens.css` and imported in `apps/web/src/index.css`
+- Documented 6 clean-room study specifications with mathematical formulations, edge cases, and test vectors:
+  - `docs/study/geogebra/PROVENANCE.md` (clean-room audit log)
+  - `docs/study/geogebra/section-plane-polyhedron.md` (cross-section planes)
+  - `docs/study/geogebra/nets.md` (polyhedron and curved solid nets)
+  - `docs/study/geogebra/view3d-interaction.md` (3D view orbit, pan, zoom, picking)
+  - `docs/study/geogebra/dependency-graph.md` (DAG topological recomputation)
+  - `docs/study/geogebra/measurement-tools.md` (measurement formulas and Kurikulum Merdeka conventions)
+  - `docs/study/geogebra/toolbar-structure.md` (studio toolbar hierarchy and discoverability)
+- Verified: `check-third-party.mjs` passes (OK), `tsc -b` passes (OK)
+
+
 
 
 
