@@ -1549,3 +1549,25 @@ Date: 2026-11-22T01:50:00Z
 - Created `docs/shape-recognition.md` stub and `packages/sketch-core/fixtures/human/`
 - Linked `@ai-classroom/sketch-core` in `apps/web/package.json`
 - Verified: `vitest run` (18/18 tests pass in sketch-core), `tsc --noEmit` clean across packages/sketch-core and apps/web
+
+## START — P10-T11 | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
+Date: 2026-11-22T02:00:00Z
+Tier: MID
+
+## DONE — P10-T11 | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
+Date: 2026-11-22T02:06:00Z
+- Integrated `@ai-classroom/sketch-core` into `WhiteboardCanvas.tsx`:
+  - `autoShapeMode` ("auto" | "hold" | "off") support with localStorage persistence and i18n
+  - Kept legacy recognizer under `VITE_LEGACY_SHAPE=1` A/B gate
+  - `snap` decision emits shape creation event with pen color and sw (min 2), stores original stroke in `lastSnappedRef`, shows `ShapeRevertToast`
+  - Reverting deletes shape and restores original ink stroke through standard whiteboard events
+  - `suggest` decision commits ink stroke and renders `ShapeSuggestionChip` near bounding box with accept/dismiss actions
+  - `Tahan` mode verifies hold threshold (stay within 2px for >= 450ms) before snapping
+- Created `ShapeSuggestionChip.tsx` with floating chip and bottom toast
+- Created `ShapeSuggestionChip.test.tsx` (4/4 tests passing)
+- Updated `WhiteboardCanvas.test.tsx` (10/10 tests passing)
+- Verified: `tsc --noEmit` clean, vitest 14/14 passed
+
+## START — P10-T12 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
+Date: 2026-11-22T02:07:00Z
+Tier: HIGH

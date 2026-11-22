@@ -117,7 +117,15 @@
     "newScene": "Scene Baru",
     "layers": "Layer",
     "grid": "Grid",
-    "snap": "Snap"
+    "snap": "Snap",
+    "autoShape": {
+      "title": "Bentuk Otomatis",
+      "auto": "Otomatis",
+      "hold": "Tahan",
+      "off": "Mati",
+      "suggestChip": "Jadikan {shape}?",
+      "revertToInk": "Kembalikan coretan"
+    }
   },
   "math": {
     "shapes3d": {

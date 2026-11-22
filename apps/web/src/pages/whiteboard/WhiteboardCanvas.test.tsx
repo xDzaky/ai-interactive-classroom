@@ -184,4 +184,39 @@ describe("WhiteboardCanvas", () => {
     );
     expect(container.firstChild).toBeTruthy();
   });
+
+  it("accepts autoShapeMode prop without crashing", () => {
+    const { rerender, container } = render(
+      <WhiteboardCanvas
+        boardState={state}
+        onBoardStateChange={noop}
+        width={400}
+        height={300}
+        autoShapeMode="auto"
+      />
+    );
+    expect(container.firstChild).toBeTruthy();
+
+    rerender(
+      <WhiteboardCanvas
+        boardState={state}
+        onBoardStateChange={noop}
+        width={400}
+        height={300}
+        autoShapeMode="hold"
+      />
+    );
+    expect(container.firstChild).toBeTruthy();
+
+    rerender(
+      <WhiteboardCanvas
+        boardState={state}
+        onBoardStateChange={noop}
+        width={400}
+        height={300}
+        autoShapeMode="off"
+      />
+    );
+    expect(container.firstChild).toBeTruthy();
+  });
 });

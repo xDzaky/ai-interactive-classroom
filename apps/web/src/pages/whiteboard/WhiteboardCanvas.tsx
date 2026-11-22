@@ -34,6 +34,17 @@ import {
   generateRhombusPoints,
   generateStarPoints,
 } from "./objects/RenderObject";
+import {
+  recognizeShape as recognizeShapeV2,
+  type Pt,
+  type ShapeCandidate,
+  computeBBox,
+} from "@ai-classroom/sketch-core";
+import {
+  ShapeSuggestionChip,
+  ShapeRevertToast,
+} from "@/components/whiteboard/ShapeSuggestionChip";
+import type { AutoShapeMode } from "@/components/whiteboard/ToolBar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +68,8 @@ export interface WhiteboardCanvasProps {
   onToolChange?: (tool: ToolType) => void;
   onColorChange?: (color: string) => void;
   onStrokeWidthChange?: (w: number) => void;
+  autoShapeMode?: AutoShapeMode;
+  onAutoShapeModeChange?: (mode: AutoShapeMode) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -145,7 +158,7 @@ type RecognizedShape =
   | { type: "hexagon"; cx: number; cy: number; r: number }
   | { type: "star"; cx: number; cy: number; outerR: number; innerR: number };
 
-function recognizeShape(pts: [number, number, number][]): RecognizedShape {
+function legacyRecognizeShape(pts: [number, number, number][]): RecognizedShape {
   if (pts.length < 5) return { type: "none" };
 
   const xs = pts.map((p) => p[0]);
@@ -294,6 +307,199 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   return { type: "none" };
 }
 
+function candidateToShapeEvent(
+  id: string,
+  cand: ShapeCandidate,
+  strokeColor: string,
+  strokeWidth: number,
+): WhiteboardEvent {
+  const sw = Math.max(strokeWidth, 2);
+  const geom = cand.geometry;
+
+  if (cand.kind === 'line') {
+    const g = geom as { type: 'line'; a: Pt; b: Pt };
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'line',
+        props: {
+          x1: g.a.x,
+          y1: g.a.y,
+          x2: g.b.x,
+          y2: g.b.y,
+          stroke: strokeColor,
+          strokeWidth: sw,
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'circle') {
+    const g = geom as { type: 'ellipse'; cx: number; cy: number; rx: number; ry: number };
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'circle',
+        props: {
+          x: g.cx,
+          y: g.cy,
+          r: g.rx,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'ellipse') {
+    const g = geom as { type: 'ellipse'; cx: number; cy: number; rx: number; ry: number };
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'ellipse',
+        props: {
+          cx: g.cx,
+          cy: g.cy,
+          rx: g.rx,
+          ry: g.ry,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'rect' || cand.kind === 'square') {
+    const g = geom as { type: 'polygon'; points: Pt[] };
+    const polyBox = computeBBox(g.points);
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'rect',
+        props: {
+          x: polyBox.minX,
+          y: polyBox.minY,
+          w: polyBox.width,
+          h: polyBox.height,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'triangle' || cand.kind === 'right_triangle') {
+    const g = geom as { type: 'polygon'; points: Pt[] };
+    const pts = g.points;
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'triangle',
+        props: {
+          x1: pts[0]?.x ?? 0,
+          y1: pts[0]?.y ?? 0,
+          x2: pts[1]?.x ?? 0,
+          y2: pts[1]?.y ?? 0,
+          x3: pts[2]?.x ?? 0,
+          y3: pts[2]?.y ?? 0,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'rhombus') {
+    const g = geom as { type: 'polygon'; points: Pt[] };
+    const b = computeBBox(g.points);
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'rhombus',
+        props: {
+          cx: b.centerX,
+          cy: b.centerY,
+          rx: b.width / 2,
+          ry: b.height / 2,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'pentagon' || cand.kind === 'hexagon') {
+    const g = geom as { type: 'polygon'; points: Pt[] };
+    const b = computeBBox(g.points);
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: cand.kind,
+        props: {
+          cx: b.centerX,
+          cy: b.centerY,
+          r: Math.max(b.width, b.height) / 2,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  if (cand.kind === 'star') {
+    const g = geom as { type: 'polygon'; points: Pt[] };
+    const b = computeBBox(g.points);
+    return {
+      event_type: 'object.created',
+      payload: {
+        id,
+        object_type: 'star',
+        props: {
+          cx: b.centerX,
+          cy: b.centerY,
+          outerR: Math.max(b.width, b.height) / 2,
+          innerR: Math.max(b.width, b.height) / 4.5,
+          stroke: strokeColor,
+          strokeWidth: sw,
+          fill: 'transparent',
+        },
+      },
+    };
+  }
+
+  // Fallback to rect
+  const b = computeBBox((geom as { type: 'polygon'; points: Pt[] }).points || []);
+  return {
+    event_type: 'object.created',
+    payload: {
+      id,
+      object_type: 'rect',
+      props: {
+        x: b.minX,
+        y: b.minY,
+        w: b.width,
+        h: b.height,
+        stroke: strokeColor,
+        strokeWidth: sw,
+        fill: 'transparent',
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // WhiteboardCanvas
 // ---------------------------------------------------------------------------
@@ -322,6 +528,8 @@ export function WhiteboardCanvas({
   activeTool = "pen",
   color = "#f8fafc",
   strokeWidth = 3,
+  autoShapeMode,
+  onAutoShapeModeChange,
   canUndo,
   canRedo,
   onUndo,
@@ -331,6 +539,63 @@ export function WhiteboardCanvas({
   const stageRef = externalStageRef ?? internalStageRef;
   const previewLayerRef = useRef<Konva.Layer | null>(null);
   const lastTouchDist = useRef<number>(0);
+
+  // ---------------------------------------------------------------------------
+  // Auto-shape recognition state & hold tracker (P10-T11)
+  // ---------------------------------------------------------------------------
+  const [autoShapeModeState, setAutoShapeModeState] = useState<AutoShapeMode>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("whiteboard_autoshape_mode");
+      if (saved === "auto" || saved === "hold" || saved === "off") return saved;
+    }
+    return autoShapeMode ?? "auto";
+  });
+
+  useEffect(() => {
+    if (autoShapeMode) {
+      setAutoShapeModeState(autoShapeMode);
+    }
+  }, [autoShapeMode]);
+
+  const [suggestionChip, setSuggestionChip] = useState<{
+    visible: boolean;
+    strokeId: string;
+    candidate: ShapeCandidate | null;
+    position: { x: number; y: number };
+    color: string;
+    width: number;
+  }>({
+    visible: false,
+    strokeId: "",
+    candidate: null,
+    position: { x: 0, y: 0 },
+    color: "#f8fafc",
+    width: 3,
+  });
+
+  const [revertToast, setRevertToast] = useState<{
+    visible: boolean;
+    shapeKind: string;
+  }>({
+    visible: false,
+    shapeKind: "",
+  });
+
+  const lastSnappedRef = useRef<{
+    shapeId: string;
+    originalPoints: [number, number, number][];
+    color: string;
+    width: number;
+    timestamp: number;
+  } | null>(null);
+
+  const pointerHoldRef = useRef<{
+    startPos: { x: number; y: number };
+    startTime: number;
+  }>({
+    startPos: { x: 0, y: 0 },
+    startTime: 0,
+  });
 
   // ---------------------------------------------------------------------------
   // Imperative Viewport Controller (P10-T03: zero React re-render on zoom/pan)
@@ -395,6 +660,45 @@ export function WhiteboardCanvas({
     },
     [legacyOnEvent, onBoardStateChange, boardState],
   );
+
+  const handleAcceptSuggestion = useCallback(() => {
+    if (!suggestionChip.candidate) return;
+    commitEvent({
+      event_type: "object.deleted",
+      payload: { id: suggestionChip.strokeId },
+    });
+    const shapeId = `${suggestionChip.strokeId}-shape`;
+    const shapeEv = candidateToShapeEvent(
+      shapeId,
+      suggestionChip.candidate,
+      suggestionChip.color,
+      suggestionChip.width,
+    );
+    commitEvent(shapeEv);
+    setSuggestionChip((prev) => ({ ...prev, visible: false }));
+  }, [suggestionChip, commitEvent]);
+
+  const handleRevertShape = useCallback(() => {
+    const last = lastSnappedRef.current;
+    if (!last) return;
+    commitEvent({
+      event_type: "object.deleted",
+      payload: { id: last.shapeId },
+    });
+    const strokeId = `${last.shapeId}-ink`;
+    commitEvent({
+      event_type: "stroke.committed",
+      payload: {
+        id: strokeId,
+        points: reducePoints(last.originalPoints),
+        color: last.color,
+        width: last.width,
+        tool: "pen",
+      },
+    });
+    lastSnappedRef.current = null;
+    setRevertToast({ visible: false, shapeKind: "" });
+  }, [commitEvent]);
 
   // ---------------------------------------------------------------------------
   // Keyboard shortcuts (Ctrl+Z/Y, Space)
@@ -674,6 +978,7 @@ export function WhiteboardCanvas({
       activeIdRef.current = uid();
       const pressure = e.evt.pressure || 0.5;
       const tool = activeToolRef.current;
+      pointerHoldRef.current = { startPos: { x: pos.x, y: pos.y }, startTime: Date.now() };
 
       if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
         livePointsRef.current = [[pos.x, pos.y, pressure]];
@@ -704,6 +1009,14 @@ export function WhiteboardCanvas({
       if (!isPointerDown.current || readOnly) return;
       const pos = getWorldPos();
       if (!pos) return;
+      if (
+        Math.hypot(
+          pos.x - pointerHoldRef.current.startPos.x,
+          pos.y - pointerHoldRef.current.startPos.y,
+        ) > 2
+      ) {
+        pointerHoldRef.current = { startPos: { x: pos.x, y: pos.y }, startTime: Date.now() };
+      }
       const pressure = e.evt.pressure || 0.5;
       livePointsRef.current.push([pos.x, pos.y, pressure]);
       drawLivePreview();
@@ -738,103 +1051,161 @@ export function WhiteboardCanvas({
 
       // Sketch recognition for pen
       if (tool === "pen" && pts.length >= 4) {
-        const recognized = recognizeShape(pts);
-        if (recognized.type !== "none") {
-          if (recognized.type === "line") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "line",
-                props: { x1: recognized.x1, y1: recognized.y1, x2: recognized.x2, y2: recognized.y2, stroke: col, strokeWidth: sw },
-              },
-            });
-          } else if (recognized.type === "rect") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "rect",
-                props: { x: recognized.x, y: recognized.y, w: recognized.w, h: recognized.h, stroke: col, strokeWidth: sw, fill: "transparent" },
-              },
-            });
-          } else if (recognized.type === "circle") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "circle",
-                props: { x: recognized.cx, y: recognized.cy, r: recognized.r, stroke: col, strokeWidth: sw, fill: "transparent" },
-              },
-            });
-          } else if (recognized.type === "triangle") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "triangle",
-                props: {
-                  x1: recognized.x1, y1: recognized.y1,
-                  x2: recognized.x2, y2: recognized.y2,
-                  x3: recognized.x3, y3: recognized.y3,
-                  stroke: col, strokeWidth: sw, fill: "transparent",
+        const mode = autoShapeModeState;
+        const holdDuration = Date.now() - pointerHoldRef.current.startTime;
+        const shouldRecognize =
+          mode === "auto" || (mode === "hold" && holdDuration >= 450);
+
+        if (shouldRecognize) {
+          const isLegacy = import.meta.env.VITE_LEGACY_SHAPE === "1";
+          if (isLegacy) {
+            const recognized = legacyRecognizeShape(pts);
+            if (recognized.type !== "none") {
+              if (recognized.type === "line") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "line",
+                    props: { x1: recognized.x1, y1: recognized.y1, x2: recognized.x2, y2: recognized.y2, stroke: col, strokeWidth: sw },
+                  },
+                });
+              } else if (recognized.type === "rect") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "rect",
+                    props: { x: recognized.x, y: recognized.y, w: recognized.w, h: recognized.h, stroke: col, strokeWidth: sw, fill: "transparent" },
+                  },
+                });
+              } else if (recognized.type === "circle") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "circle",
+                    props: { x: recognized.cx, y: recognized.cy, r: recognized.r, stroke: col, strokeWidth: sw, fill: "transparent" },
+                  },
+                });
+              } else if (recognized.type === "triangle") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "triangle",
+                    props: {
+                      x1: recognized.x1, y1: recognized.y1,
+                      x2: recognized.x2, y2: recognized.y2,
+                      x3: recognized.x3, y3: recognized.y3,
+                      stroke: col, strokeWidth: sw, fill: "transparent",
+                    },
+                  },
+                });
+              } else if (recognized.type === "ellipse") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "ellipse",
+                    props: {
+                      cx: recognized.cx, cy: recognized.cy,
+                      rx: recognized.rx, ry: recognized.ry,
+                      stroke: col, strokeWidth: sw, fill: "transparent",
+                    },
+                  },
+                });
+              } else if (recognized.type === "rhombus") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "rhombus",
+                    props: {
+                      cx: recognized.cx, cy: recognized.cy,
+                      rx: recognized.rx, ry: recognized.ry,
+                      stroke: col, strokeWidth: sw, fill: "transparent",
+                    },
+                  },
+                });
+              } else if (recognized.type === "pentagon" || recognized.type === "hexagon") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: recognized.type,
+                    props: {
+                      cx: recognized.cx, cy: recognized.cy,
+                      r: recognized.r,
+                      stroke: col, strokeWidth: sw, fill: "transparent",
+                    },
+                  },
+                });
+              } else if (recognized.type === "star") {
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id,
+                    object_type: "star",
+                    props: {
+                      cx: recognized.cx, cy: recognized.cy,
+                      outerR: recognized.outerR, innerR: recognized.innerR,
+                      stroke: col, strokeWidth: sw, fill: "transparent",
+                    },
+                  },
+                });
+              }
+              return;
+            }
+          } else {
+            // Recognizer v2 from @ai-classroom/sketch-core
+            const v2Points: Pt[] = pts.map(([x, y]) => ({ x, y }));
+            const currentScale = viewportController.getState().scale || 1;
+            const result = recognizeShapeV2(v2Points, { scale: currentScale });
+
+            if (result.decision === "snap" && result.best) {
+              const shapeEvent = candidateToShapeEvent(id, result.best, col, sw);
+              lastSnappedRef.current = {
+                shapeId: id,
+                originalPoints: pts.map(([x, y, p]) => [x, y, p]),
+                color: col,
+                width: sw,
+                timestamp: Date.now(),
+              };
+              setRevertToast({
+                visible: true,
+                shapeKind: result.best.kind,
+              });
+              setSuggestionChip((prev) => ({ ...prev, visible: false }));
+              commitEvent(shapeEvent);
+              return;
+            } else if (result.decision === "suggest" && result.best) {
+              const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
+              const reducedPts = reducePoints(allPts);
+              commitEvent({
+                event_type: "stroke.committed",
+                payload: {
+                  id,
+                  points: reducedPts,
+                  color: col,
+                  width: sw,
+                  tool,
                 },
-              },
-            });
-          } else if (recognized.type === "ellipse") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "ellipse",
-                props: {
-                  cx: recognized.cx, cy: recognized.cy,
-                  rx: recognized.rx, ry: recognized.ry,
-                  stroke: col, strokeWidth: sw, fill: "transparent",
-                },
-              },
-            });
-          } else if (recognized.type === "rhombus") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "rhombus",
-                props: {
-                  cx: recognized.cx, cy: recognized.cy,
-                  rx: recognized.rx, ry: recognized.ry,
-                  stroke: col, strokeWidth: sw, fill: "transparent",
-                },
-              },
-            });
-          } else if (recognized.type === "pentagon" || recognized.type === "hexagon") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: recognized.type,
-                props: {
-                  cx: recognized.cx, cy: recognized.cy,
-                  r: recognized.r,
-                  stroke: col, strokeWidth: sw, fill: "transparent",
-                },
-              },
-            });
-          } else if (recognized.type === "star") {
-            commitEvent({
-              event_type: "object.created",
-              payload: {
-                id,
-                object_type: "star",
-                props: {
-                  cx: recognized.cx, cy: recognized.cy,
-                  outerR: recognized.outerR, innerR: recognized.innerR,
-                  stroke: col, strokeWidth: sw, fill: "transparent",
-                },
-              },
-            });
+              });
+              const bbox = computeBBox(v2Points);
+              const screenPos = viewportController.toScreen(bbox.centerX, bbox.minY);
+              setSuggestionChip({
+                visible: true,
+                strokeId: id,
+                candidate: result.best,
+                position: screenPos,
+                color: col,
+                width: sw,
+              });
+              return;
+            }
+            // If decision is 'keep', fall through to freehand stroke below
           }
-          return;
         }
       }
 
@@ -1182,6 +1553,21 @@ export function WhiteboardCanvas({
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/90 text-sm text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
         >↪</button>
       </div>
+
+      {/* Auto-shape suggestion & revert overlays (P10-T11) */}
+      <ShapeSuggestionChip
+        visible={suggestionChip.visible}
+        shapeKind={suggestionChip.candidate?.kind ?? ""}
+        position={suggestionChip.position}
+        onAccept={handleAcceptSuggestion}
+        onDismiss={() => setSuggestionChip((prev) => ({ ...prev, visible: false }))}
+      />
+      <ShapeRevertToast
+        visible={revertToast.visible}
+        shapeKind={revertToast.shapeKind}
+        onRevert={handleRevertShape}
+        onDismiss={() => setRevertToast({ visible: false, shapeKind: "" })}
+      />
 
       {/* Tool hint */}
       <div className="absolute bottom-14 left-4 text-[10px] text-slate-500 select-none pointer-events-none">

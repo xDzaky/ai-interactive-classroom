@@ -355,3 +355,5 @@ Rules:
 | packages/sketch-core/src/testing/corpus.test.ts | Corpus test runner evaluating 11 shape classes and 10 negative classes | — | P10-T10 | OK |
 | apps/web/src/dev/StrokeRecorder.tsx | Dev stroke recorder UI overlay triggered via ?record=<label> | StrokeRecorder | P10-T10 | OK |
 | docs/shape-recognition.md | Architectural documentation and corpus benchmark report for sketch-core | — | P10-T10 | OK |
+| apps/web/src/components/whiteboard/ShapeSuggestionChip.tsx | Suggestion chip and revert-to-ink toast overlays for shape recognition | ShapeSuggestionChip, ShapeRevertToast | P10-T11 | OK |
+| apps/web/src/components/whiteboard/ShapeSuggestionChip.test.tsx | Unit tests for ShapeSuggestionChip and ShapeRevertToast | — | P10-T11 | OK |

@@ -40,6 +40,8 @@ const PRESET_COLORS = [
   "#ffffff", "#6b7280",
 ];
 
+export type AutoShapeMode = "auto" | "hold" | "off";
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -51,6 +53,8 @@ export interface ToolBarProps {
   onToolChange: (tool: ToolType) => void;
   onColorChange: (color: string) => void;
   onStrokeWidthChange: (w: number) => void;
+  autoShapeMode?: AutoShapeMode;
+  onAutoShapeModeChange?: (mode: AutoShapeMode) => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onExportPng?: () => void;
@@ -69,12 +73,25 @@ export function ToolBar({
   onToolChange,
   onColorChange,
   onStrokeWidthChange,
+  autoShapeMode = "auto",
+  onAutoShapeModeChange,
   onUndo,
   onRedo,
   onExportPng,
   canUndo = false,
   canRedo = false,
 }: ToolBarProps) {
+  const nextMode: Record<AutoShapeMode, AutoShapeMode> = {
+    auto: "hold",
+    hold: "off",
+    off: "auto",
+  };
+
+  const modeInfo: Record<AutoShapeMode, { label: string; icon: string }> = {
+    auto: { label: "Auto-shape: Otomatis", icon: "✨" },
+    hold: { label: "Auto-shape: Tahan", icon: "⏳" },
+    off: { label: "Auto-shape: Mati", icon: "🚫" },
+  };
   return (
     <div
       role="toolbar"
@@ -165,6 +182,24 @@ export function ToolBar({
       </div>
 
       <div className="my-0.5 h-px bg-gray-100" />
+
+      {/* Auto-shape mode selector */}
+      {onAutoShapeModeChange && (
+        <>
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => onAutoShapeModeChange(nextMode[autoShapeMode])}
+              aria-label={modeInfo[autoShapeMode].label}
+              title={modeInfo[autoShapeMode].label}
+              data-testid="toolbar-autoshape-toggle"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-700 transition-colors hover:bg-gray-100"
+            >
+              {modeInfo[autoShapeMode].icon}
+            </button>
+          </div>
+          <div className="my-0.5 h-px bg-gray-100" />
+        </>
+      )}
 
       {/* Undo / Redo */}
       <div className="flex flex-col gap-0.5">
