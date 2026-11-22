@@ -39,13 +39,17 @@ export interface PointerEventHandlers {
 export interface UsePointerEventsOptions {
   view: ViewTransform;
   onViewChange: (v: ViewTransform) => void;
-  onDrawStart: (pt: WorldPoint, type: "pen" | "mouse" | "touch") => void;
-  onDrawMove: (pt: WorldPoint, type: "pen" | "mouse" | "touch") => void;
-  onDrawEnd: (pt: WorldPoint, type: "pen" | "mouse" | "touch") => void;
+  onDrawStart: (pt: WorldPoint, type: "pen" | "mouse" | "touch", pointerId?: number) => void;
+  onDrawMove: (pt: WorldPoint, type: "pen" | "mouse" | "touch", pointerId?: number) => void;
+  onDrawEnd: (pt: WorldPoint, type: "pen" | "mouse" | "touch", pointerId?: number) => void;
   /** If true, disable all drawing (read-only mode) */
   readOnly?: boolean;
   /** Optional imperative ViewportController (P10-T03: avoids React re-renders on zoom/pan) */
   viewportController?: ViewportController;
+  /** Enable concurrent multi-pointer/pen drawing (P12-T04) */
+  multiPointer?: boolean;
+  /** Large touch display mode toggle (P12-T04) */
+  largeTouchMode?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,9 +101,14 @@ export function usePointerEvents({
   onDrawEnd,
   readOnly = false,
   viewportController,
+  multiPointer = false,
+  largeTouchMode = false,
 }: UsePointerEventsOptions): PointerEventHandlers {
   // Track all active pointers (for multi-touch)
   const activePointers = useRef<Map<number, React.PointerEvent["nativeEvent"]>>(new Map());
+
+  // Track active drawing pointers (pointerId -> pointerType) for concurrent multi-pen/pointer (P12-T04)
+  const drawingPointers = useRef<Map<number, "pen" | "mouse" | "touch">>(new Map());
 
   // Palm rejection: timestamp of last pen contact
   const lastPenContact = useRef<number>(0);
@@ -110,10 +119,6 @@ export function usePointerEvents({
 
   // Single-finger pan state (touch)
   const panStart = useRef<{ pointerX: number; pointerY: number; viewX: number; viewY: number } | null>(null);
-
-  // Drawing state
-  const isDrawing = useRef(false);
-  const drawType = useRef<"pen" | "mouse" | "touch">("mouse");
 
   // -------------------------------------------------------------------------
   const getPointerType = (e: React.PointerEvent): "pen" | "mouse" | "touch" => {
@@ -148,9 +153,8 @@ export function usePointerEvents({
 
       const count = activePointers.current.size;
 
-      // Two-finger pinch start
-      if (type === "touch" && count === 2) {
-        isDrawing.current = false;
+      // Two-finger pinch start (only if no pen is drawing)
+      if (type === "touch" && count === 2 && drawingPointers.current.size === 0) {
         const pts = [...activePointers.current.values()];
         const d = distance(pts[0], pts[1]);
         const mid = midpoint(pts[0], pts[1]);
@@ -159,22 +163,25 @@ export function usePointerEvents({
         return;
       }
 
-      // One finger touch = pan
-      if (type === "touch" && count === 1) {
+      // One finger touch = pan (only if no pen is drawing and not multiPointer touch)
+      if (type === "touch" && count === 1 && !multiPointer) {
         panStart.current = { pointerX: e.clientX, pointerY: e.clientY, viewX: view.x, viewY: view.y };
         return;
       }
 
-      // Draw start (pen or mouse left button)
+      // Draw start (pen, mouse left button, or multiPointer touch)
       if (readOnly) return;
       if (type === "mouse" && e.button !== 0) return;
 
-      isDrawing.current = true;
-      drawType.current = type;
+      drawingPointers.current.set(e.pointerId, type);
       const pt = withPressure(screenToWorld(e.clientX, e.clientY, view), e);
-      onDrawStart(pt, type);
+      if (multiPointer) {
+        onDrawStart(pt, type, e.pointerId);
+      } else {
+        onDrawStart(pt, type);
+      }
     },
-    [view, isPalmRejected, onDrawStart, readOnly]
+    [view, isPalmRejected, onDrawStart, readOnly, multiPointer]
   );
 
   // -------------------------------------------------------------------------
@@ -213,7 +220,7 @@ export function usePointerEvents({
       }
 
       // Single-touch pan
-      if (type === "touch" && panStart.current && count === 1) {
+      if (type === "touch" && panStart.current && count === 1 && !multiPointer) {
         const dx = e.clientX - panStart.current.pointerX;
         const dy = e.clientY - panStart.current.pointerY;
         if (viewportController) {
@@ -226,12 +233,16 @@ export function usePointerEvents({
         return;
       }
 
-      // Draw move
-      if (!isDrawing.current || readOnly) return;
+      // Draw move for active drawing pointer
+      if (!drawingPointers.current.has(e.pointerId) || readOnly) return;
       const pt = withPressure(screenToWorld(e.clientX, e.clientY, view), e);
-      onDrawMove(pt, drawType.current);
+      if (multiPointer) {
+        onDrawMove(pt, drawingPointers.current.get(e.pointerId)!, e.pointerId);
+      } else {
+        onDrawMove(pt, drawingPointers.current.get(e.pointerId)!);
+      }
     },
-    [view, isPalmRejected, onViewChange, onDrawMove, readOnly]
+    [view, isPalmRejected, onViewChange, onDrawMove, readOnly, multiPointer, viewportController]
   );
 
   // -------------------------------------------------------------------------
@@ -252,11 +263,16 @@ export function usePointerEvents({
         panStart.current = null;
       }
 
-      // End draw
-      if (isDrawing.current && !readOnly) {
-        isDrawing.current = false;
+      // End draw for this pointer
+      if (drawingPointers.current.has(e.pointerId) && !readOnly) {
+        const pType = drawingPointers.current.get(e.pointerId)!;
+        drawingPointers.current.delete(e.pointerId);
         const pt = withPressure(screenToWorld(e.clientX, e.clientY, view), e);
-        onDrawEnd(pt, drawType.current);
+        if (multiPointer) {
+          onDrawEnd(pt, pType, e.pointerId);
+        } else {
+          onDrawEnd(pt, pType);
+        }
       }
     },
     [view, onDrawEnd, readOnly]
@@ -265,7 +281,7 @@ export function usePointerEvents({
   const onPointerCancel = useCallback(
     (e: React.PointerEvent) => {
       activePointers.current.delete(e.pointerId);
-      isDrawing.current = false;
+      drawingPointers.current.delete(e.pointerId);
       isPinching.current = false;
       pinchRef.current = null;
       panStart.current = null;

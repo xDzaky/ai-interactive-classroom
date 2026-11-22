@@ -244,3 +244,70 @@ describe("usePointerEvents — pointer cancel", () => {
     expect(onDrawEnd).not.toHaveBeenCalled();
   });
 });
+
+describe("usePointerEvents — multi-pointer concurrent drawing (P12-T04)", () => {
+  it("tracks two independent pen pointers drawing simultaneously", () => {
+    const onDrawStart = vi.fn();
+    const onDrawMove = vi.fn();
+    const onDrawEnd = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePointerEvents({
+        view: DEFAULT_VIEW,
+        onViewChange: vi.fn(),
+        onDrawStart,
+        onDrawMove,
+        onDrawEnd,
+        multiPointer: true,
+      })
+    );
+
+    // Pen 1 down at (100, 100)
+    act(() =>
+      result.current.onPointerDown(
+        makePointerEvent({ pointerId: 10, pointerType: "pen", clientX: 100, clientY: 100 })
+      )
+    );
+    expect(onDrawStart).toHaveBeenCalledWith(expect.anything(), "pen", 10);
+
+    // Pen 2 down at (300, 300)
+    act(() =>
+      result.current.onPointerDown(
+        makePointerEvent({ pointerId: 20, pointerType: "pen", clientX: 300, clientY: 300 })
+      )
+    );
+    expect(onDrawStart).toHaveBeenCalledWith(expect.anything(), "pen", 20);
+
+    // Move pen 1
+    act(() =>
+      result.current.onPointerMove(
+        makePointerEvent({ pointerId: 10, pointerType: "pen", clientX: 110, clientY: 110 })
+      )
+    );
+    expect(onDrawMove).toHaveBeenCalledWith(expect.anything(), "pen", 10);
+
+    // Release pen 1
+    act(() =>
+      result.current.onPointerUp(
+        makePointerEvent({ pointerId: 10, pointerType: "pen", clientX: 110, clientY: 110 })
+      )
+    );
+    expect(onDrawEnd).toHaveBeenCalledWith(expect.anything(), "pen", 10);
+
+    // Pen 2 is still active and moves
+    act(() =>
+      result.current.onPointerMove(
+        makePointerEvent({ pointerId: 20, pointerType: "pen", clientX: 320, clientY: 320 })
+      )
+    );
+    expect(onDrawMove).toHaveBeenCalledWith(expect.anything(), "pen", 20);
+
+    // Release pen 2
+    act(() =>
+      result.current.onPointerUp(
+        makePointerEvent({ pointerId: 20, pointerType: "pen", clientX: 320, clientY: 320 })
+      )
+    );
+    expect(onDrawEnd).toHaveBeenCalledWith(expect.anything(), "pen", 20);
+  });
+});

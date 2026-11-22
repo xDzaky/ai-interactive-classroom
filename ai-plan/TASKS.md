@@ -128,7 +128,7 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P10-T11 | MID  | deps: T09    | Integrate recognizer: modes Otomatis/Tahan/Mati, suggestion chip, undo-to-ink
 - [x] P10-T12 | HIGH | deps: T10,T11 | Accuracy gate (corpus + human samples), tuning, confusion matrix doc
 - [ ] P10-T13 | MID  | deps: T12    | OPTIONAL: extra planar shapes (jajargenjang, trapesium, layang-layang, siku-siku, sudut)
-- [ ] P10-RV  | HIGH | deps: T01-T12 | Phase review
+- [x] P10-RV  | HIGH | deps: T01-T12 | Phase review
 
 ## P11 — Solid geometry / bangun ruang (iFLYTEK-style) · `tasks/P11-solid-geometry.md`
 - [x] P11-T01 | MID  | deps: P10-T08 | Audit existing 3D code (viz_solid, viewer, geometry) → AUDIT-P11.md
@@ -140,19 +140,18 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P11-T07 | MID  | deps: T05    | Sync viz state (section/labels/unfold) via existing events + reducer + replay safe
 - [x] P11-T08 | MID  | deps: T04,P10-T12 | Datar→Ruang: turn a recognized 2D shape into a solid (context chooser)
 - [x] P11-T09 | HIGH | deps: T03    | Jaring-jaring: unfold/fold animation (general convex + cylinder/cone)
-- [ ] P11-T10 | HIGH | deps: T08,P10-T12 | OPTIONAL: wireframe sketch→solid recognition (cube/pyramid/prism/cylinder/cone)
+- [-] P11-T10 | HIGH | deps: T08,P10-T12 | OPTIONAL: wireframe sketch→solid recognition (cube/pyramid/prism/cylinder/cone)
 - [x] P11-T11 | LOW  | deps: T06    | i18n glossary (Indonesian terms) + a11y labels
-
-- [ ] P11-RV  | HIGH | deps: T01-T09 | Phase review
+- [x] P11-RV  | HIGH | deps: T01-T09 | Phase review
 
 ## P12 — Board UX + compatibility (optional, inspired by iFLYTEK demo) · `tasks/P12-board-ux-optional.md`
 - [x] P12-T01 | MID  | deps: P11-T04 | Radial quick-action menu (floating dial)
 - [x] P12-T02 | MID  | deps: P11-T06 | Floating contextual toolbar under selected 3D object
-- [ ] P12-T03 | MID  | deps: P12-T01,P08-T05 | OPTIONAL: handwriting → LaTeX via vision LLM → graph (teacher-confirmed)
-- [ ] P12-T04 | MID  | deps: P10-T08 | Multi-pointer writing (several pens/fingers at once) + large-touch mode for smart displays
-- [ ] P12-T05 | LOW  | deps: P12-T04 | Device matrix update + Playwright device emulation checks
-- [ ] P12-T06 | LOW  | deps: P11-T11 | OPTIONAL: voice commands (Web Speech API, id-ID) for 5 commands
-- [ ] P12-RV  | HIGH | deps: T01-T05 | Phase review
+- [-] P12-T03 | MID  | deps: P12-T01,P08-T05 | OPTIONAL: handwriting → LaTeX via vision LLM → graph (teacher-confirmed)
+- [x] P12-T04 | MID  | deps: P10-T08 | Multi-pointer writing (several pens/fingers at once) + large-touch mode for smart displays
+- [x] P12-T05 | LOW  | deps: P12-T04 | Device matrix update + Playwright device emulation checks
+- [-] P12-T06 | LOW  | deps: P11-T11 | OPTIONAL: voice commands (Web Speech API, id-ID) for 5 commands
+- [x] P12-RV  | HIGH | deps: T01-T05 | Phase review
 
 ## P13 — GeoGebra study, clean-room, UX redesign · `tasks/P13-geogebra-study-ux.md`
 - [x] P13-T00 | HUMAN | deps: -        | LEGAL GATE: choose path A/B/C and record ADR-P13 in DECISIONS.md (Path C chosen by Dzaky 2026-11-22)
@@ -160,11 +159,11 @@ Spec stage mapping: P00=setup, P01=Stage 1 Foundation, P02=Stage 2 Whiteboard, P
 - [x] P13-T02 | HIGH  | deps: T00,P11-T03 | Clean-room READER sessions → behavior specs in docs/study/geogebra/ (no code copied)
 - [x] P13-T03 | MID   | deps: T00      | UX study (use the apps manually) → own design spec + tokens (no assets copied)
 - [x] P13-T04 | MID   | deps: T00      | Spike: JSXGraph as 2D dynamic-geometry engine (license + fit) → build-vs-adopt decision
-- [ ] P13-T05 | MID   | deps: T00      | OPTIONAL (path A only): feature-flagged GeoGebra Apps embed for NON-COMMERCIAL pilot
-- [ ] P13-T06 | HIGH  | deps: T02,T04  | construction-core: own dependency-graph engine (only if T04 says "build")
+- [-] P13-T05 | MID   | deps: T00      | OPTIONAL (path A only): feature-flagged GeoGebra Apps embed for NON-COMMERCIAL pilot
+- [-] P13-T06 | HIGH  | deps: T02,T04  | construction-core: own dependency-graph engine (only if T04 says "build")
 - [x] P13-T07 | MID   | deps: T03      | Apply design spec: workspace layout (objects panel, grouped toolbar, mode presets)
 - [x] P13-T08 | MID   | deps: T03,P11-T11 | Lesson-template library + Kurikulum Merdeka taxonomy (original content)
-- [ ] P13-RV  | HIGH  | deps: T01-T04,T07 | Phase review (incl. guard script and license audit)
+- [x] P13-RV  | HIGH  | deps: T01-T04,T07 | Phase review (incl. guard script and license audit)
 
 ---
 

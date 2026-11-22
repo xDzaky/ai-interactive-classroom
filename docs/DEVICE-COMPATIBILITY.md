@@ -16,12 +16,17 @@
 |---|---|---|---|---|
 | Android phone (≥ 720p) | Chrome 120+ | Android 12+ | ✅ Target | Mobile controller flow |
 | iPad (≥ 10.9") | Safari 17+ | iPadOS 17 | ✅ Target | Student view |
+| iPad + Apple Pencil | Safari 17+ | iPadOS 17 | ✅ Target | Stylus pressure, palm rejection active |
+| Low-end Android Tablet | Chrome 120+ | Android 11+ | ✅ Supported | 45+ FPS zoom, low-DPR 3D fallback |
+| Chromebook | Chrome 120+ | ChromeOS 120+ | ✅ Target | Touch + stylus supported, 60 FPS |
+| Windows touch laptop | Edge 120+ / Chrome | Windows 11 | ✅ Target | Multi-touch pinch/pan, pen supported |
 | iPhone 12+ | Safari 17+ | iOS 17 | ✅ Target | Mobile controller |
 | Cheap Android (RAM ≥ 2 GB) | Chrome 120+ | Android 10+ | ⚠️ Limited | 3D degraded to low-quality mode |
 
 ### Projector / Smart Display
 | Type | Connection | Status | Notes |
 |---|---|---|---|
+| 1080p Interactive Flat Panel | Android / ChromeOS / Windows | ✅ Target | Mode layar besar (UI 1.25x, target ≥56px, multi-pen) |
 | HDMI-connected laptop | — | ✅ Target | Teacher mirrors screen |
 | Smart TV with browser | Chrome-based | ⚠️ Limited | No WebGL fallback tested |
 

@@ -403,6 +403,8 @@ Rules:
 | apps/web/src/features/templates/TemplatePickerModal.tsx | Modal dialog for browsing, filtering, and selecting lesson templates | TemplatePickerModal | P13-T08 | OK |
 | apps/web/src/features/templates/TemplatePickerModal.test.tsx | Unit tests for TemplatePickerModal component | — | P13-T08 | OK |
 | docs/templates/README.md | Documentation of Kurikulum Merdeka taxonomy and 10 original starter lesson templates | — | P13-T08 | OK |
+| apps/web/e2e/devices.spec.ts | Playwright device emulation checks for iPad, iPhone, and flat panel displays | — | P12-T05 | OK |
+
 
 
 
