@@ -829,10 +829,6 @@ export function WhiteboardCanvas({
 
   const handleAcceptSuggestion = useCallback(() => {
     if (!suggestionChip.candidate) return;
-    commitEvent({
-      event_type: "object.deleted",
-      payload: { id: suggestionChip.strokeId },
-    });
     const shapeId = `${suggestionChip.strokeId}-shape`;
     const shapeEv = candidateToShapeEvent(
       shapeId,
@@ -840,26 +836,46 @@ export function WhiteboardCanvas({
       suggestionChip.color,
       suggestionChip.width,
     );
-    commitEvent(shapeEv);
+    // Atomic batch: remove original freehand stroke AND add clean shape in one undoable step
+    commitEvent({
+      event_type: "batch",
+      payload: {
+        events: [
+          {
+            event_type: "object.deleted",
+            payload: { id: suggestionChip.strokeId },
+          },
+          shapeEv,
+        ],
+      },
+    });
     setSuggestionChip((prev) => ({ ...prev, visible: false }));
   }, [suggestionChip, commitEvent]);
 
   const handleRevertShape = useCallback(() => {
     const last = lastSnappedRef.current;
     if (!last) return;
-    commitEvent({
-      event_type: "object.deleted",
-      payload: { id: last.shapeId },
-    });
     const strokeId = `${last.shapeId}-ink`;
+    // Atomic batch: remove snapped shape AND restore original freehand stroke
     commitEvent({
-      event_type: "stroke.committed",
+      event_type: "batch",
       payload: {
-        id: strokeId,
-        points: reducePoints(last.originalPoints),
-        color: last.color,
-        width: last.width,
-        tool: "pen",
+        events: [
+          {
+            event_type: "object.deleted",
+            payload: { id: last.shapeId },
+          },
+          {
+            event_type: "stroke.committed",
+            payload: {
+              id: strokeId,
+              points: reducePoints(last.originalPoints),
+              color: last.color,
+              width: last.width,
+              tool: "pen",
+            },
+          },
+        ],
       },
     });
     lastSnappedRef.current = null;

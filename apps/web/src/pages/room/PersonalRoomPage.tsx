@@ -152,18 +152,25 @@ export default function PersonalRoomPage() {
     )
       return;
     const result = pushHistory(boardStateRef.current, historyRef.current, event);
+    // Update refs synchronously so back-to-back commitEvent calls never read stale state
+    boardStateRef.current = result.state;
+    historyRef.current = result.history;
     setBoardState(result.state);
     setHistory(result.history);
   }, []);
 
   const handleUndo = useCallback(() => {
     const result = historyUndo(boardStateRef.current, historyRef.current);
+    boardStateRef.current = result.state;
+    historyRef.current = result.history;
     setBoardState(result.state);
     setHistory(result.history);
   }, []);
 
   const handleRedo = useCallback(() => {
     const result = historyRedo(boardStateRef.current, historyRef.current);
+    boardStateRef.current = result.state;
+    historyRef.current = result.history;
     setBoardState(result.state);
     setHistory(result.history);
   }, []);
