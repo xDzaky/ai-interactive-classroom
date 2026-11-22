@@ -25,6 +25,8 @@ import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { ViewportController } from "@/lib/viewport";
 import { GridBackground } from "@/components/whiteboard/GridBackground";
+import { reducePoints } from "@/lib/strokePath";
+import { StrokeNode } from "./objects/StrokeNode";
 import {
   RenderObject,
   generateEllipsePoints,
@@ -842,11 +844,12 @@ export function WhiteboardCanvas({
         pts.length >= 2
       ) {
         const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
+        const reducedPts = reducePoints(allPts);
         commitEvent({
           event_type: "stroke.committed",
           payload: {
             id,
-            points: allPts,
+            points: reducedPts,
             color: tool === "eraser" ? "#0f172a" : col,
             width: sw,
             tool,
@@ -1041,36 +1044,11 @@ export function WhiteboardCanvas({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Render strokes
+  // Render strokes (memoized StrokeNode with cached outline)
   // ---------------------------------------------------------------------------
-  const strokeElems = Object.values(scene.strokes).map((stroke: BoardStroke) => {
-    const pts = strokeToPoints(stroke);
-    if (pts.length < 4) return null;
-    return (
-      <Line
-        key={`stroke-${stroke.id}`}
-        points={pts}
-        strokeWidth={1}
-        closed
-        fill={
-          stroke.tool === "eraser"
-            ? "#0f172a"
-            : stroke.tool === "highlighter"
-              ? stroke.color + "66"
-              : stroke.color
-        }
-        lineCap="round"
-        lineJoin="round"
-        listening={false}
-        perfectDrawEnabled={false}
-        shadowForStrokeEnabled={false}
-        hitStrokeWidth={0}
-        globalCompositeOperation={
-          stroke.tool === "eraser" ? "destination-out" : "source-over"
-        }
-      />
-    );
-  });
+  const strokeElems = Object.values(scene.strokes).map((stroke: BoardStroke) => (
+    <StrokeNode key={`stroke-${stroke.id}`} stroke={stroke} />
+  ));
 
   // ---------------------------------------------------------------------------
   // Render objects

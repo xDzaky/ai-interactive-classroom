@@ -8,6 +8,7 @@
 import { useCallback, useRef, useState } from "react";
 import { getStroke } from "perfect-freehand";
 import type { WhiteboardEvent } from "@ai-classroom/whiteboard-core";
+import { reducePoints } from "@/lib/strokePath";
 
 // ---------------------------------------------------------------------------
 // Tool types
@@ -175,11 +176,12 @@ export function useWhiteboardTool(
         case "eraser": {
           const pts = [...strokePoints.current, [pt.x, pt.y, pt.pressure] as [number, number, number]];
           if (pts.length < 2) break;
+          const reducedPts = reducePoints(pts);
           committed = {
             event_type: "stroke.committed",
             payload: {
               id,
-              points: pts,
+              points: reducedPts,
               color: toolState.activeTool === "eraser" ? "#ffffff" : toolState.color,
               width: toolState.strokeWidth,
               tool: toolState.activeTool,

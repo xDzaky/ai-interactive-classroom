@@ -339,3 +339,6 @@ Rules:
 | apps/web/src/components/whiteboard/GridBackground.tsx | CSS-only adaptive background grid driven by ViewportController (0 canvas cost) | GridBackground | P10-T04 | OK |
 | apps/web/src/components/whiteboard/GridBackground.test.tsx | Unit tests for GridBackground rendering & CSS variable updates | — | P10-T04 | OK |
 | apps/web/src/pages/whiteboard/objects/RenderObject.tsx | Memoized Konva object renderer with hitStrokeWidth<=12, perfectDraw=false | RenderObject, computeObjectBbox | P10-T05 | OK |
+| apps/web/src/lib/strokePath.ts | WeakMap outline cache and RDP/distance point reduction on commit | reducePoints, getCachedStrokePoints | P10-T06 | OK |
+| apps/web/src/lib/strokePath.test.ts | Unit tests for point reduction (1000-pt line, circle, cap) and WeakMap cache | — | P10-T06 | OK |
+| apps/web/src/pages/whiteboard/objects/StrokeNode.tsx | Memoized Konva stroke node using cached outline points | StrokeNode | P10-T06 | OK |

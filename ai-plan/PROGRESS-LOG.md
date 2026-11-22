@@ -1473,3 +1473,11 @@ Date: 2026-11-22T00:57:30Z
 ## START — P10-T06 | Stroke rendering: cached paths, point reduction on commit
 Date: 2026-11-22T00:59:00Z
 Tier: MID
+
+## DONE — P10-T06 | Stroke rendering: cached paths, point reduction on commit
+Date: 2026-11-22T01:07:30Z
+- Created `apps/web/src/lib/strokePath.ts` with `reducePoints` (min distance filter, Ramer-Douglas-Peucker tolerance <= 0.4, 400 point hard cap) and `getCachedStrokePoints` (WeakMap memoization keyed by points array)
+- Created `apps/web/src/pages/whiteboard/objects/StrokeNode.tsx`: React.memo Konva stroke renderer with cached outline points, `perfectDrawEnabled={false}`, `shadowForStrokeEnabled={false}`, `hitStrokeWidth={0}`
+- Integrated `reducePoints` into `useWhiteboardTool.ts` and `WhiteboardCanvas.tsx` on commit
+- Added 5 unit tests in `strokePath.test.ts` (1000-pt line collapses to <= 3 points, circle keeps >= 20 points, WeakMap cache returns identical reference, hard cap 400 points)
+- Verified: `tsc --noEmit` clean, 53/53 test files passed (354/354 tests)
