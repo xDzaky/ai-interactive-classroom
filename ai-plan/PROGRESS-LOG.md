@@ -1422,3 +1422,11 @@ Date: 2026-11-21T17:50:34Z
 ## START — P10-T02 | Diagnose by experiment
 Date: 2026-11-22T00:23:36Z
 Tier: MID
+
+## DONE — P10-T02 | Diagnose by experiment
+Date: 2026-11-22T00:24:29Z
+- Conducted experiments E1-E8 across hypotheses H1-H8
+- Confirmed H1 (grid overhead: -39.8%), H2 (React zoom state: -61.5%), H3 (stroke recomputation: -64.1%)
+- Confirmed H5 (HiDPI DPR: -18.1%) and H8 (prod vs dev: -39.1%)
+- Created docs/perf/DIAGNOSIS.md with full evidence table and ordered fix roadmap for T03-T07
+- Verified no leftover flags in codebase
