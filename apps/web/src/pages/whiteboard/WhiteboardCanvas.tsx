@@ -24,6 +24,7 @@ import type {
 import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { ViewportController } from "@/lib/viewport";
+import { GridBackground } from "@/components/whiteboard/GridBackground";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -319,81 +320,6 @@ function recognizeShape(pts: [number, number, number][]): RecognizedShape {
   }
 
   return { type: "none" };
-}
-
-// ---------------------------------------------------------------------------
-// Grid layer
-// ---------------------------------------------------------------------------
-
-function GridLayer({
-  width,
-  height,
-  scale,
-  offsetX,
-  offsetY,
-}: {
-  width: number;
-  height: number;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-}) {
-  const gridSize = 40;
-  const lines: React.ReactNode[] = [];
-
-  const worldLeft = -offsetX / scale;
-  const worldTop = -offsetY / scale;
-  const worldRight = worldLeft + width / scale;
-  const worldBottom = worldTop + height / scale;
-
-  const startX = Math.floor(worldLeft / gridSize) * gridSize;
-  const startY = Math.floor(worldTop / gridSize) * gridSize;
-
-  for (let x = startX; x <= worldRight; x += gridSize) {
-    lines.push(
-      <Line
-        key={`vl-${x}`}
-        points={[x, worldTop, x, worldBottom]}
-        stroke="#1e293b"
-        strokeWidth={1 / scale}
-        listening={false}
-      />,
-    );
-  }
-  for (let y = startY; y <= worldBottom; y += gridSize) {
-    lines.push(
-      <Line
-        key={`hl-${y}`}
-        points={[worldLeft, y, worldRight, y]}
-        stroke="#1e293b"
-        strokeWidth={1 / scale}
-        listening={false}
-      />,
-    );
-  }
-
-  const dots: React.ReactNode[] = [];
-  for (let x = startX; x <= worldRight; x += gridSize) {
-    for (let y = startY; y <= worldBottom; y += gridSize) {
-      dots.push(
-        <Circle
-          key={`d-${x}-${y}`}
-          x={x}
-          y={y}
-          radius={1.5 / scale}
-          fill="#334155"
-          listening={false}
-        />,
-      );
-    }
-  }
-
-  return (
-    <Layer listening={false}>
-      {lines}
-      {dots}
-    </Layer>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1421,6 +1347,10 @@ export function WhiteboardCanvas({
         cursor: cursorMap[activeTool] ?? "crosshair",
       }}
     >
+      <GridBackground
+        viewportController={viewportController}
+        visible={showGrid}
+      />
       <Stage
         ref={stageRef}
         width={width}
@@ -1435,15 +1365,6 @@ export function WhiteboardCanvas({
         onPointerUp={handleStagePointerUp}
         onPointerLeave={handleStagePointerUp}
       >
-        {showGrid && (
-          <GridLayer
-            width={width}
-            height={height}
-            scale={viewportController.getState().scale}
-            offsetX={viewportController.getState().x}
-            offsetY={viewportController.getState().y}
-          />
-        )}
         <Layer>{strokeElems}</Layer>
         <Layer>{objectElems}</Layer>
         {/* Imperative preview layer — no JSX children, redrawn via batchDraw() */}

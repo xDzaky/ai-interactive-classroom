@@ -1446,3 +1446,13 @@ Date: 2026-11-22T00:39:40Z
 ## START — P10-T04 | Grid as CSS background + adaptive spacing
 Date: 2026-11-22T00:42:00Z
 Tier: MID
+
+## DONE — P10-T04 | Grid as CSS background + adaptive spacing
+Date: 2026-11-22T00:48:45Z
+- Created `apps/web/src/lib/gridSpec.ts` with adaptive `gridSpec(scale, baseWorld = 20)` (spacing expansion when `spacing * scale < 14`, visibility cutoff at `scale < 0.15`)
+- Created `apps/web/src/components/whiteboard/GridBackground.tsx`: CSS-only dual linear-gradient grid (minor + major every 5 cells) driven by ViewportController subscription via CSS variables (`--gs`, `--gx`, `--gy`, `--major-gs`, `--major-gx`, `--major-gy`)
+- Removed old Konva `GridLayer` (eliminated hundreds of `<Line>` and `<Circle>` canvas nodes)
+- Updated `snapping.ts` to export `BASE_WORLD_GRID = 20`
+- Documented in `exportPng.ts` that PNG export excludes grid
+- Added unit tests: `gridSpec.test.ts` (5 tests), `GridBackground.test.tsx` (3 tests)
+- Verified: `tsc --noEmit` clean, 52/52 test files passed (347/347 tests)

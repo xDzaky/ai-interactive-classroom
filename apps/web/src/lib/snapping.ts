@@ -10,9 +10,14 @@ export interface Point {
 }
 
 /**
+ * Base grid spacing in world units (P10-T04: 20 world units).
+ */
+export const BASE_WORLD_GRID = 20;
+
+/**
  * Snap a point to the nearest grid cell.
  * @param pt  World-space point
- * @param gridSize  Grid cell size in world units (default 40)
+ * @param gridSize  Grid cell size in world units (default 40, base 20)
  */
 export function snapToGrid(pt: Point, gridSize = 40): Point {
   return {

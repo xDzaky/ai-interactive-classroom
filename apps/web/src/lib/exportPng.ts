@@ -1,7 +1,10 @@
 /**
- * exportPng.ts — P02-T08
+ * exportPng.ts — P02-T08, P10-T04
  * Export the active Konva stage to a PNG file download.
  * Pure function: takes a Konva Stage ref and triggers browser download.
+ *
+ * Note (P10-T04): The grid is rendered as a CSS background behind the Konva stage,
+ * so exported PNG images do not include the grid lines or dots (clean artboard export).
  */
 import type Konva from "konva";
 

@@ -334,3 +334,7 @@ Rules:
 | apps/web/src/dev/FpsMeter.tsx | Floating real-time FPS / avg / p95 monitor component | FpsMeter | P10-T01 | OK |
 | apps/web/src/lib/viewport.ts | Imperative ViewportController: batchDraw, zoomAt with invariant, panBy, subscription | ViewportController, ViewportState | P10-T03 | OK |
 | apps/web/src/lib/viewport.test.ts | Unit tests for ViewportController invariant, bounds, pan, subscribers | — | P10-T03 | OK |
+| apps/web/src/lib/gridSpec.ts | Adaptive grid spacing specification (worldSpacing, screenSpacing, visible) | gridSpec, GridSpec | P10-T04 | OK |
+| apps/web/src/lib/gridSpec.test.ts | Unit tests for gridSpec vectors across zoom levels | — | P10-T04 | OK |
+| apps/web/src/components/whiteboard/GridBackground.tsx | CSS-only adaptive background grid driven by ViewportController (0 canvas cost) | GridBackground | P10-T04 | OK |
+| apps/web/src/components/whiteboard/GridBackground.test.tsx | Unit tests for GridBackground rendering & CSS variable updates | — | P10-T04 | OK |
