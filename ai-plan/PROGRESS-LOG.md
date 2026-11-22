@@ -1481,3 +1481,7 @@ Date: 2026-11-22T01:07:30Z
 - Integrated `reducePoints` into `useWhiteboardTool.ts` and `WhiteboardCanvas.tsx` on commit
 - Added 5 unit tests in `strokePath.test.ts` (1000-pt line collapses to <= 3 points, circle keeps >= 20 points, WeakMap cache returns identical reference, hard cap 400 points)
 - Verified: `tsc --noEmit` clean, 53/53 test files passed (354/354 tests)
+
+## START — P10-T07 | 3D overlay perf (frameloop demand, DPR cap, context limit)
+Date: 2026-11-22T01:09:00Z
+Tier: MID
