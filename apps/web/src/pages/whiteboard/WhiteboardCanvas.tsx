@@ -45,6 +45,7 @@ import {
   ShapeRevertToast,
 } from "@/components/whiteboard/ShapeSuggestionChip";
 import type { AutoShapeMode } from "@/components/whiteboard/ToolBar";
+import { WhiteboardOverlay } from "./WhiteboardOverlay";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1504,6 +1505,14 @@ export function WhiteboardCanvas({
         {/* Layer 3: uiLayer — selection/transformer */}
         <Layer id="ui-layer" listening={activeTool === "select"} />
       </Stage>
+
+      {/* 3D solid and 2D math graph interactive DOM overlay (P03-T06, P10-T07, P11-T04) */}
+      <WhiteboardOverlay
+        boardState={boardState}
+        viewportController={viewportController}
+        width={width}
+        height={height}
+      />
 
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-400 shadow-lg backdrop-blur-sm select-none">

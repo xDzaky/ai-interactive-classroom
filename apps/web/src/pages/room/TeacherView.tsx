@@ -10,6 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   createInitialBoardState,
   applyEvent,
+  getActiveScene,
 } from "@ai-classroom/whiteboard-core";
 import type { BoardState, WhiteboardEvent } from "@ai-classroom/whiteboard-core";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
@@ -24,6 +25,10 @@ import { GroupWorkspace } from "@/components/room/GroupWorkspace";
 import { ClassroomTimer } from "@/components/room/ClassroomTimer";
 import { RandomPicker } from "@/components/room/RandomPicker";
 import { GroupGenerator } from "@/components/room/GroupGenerator";
+import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
+import { ObjectsPanel, type BoardObjectItem } from "@/components/workspace/ObjectsPanel";
+import { RadialMenu, type RadialMenuItem } from "@/components/whiteboard/RadialMenu";
+import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -111,6 +116,33 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
 
   // ── Connect Device modal ─────────────────────────────────────────────────
   const [deviceModalOpen, setDeviceModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [objectsPanelOpen, setObjectsPanelOpen] = useState(false);
+
+  // ── Extract objects from active scene for ObjectsPanel ───────────────────
+  const activeScene = getActiveScene(boardState);
+  const boardObjects: BoardObjectItem[] = Object.values(activeScene?.objects || {}).map((obj: any) => ({
+    id: obj.id,
+    type: obj.type,
+    label: obj.label || obj.solidType || obj.type,
+    color: obj.color || '#6366f1',
+    hidden: !!obj.display?.hidden,
+    locked: !!obj.locked,
+  }));
+
+  const handleSelectTemplate = useCallback((template: LessonTemplate) => {
+    if (template.boardState) {
+      setBoardState(template.boardState as unknown as BoardState);
+    }
+  }, []);
+
+  const radialItems: RadialMenuItem[] = [
+    { id: 'pen', label: 'Pena', icon: '✏️', action: () => setTool('pen') },
+    { id: 'eraser', label: 'Hapus', icon: '⌫', action: () => setTool('eraser') },
+    { id: 'rect', label: 'Kotak', icon: '▭', action: () => setTool('rect') },
+    { id: 'circle', label: 'Lingkaran', icon: '◯', action: () => setTool('circle') },
+    { id: 'template', label: 'Template', icon: '📚', action: () => setTemplateModalOpen(true) },
+  ];
 
   // ── Participant count shown in header (ParticipantList sidebar has full list) ─
   const [participantCount] = useState(1);
@@ -132,6 +164,22 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setObjectsPanelOpen(!objectsPanelOpen)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              objectsPanelOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+            aria-label="Daftar Objek"
+          >
+            📋 Objek ({boardObjects.length})
+          </button>
+          <button
+            onClick={() => setTemplateModalOpen(true)}
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+            aria-label="Pustaka Template"
+          >
+            📚 Template
+          </button>
           <span className="text-xs text-slate-400">
             {t("room.participants", { count: participantCount })}
           </span>
@@ -158,7 +206,60 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
       </header>
 
       {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Leftmost: Collapsible ObjectsPanel */}
+        {objectsPanelOpen && (
+          <ObjectsPanel
+            objects={boardObjects}
+            onSelect={(_id) => {}}
+            onToggleVisibility={(id, hidden) => {
+              handleEvent({
+                type: 'whiteboard.object.updated',
+                roomId,
+                actorId: participantId,
+                objectId: id,
+                patch: { display: { hidden } },
+                seq: ++seqRef.current,
+                timestamp: Date.now(),
+              } as unknown as WhiteboardEvent);
+            }}
+            onToggleLock={(id, locked) => {
+              handleEvent({
+                type: 'whiteboard.object.updated',
+                roomId,
+                actorId: participantId,
+                objectId: id,
+                patch: { locked },
+                seq: ++seqRef.current,
+                timestamp: Date.now(),
+              } as unknown as WhiteboardEvent);
+            }}
+            onRename={(id, label) => {
+              handleEvent({
+                type: 'whiteboard.object.updated',
+                roomId,
+                actorId: participantId,
+                objectId: id,
+                patch: { label },
+                seq: ++seqRef.current,
+                timestamp: Date.now(),
+              } as unknown as WhiteboardEvent);
+            }}
+            onDelete={(id) => {
+              handleEvent({
+                type: 'whiteboard.object.deleted',
+                roomId,
+                actorId: participantId,
+                objectId: id,
+                seq: ++seqRef.current,
+                timestamp: Date.now(),
+              } as unknown as WhiteboardEvent);
+            }}
+            isOpen={objectsPanelOpen}
+            onClose={() => setObjectsPanelOpen(false)}
+          />
+        )}
+
         {/* Left: toolbar */}
         <aside
           className="flex shrink-0 items-start justify-center bg-slate-800 border-r border-slate-700 p-2"
@@ -218,6 +319,16 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
         roomId={roomId}
         open={deviceModalOpen}
         onClose={() => setDeviceModalOpen(false)}
+      />
+
+      {/* Floating Radial Quick Action Menu */}
+      <RadialMenu items={radialItems} />
+
+      {/* Lesson Template Library Modal */}
+      <TemplatePickerModal
+        isOpen={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
       />
     </div>
   );

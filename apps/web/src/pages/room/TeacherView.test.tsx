@@ -18,7 +18,8 @@ vi.mock("@/pages/whiteboard/WhiteboardCanvas", () => ({
 
 vi.mock("@ai-classroom/whiteboard-core", () => ({
   applyEvent: (s: unknown, _e: unknown) => s,
-  createInitialBoardState: (_id: string) => ({ scenes: { main: { strokes: {}, objects: {}, order: [] } }, activeScene: "main", meta: {} }),
+  createInitialBoardState: (_id: string) => ({ scenes: { main: { strokes: {}, objects: {}, order: [] } }, active_scene_id: "main", meta: {} }),
+  getActiveScene: (s: any) => s?.scenes?.[s?.active_scene_id || "main"] || { strokes: {}, objects: {}, order: [] },
 }));
 
 vi.mock("@/components/whiteboard/ToolBar", () => ({

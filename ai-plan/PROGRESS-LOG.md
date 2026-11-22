@@ -1753,14 +1753,19 @@ Date: 2026-11-22T03:35:00Z
 Date: 2026-11-22T03:38:00Z
 Tier: MID
 
-## DONE — P10-T13 | Extra Planar Shapes (Jajargenjang, Trapesium, Layang-Layang)
-Date: 2026-11-22T03:42:00Z
-- Completed `P10-T13`:
-  - Extended `packages/sketch-core/src/types.ts` with `parallelogram`, `trapezoid`, `kite` in `ShapeKind`
-  - Extended `packages/sketch-core/src/recognizer.ts` with quadrilateral side and slope parallelism classification
-  - Added unit tests in `packages/sketch-core/src/recognizer.test.ts` (3 new tests, 21/21 passing)
-  - Synthetic corpus gates remain verified at 93.9% accuracy and 99.3% negative rejection
-- Verified: `sketch-core` tests 21/21 pass, `check-third-party.mjs` clean (OK)
+## START — P13-T09 | Integration of WhiteboardOverlay, TemplatePickerModal, ObjectsPanel & RadialMenu
+Date: 2026-11-22T03:45:00Z
+Tier: MID
+
+## DONE — P13-T09 | Integration of WhiteboardOverlay, TemplatePickerModal, ObjectsPanel & RadialMenu
+Date: 2026-11-22T03:50:00Z
+- Completed end-to-end integration:
+  - Mounted `<WhiteboardOverlay>` in `WhiteboardCanvas.tsx` with imperative `ViewportController` sync for 60 FPS HTML/WebGL overlay (3D solids & 2D graphs) above Konva canvas
+  - Integrated `TemplatePickerModal`, `ObjectsPanel`, and `RadialMenu` in `TeacherView.tsx`
+  - Fixed `@ai-classroom/whiteboard-core` mock in `RoomPage.test.tsx` and `TeacherView.test.tsx` to include `getActiveScene`
+  - Verified with `apps/web` unit tests (405 tests passing, 0 failures), `vite build` (15.78s clean), and `check-third-party.mjs` (0 violations)
+- Verified: All unit tests and production build pass (OK)
+
 
 
 
