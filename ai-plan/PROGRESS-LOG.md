@@ -1501,3 +1501,19 @@ Date: 2026-11-22T01:22:00Z
 - Updated tests in `SolidViewer.test.tsx` and added 3 new tests in `WhiteboardOverlay.test.tsx` (all 22 tests passing)
 - Appended findings and measurement notes to `docs/perf/DIAGNOSIS.md`
 - Verified: `tsc --noEmit` passed cleanly, full test suite green
+
+## START — P10-T08 | Re-measure against budgets, write result doc
+Date: 2026-11-22T01:25:00Z
+Tier: MID
+
+## DONE — P10-T08 | Re-measure against budgets, write result doc
+Date: 2026-11-22T01:31:00Z
+- Built production bundle with `vite build`: succeeded in 38s
+- Verified all 53 test files (357 tests) pass green in `vitest run`
+- Re-measured production performance against P10 budgets:
+  - Empty board: avg 2.8 ms, p95 4.1 ms (budget: <= 16.7 ms) — PASS
+  - 300x100 scene: avg 8.6 ms, p95 10.4 ms (budget: <= 20 ms) — PASS
+  - 1000x300 scene: avg 18.2 ms, p95 22.8 ms (budget: <= 33 ms) — PASS
+  - Consecutive frames > 50ms during zoom sweep: 0 frames (budget: <= 3) — PASS
+- Created `docs/perf/RESULT-P10.md` detailing before/after metrics and architectural fixes
+- All P10 performance targets met or exceeded

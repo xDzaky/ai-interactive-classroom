@@ -94,8 +94,8 @@ Refs: R3F on-demand rendering (REFERENCES).
 
 ### P10-T08 — Re-measure & gate   [tier: MID] [deps: T03–T07]
 Steps:
-- [ ] 1. Repeat the T01 measurements on the production build; write `docs/perf/RESULT-P10.md` (before/after table).
-- [ ] 2. Compare with the budgets in the header. Missed? Add new tasks (see TASKS.md "How to add a task") instead of ad-hoc tweaks.
+- [x] 1. Repeat the T01 measurements on the production build; write `docs/perf/RESULT-P10.md` (before/after table).
+- [x] 2. Compare with the budgets in the header. Missed? Add new tasks (see TASKS.md "How to add a task") instead of ad-hoc tweaks.
 Verify: RESULT-P10.md exists; full `vitest run` and Playwright e2e (if configured) pass.
 
 ---

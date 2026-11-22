@@ -343,3 +343,5 @@ Rules:
 | apps/web/src/lib/strokePath.ts | WeakMap outline cache and RDP/distance point reduction on commit | reducePoints, getCachedStrokePoints | P10-T06 | OK |
 | apps/web/src/lib/strokePath.test.ts | Unit tests for point reduction (1000-pt line, circle, cap) and WeakMap cache | — | P10-T06 | OK |
 | apps/web/src/pages/whiteboard/objects/StrokeNode.tsx | Memoized Konva stroke node using cached outline points | StrokeNode | P10-T06 | OK |
+| docs/perf/DIAGNOSIS.md | Hypothesis-driven perf experiments (E1-E8) and optimization appendices | — | P10-T02 | OK |
+| docs/perf/RESULT-P10.md | Final performance gate report comparing baseline vs post-optimization results | — | P10-T08 | OK |
