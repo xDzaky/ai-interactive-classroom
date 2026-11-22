@@ -1442,3 +1442,7 @@ Date: 2026-11-22T00:39:40Z
 - Updated `WhiteboardCanvas.tsx`: removed React `useState` for view transform, debounced zoom percentage display (120ms), connected Stage and zoom buttons to ViewportController
 - Added 6 unit tests in `apps/web/src/lib/viewport.test.ts` (100% pass)
 - Verified: `tsc --noEmit` clean, 50/50 test files passed (339/339 tests)
+
+## START — P10-T04 | Grid as CSS background + adaptive spacing
+Date: 2026-11-22T00:42:00Z
+Tier: MID
