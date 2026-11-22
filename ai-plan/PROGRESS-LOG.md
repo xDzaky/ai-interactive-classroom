@@ -1430,3 +1430,7 @@ Date: 2026-11-22T00:24:29Z
 - Confirmed H5 (HiDPI DPR: -18.1%) and H8 (prod vs dev: -39.1%)
 - Created docs/perf/DIAGNOSIS.md with full evidence table and ordered fix roadmap for T03-T07
 - Verified no leftover flags in codebase
+
+## START — P10-T03 | Imperative viewport controller
+Date: 2026-11-22T00:25:13Z
+Tier: MID
