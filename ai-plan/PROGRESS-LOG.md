@@ -1469,3 +1469,7 @@ Date: 2026-11-22T00:57:30Z
 - Added unit tests in `viewport.test.ts` for node registration, culling, and bbox caching
 - Recorded PERF measurements in `docs/perf/DIAGNOSIS.md` appendix (draw calls reduced by 75.7%, zoom frame time reduced to 9.4ms p95 11.1ms)
 - Verified: `tsc --noEmit` clean, 52/52 test files passed (349/349 tests)
+
+## START — P10-T06 | Stroke rendering: cached paths, point reduction on commit
+Date: 2026-11-22T00:59:00Z
+Tier: MID
