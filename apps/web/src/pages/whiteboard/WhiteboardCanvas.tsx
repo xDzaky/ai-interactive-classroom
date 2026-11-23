@@ -697,6 +697,7 @@ export function WhiteboardCanvas({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
   const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
+  const [dynamicCursor, setDynamicCursor] = useState<string | null>(null);
   const isHandPanning = useRef(false);
   const handPanLast = useRef<{ x: number; y: number } | null>(null);
   const activeResizeRef = useRef<{
@@ -705,6 +706,12 @@ export function WhiteboardCanvas({
     origBBox: BBox;
     origProps: Record<string, unknown>;
   } | null>(null);
+
+  // Always-fresh refs so pointer handlers NEVER suffer from stale closures
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
 
   const isMarquee = useRef(false);
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
@@ -728,6 +735,67 @@ export function WhiteboardCanvas({
     },
     [legacyOnEvent, onBoardStateChange, boardState],
   );
+  const commitEventRef = useRef(commitEvent);
+  commitEventRef.current = commitEvent;
+
+  // Helper: translate any mix of selected 2D objects & freehand strokes smoothly by (dx, dy)
+  const translateSelectedLive = useCallback((dx: number, dy: number) => {
+    const curScene = sceneRef.current;
+    const ids = selectedIdsRef.current;
+    const commit = commitEventRef.current;
+    if (ids.length === 0) return;
+
+    const events: WhiteboardEvent[] = [];
+    for (const id of ids) {
+      const obj = curScene.objects[id];
+      if (obj) {
+        const props = { ...(obj.props as Record<string, unknown>) };
+        if (Array.isArray(props.customPoints)) {
+          props.customPoints = (props.customPoints as number[]).map((v, i) =>
+            i % 2 === 0 ? v + dx : v + dy
+          );
+        } else {
+          if (typeof props.x === "number") props.x += dx;
+          if (typeof props.y === "number") props.y += dy;
+          if (typeof props.cx === "number") props.cx += dx;
+          if (typeof props.cy === "number") props.cy += dy;
+          if (typeof props.x1 === "number") {
+            props.x1 += dx;
+            props.y1 = (props.y1 as number) + dy;
+            props.x2 = (props.x2 as number) + dx;
+            props.y2 = (props.y2 as number) + dy;
+            if (typeof props.x3 === "number") {
+              props.x3 += dx;
+              props.y3 = (props.y3 as number) + dy;
+            }
+          }
+        }
+        events.push({
+          event_type: "object.updated",
+          payload: { id, props_patch: props },
+        } as unknown as WhiteboardEvent);
+        continue;
+      }
+      const stroke = curScene.strokes[id];
+      if (stroke) {
+        events.push({
+          event_type: "object.updated",
+          payload: {
+            id,
+            props_patch: {
+              points: stroke.points.map(([px, py, pr]) => [px + dx, py + dy, pr]),
+            },
+          },
+        } as unknown as WhiteboardEvent);
+      }
+    }
+
+    if (events.length === 1) {
+      commit(events[0]);
+    } else if (events.length > 1) {
+      commit({ event_type: "batch", payload: { events } });
+    }
+  }, []);
 
   const selectionBBox = useMemo(() => {
     if (selectedIds.length === 0) return null;
@@ -1324,12 +1392,14 @@ export function WhiteboardCanvas({
       if (!pos) return;
 
       const tool = activeToolRef.current;
+      const curScene = sceneRef.current;
+      const curSelected = selectedIdsRef.current;
 
-      // Direct corner/edge resize handle check (works in Select or Hand mode!)
-      if ((tool === "select" || tool === "hand") && selectedIds.length === 1) {
-        const selId = selectedIds[0];
-        const selObj = scene.objects[selId];
-        const selBBox = selObj ? getItemBBox(selId, scene) : null;
+      // 1. Direct corner/edge/vertex resize handle check (works in Select OR Hand mode!)
+      if ((tool === "select" || tool === "hand") && curSelected.length === 1) {
+        const selId = curSelected[0];
+        const selObj = curScene.objects[selId];
+        const selBBox = selObj ? getItemBBox(selId, curScene) : null;
         if (selObj && selBBox) {
           const hitHandle = findHitResizeHandle(pos, selBBox, viewportController.getState().scale, selObj);
           if (hitHandle) {
@@ -1345,12 +1415,15 @@ export function WhiteboardCanvas({
       }
 
       if (tool === "hand") {
-        const hitId = findHitItem(pos, scene);
+        const hitId = findHitItem(pos, curScene);
         if (hitId) {
-          setSelectedIds([hitId]);
+          const nextIds = curSelected.includes(hitId) && curSelected.length > 1 ? curSelected : [hitId];
+          selectedIdsRef.current = nextIds;
+          setSelectedIds(nextIds);
           isDraggingSelection.current = true;
           dragSelectionStart.current = { x: pos.x, y: pos.y };
         } else {
+          selectedIdsRef.current = [];
           setSelectedIds([]);
           isHandPanning.current = true;
           handPanLast.current = { x: e.evt.clientX, y: e.evt.clientY };
@@ -1359,19 +1432,23 @@ export function WhiteboardCanvas({
       }
 
       if (tool === "select") {
-        const hitId = findHitItem(pos, scene);
+        const hitId = findHitItem(pos, curScene);
         if (hitId) {
+          let nextIds: string[];
           if (e.evt.shiftKey) {
-            setSelectedIds((prev) =>
-              prev.includes(hitId) ? prev.filter((id) => id !== hitId) : [...prev, hitId]
-            );
+            nextIds = curSelected.includes(hitId)
+              ? curSelected.filter((id) => id !== hitId)
+              : [...curSelected, hitId];
           } else {
-            setSelectedIds((prev) => (prev.includes(hitId) && prev.length > 1 ? prev : [hitId]));
+            nextIds = curSelected.includes(hitId) && curSelected.length > 1 ? curSelected : [hitId];
           }
+          selectedIdsRef.current = nextIds;
+          setSelectedIds(nextIds);
           isDraggingSelection.current = true;
           dragSelectionStart.current = { x: pos.x, y: pos.y };
         } else {
           if (!e.evt.shiftKey) {
+            selectedIdsRef.current = [];
             setSelectedIds([]);
           }
           isMarquee.current = true;
@@ -1422,12 +1499,15 @@ export function WhiteboardCanvas({
       const pos = getWorldPos();
       if (!pos) return;
 
+      const curScene = sceneRef.current;
+
+      // 1. Live corner/edge/vertex resizing (FigCraft smooth 60fps)
       if (activeResizeRef.current) {
         const r = activeResizeRef.current;
-        const obj = scene.objects[r.id];
+        const obj = curScene.objects[r.id];
         if (obj) {
           const nextProps = computeResizedProps(obj, r.handle, r.origBBox, r.origProps, pos);
-          commitEvent({
+          commitEventRef.current({
             event_type: "object.updated",
             payload: { id: r.id, props_patch: nextProps },
           } as unknown as WhiteboardEvent);
@@ -1435,45 +1515,20 @@ export function WhiteboardCanvas({
         return;
       }
 
-      if (tool === "hand") {
-        if (isDraggingSelection.current && dragSelectionStart.current) {
-          const dx = pos.x - dragSelectionStart.current.x;
-          const dy = pos.y - dragSelectionStart.current.y;
-          if (Math.hypot(dx, dy) > 0.5) {
-            dragSelectionStart.current = { x: pos.x, y: pos.y };
-            for (const id of selectedIds) {
-              const obj = scene.objects[id];
-              if (obj) {
-                const props = { ...(obj.props as Record<string, unknown>) };
-                if (Array.isArray(props.customPoints)) {
-                  props.customPoints = (props.customPoints as number[]).map((v, i) =>
-                    i % 2 === 0 ? v + dx : v + dy
-                  );
-                } else {
-                  if (typeof props.x === "number") props.x += dx;
-                  if (typeof props.y === "number") props.y += dy;
-                  if (typeof props.cx === "number") props.cx += dx;
-                  if (typeof props.cy === "number") props.cy += dy;
-                  if (typeof props.x1 === "number") {
-                    props.x1 += dx;
-                    props.y1 = (props.y1 as number) + dy;
-                    props.x2 = (props.x2 as number) + dx;
-                    props.y2 = (props.y2 as number) + dy;
-                    if (typeof props.x3 === "number") {
-                      props.x3 += dx;
-                      props.y3 = (props.y3 as number) + dy;
-                    }
-                  }
-                }
-                commitEvent({
-                  event_type: "object.updated",
-                  payload: { id, props_patch: props },
-                } as unknown as WhiteboardEvent);
-              }
-            }
-          }
-          return;
+      // 2. Smooth 60fps live dragging of single OR multi-selected items (both Select & Hand modes!)
+      if ((tool === "select" || tool === "hand") && isDraggingSelection.current && dragSelectionStart.current) {
+        clearTimeout(longPressTimer.current);
+        const dx = pos.x - dragSelectionStart.current.x;
+        const dy = pos.y - dragSelectionStart.current.y;
+        if (Math.hypot(dx, dy) > 0.5) {
+          dragSelectionStart.current = { x: pos.x, y: pos.y };
+          translateSelectedLive(dx, dy);
         }
+        return;
+      }
+
+      // 3. Hand panning on empty canvas
+      if (tool === "hand") {
         if (isHandPanning.current && handPanLast.current) {
           const dx = e.evt.clientX - handPanLast.current.x;
           const dy = e.evt.clientY - handPanLast.current.y;
@@ -1484,6 +1539,7 @@ export function WhiteboardCanvas({
         return;
       }
 
+      // 4. Select mode: Marquee multi-select box + FigCraft hover cursor feedback
       if (tool === "select") {
         clearTimeout(longPressTimer.current);
         const uiLayer = uiLayerRef.current;
@@ -1499,15 +1555,41 @@ export function WhiteboardCanvas({
               y: h < 0 ? pos.y : sy,
               width: Math.abs(w),
               height: Math.abs(h),
-              fill: "rgba(99, 102, 241, 0.12)",
-              stroke: "#6366f1",
+              fill: "rgba(16, 185, 129, 0.10)",
+              stroke: "#10b981",
               strokeWidth: 1.5,
-              dash: [4, 4],
               listening: false,
             })
           );
           uiLayer.batchDraw();
+          return;
         }
+
+        // Hover cursor feedback over resize handles or objects
+        const curSel = selectedIdsRef.current;
+        if (curSel.length === 1 && curScene.objects[curSel[0]]) {
+          const selObj = curScene.objects[curSel[0]];
+          const selBBox = getItemBBox(curSel[0], curScene);
+          if (selBBox) {
+            const hh = findHitResizeHandle(pos, selBBox, viewportController.getState().scale, selObj);
+            if (hh) {
+              const handleCursors: Record<string, string> = {
+                nw: "nwse-resize",
+                se: "nwse-resize",
+                ne: "nesw-resize",
+                sw: "nesw-resize",
+                n: "ns-resize",
+                s: "ns-resize",
+                e: "ew-resize",
+                w: "ew-resize",
+              };
+              setDynamicCursor(handleCursors[hh] ?? "crosshair");
+              return;
+            }
+          }
+        }
+        const hoverHit = findHitItem(pos, curScene);
+        setDynamicCursor(hoverHit ? "move" : null);
         return;
       }
 
@@ -1545,6 +1627,7 @@ export function WhiteboardCanvas({
         handPanLast.current = null;
         clearTimeout(longPressTimer.current);
         const uiLayer = uiLayerRef.current;
+        const curScene = sceneRef.current;
 
         if (isMarquee.current && marqueeStart.current) {
           const sx = marqueeStart.current.x;
@@ -1553,12 +1636,13 @@ export function WhiteboardCanvas({
           const h = pos ? pos.y - sy : 0;
 
           if (Math.abs(w) > 5 || Math.abs(h) > 5) {
-            const itemsInMarquee = findItemsInMarquee({ x: sx, y: sy, w, h }, scene);
+            const itemsInMarquee = findItemsInMarquee({ x: sx, y: sy, w, h }, curScene);
+            selectedIdsRef.current = itemsInMarquee;
             setSelectedIds(itemsInMarquee);
           }
           isMarquee.current = false;
           marqueeStart.current = null;
-          if (uiLayer) {
+          if (uiLayer && typeof uiLayer.destroyChildren === "function") {
             uiLayer.destroyChildren();
             uiLayer.batchDraw();
           }
@@ -1567,31 +1651,8 @@ export function WhiteboardCanvas({
         if (isDraggingSelection.current && dragSelectionStart.current && pos) {
           const dx = pos.x - dragSelectionStart.current.x;
           const dy = pos.y - dragSelectionStart.current.y;
-          if (Math.hypot(dx, dy) > 2) {
-            for (const id of selectedIds) {
-              const obj = scene.objects[id];
-              if (obj) {
-                const props = { ...(obj.props as Record<string, unknown>) };
-                if (typeof props.x === "number") props.x += dx;
-                if (typeof props.y === "number") props.y += dy;
-                if (typeof props.cx === "number") props.cx += dx;
-                if (typeof props.cy === "number") props.cy += dy;
-                if (typeof props.x1 === "number") {
-                  props.x1 += dx;
-                  props.y1 = (props.y1 as number) + dy;
-                  props.x2 = (props.x2 as number) + dx;
-                  props.y2 = (props.y2 as number) + dy;
-                  if (typeof props.x3 === "number") {
-                    props.x3 += dx;
-                    props.y3 = (props.y3 as number) + dy;
-                  }
-                }
-                commitEvent({
-                  event_type: "object.updated",
-                  payload: { id, props_patch: props },
-                } as unknown as WhiteboardEvent);
-              }
-            }
+          if (Math.hypot(dx, dy) > 0.5) {
+            translateSelectedLive(dx, dy);
           }
           isDraggingSelection.current = false;
           dragSelectionStart.current = null;
@@ -2040,7 +2101,7 @@ export function WhiteboardCanvas({
         width,
         height,
         touchAction: "none",
-        cursor: cursorMap[activeTool] ?? "crosshair",
+        cursor: dynamicCursor ?? cursorMap[activeTool] ?? "crosshair",
       }}
     >
       <GridBackground
@@ -2194,6 +2255,27 @@ export function WhiteboardCanvas({
         onRevert={handleRevertShape}
         onDismiss={() => setRevertToast({ visible: false, shapeKind: "" })}
       />
+
+      {/* FigCraft-style Live Dimension Badge (W × H) below selected object/group */}
+      {selectedIds.length > 0 && selectionBBox && (() => {
+        const bottomCenter = viewportController.toScreen(
+          selectionBBox.x + selectionBBox.w / 2,
+          selectionBBox.y + selectionBBox.h
+        );
+        return (
+          <div
+            data-testid="selection-dimension-badge"
+            className="pointer-events-none absolute z-30 -translate-x-1/2 rounded-md bg-emerald-600 px-2 py-0.5 font-mono text-[10px] font-bold text-white shadow-md select-none"
+            style={{
+              left: `${bottomCenter.x}px`,
+              top: `${bottomCenter.y + 10}px`,
+            }}
+          >
+            {Math.round(selectionBBox.w)} × {Math.round(selectionBBox.h)}
+            {selectedIds.length > 1 ? ` (${selectedIds.length})` : ""}
+          </div>
+        );
+      })()}
 
       {/* Floating selection toolbar (P11-T02, P12-T02) */}
       {selectedIds.length > 0 && toolbarScreenPos && (

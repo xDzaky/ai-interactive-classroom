@@ -111,7 +111,25 @@ export function applyEvent(
     case "object.updated": {
       const p = event.payload as { id: string; props_patch: Record<string, unknown> };
       const existing = scene.objects[p.id];
-      if (!existing) return [state, { type: "noop" }];
+      if (!existing) {
+        // Also support updating selected freehand strokes (color or translated points)
+        const existingStroke = scene.strokes[p.id];
+        if (!existingStroke) return [state, { type: "noop" }];
+        const nextStroke: BoardStroke = {
+          ...existingStroke,
+          ...(typeof p.props_patch.color === "string" ? { color: p.props_patch.color } : {}),
+          ...(Array.isArray(p.props_patch.points)
+            ? { points: p.props_patch.points as [number, number, number][] }
+            : {}),
+        };
+        return [
+          replaceScene(state, {
+            ...scene,
+            strokes: { ...scene.strokes, [nextStroke.id]: nextStroke },
+          }),
+          { type: "restore_stroke", stroke: existingStroke },
+        ];
+      }
       const oldProps = existing.props;
 
       // Cleanly merge props, with one-level merge for nested display settings (P11-T07)
