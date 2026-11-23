@@ -16,6 +16,7 @@ import { reducePoints } from "@/lib/strokePath";
 
 export type ToolType =
   | "select"
+  | "hand"
   | "pen"
   | "highlighter"
   | "eraser"

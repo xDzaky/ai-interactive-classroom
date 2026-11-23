@@ -136,6 +136,8 @@ export default function PersonalRoomPage() {
       }
       if (e.key.toLowerCase() === "v") {
         setActiveTool("select");
+      } else if (e.key.toLowerCase() === "h") {
+        setActiveTool("hand");
       }
     };
     window.addEventListener("keydown", onKeyDown);

@@ -49,6 +49,8 @@ export interface WhiteboardOverlayProps {
   onDeleteObject?: (id: string) => void;
   onExplainObject?: (obj: BoardObject) => void;
   onDuplicateObject?: (obj: BoardObject) => void;
+  onMoveObject?: (id: string, x: number, y: number) => void;
+  onUpdateSolidParams?: (id: string, params: SolidParams) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -78,6 +80,8 @@ interface VizSolidOverlayProps {
   onDelete?: () => void;
   onExplain?: () => void;
   onDuplicate?: () => void;
+  onMove?: (x: number, y: number) => void;
+  onUpdateParams?: (params: SolidParams) => void;
 }
 
 function VizSolidOverlay({
@@ -95,6 +99,8 @@ function VizSolidOverlay({
   onDelete,
   onExplain,
   onDuplicate,
+  onMove,
+  onUpdateParams,
 }: VizSolidOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { x: wx, y: wy } = extractTransform(obj);
@@ -196,6 +202,15 @@ function VizSolidOverlay({
               onDelete={onDelete}
               onExplainAi={onExplain}
               onDuplicate={onDuplicate}
+              onMovePosition={
+                onMove
+                  ? (dx, dy) => {
+                      const s = viewportController ? viewportController.getState().scale : view.scale;
+                      onMove(wx + dx / (s || 1), wy + dy / (s || 1));
+                    }
+                  : undefined
+              }
+              onParamsChange={onUpdateParams}
             />
           ) : (
             <SolidViewer
@@ -363,6 +378,8 @@ export function WhiteboardOverlay({
   onDeleteObject,
   onExplainObject,
   onDuplicateObject,
+  onMoveObject,
+  onUpdateSolidParams,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -445,6 +462,8 @@ export function WhiteboardOverlay({
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onExplain={onExplainObject ? () => onExplainObject(obj) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
+            onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
+            onUpdateParams={onUpdateSolidParams ? (np) => onUpdateSolidParams(obj.id, np) : undefined}
           />
         ) : (
           <VizGraphOverlay

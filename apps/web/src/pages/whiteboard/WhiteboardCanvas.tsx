@@ -60,6 +60,7 @@ import {
 } from "@/features/whiteboard/actionRegistry";
 import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import { SelectionToolbar } from "@/components/whiteboard/SelectionToolbar";
+import { ObjectCustomizerPopover } from "@/components/whiteboard/ObjectCustomizerPopover";
 import { ShapeToSolidMenu } from "@/components/whiteboard/ShapeToSolidMenu";
 import {
   createConvertShapeToSolidEvent,
@@ -688,6 +689,9 @@ export function WhiteboardCanvas({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
   const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const isHandPanning = useRef(false);
+  const handPanLast = useRef<{ x: number; y: number } | null>(null);
 
   const isMarquee = useRef(false);
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
@@ -1214,6 +1218,21 @@ export function WhiteboardCanvas({
 
       const tool = activeToolRef.current;
 
+      if (tool === "hand") {
+        const hitId = findHitItem(pos, scene);
+        if (hitId) {
+          setSelectedIds([hitId]);
+          isDraggingSelection.current = true;
+          dragSelectionStart.current = { x: pos.x, y: pos.y };
+        } else {
+          setSelectedIds([]);
+          setShowCustomizer(false);
+          isHandPanning.current = true;
+          handPanLast.current = { x: e.evt.clientX, y: e.evt.clientY };
+        }
+        return;
+      }
+
       if (tool === "select") {
         const hitId = findHitItem(pos, scene);
         if (hitId) {
@@ -1278,6 +1297,17 @@ export function WhiteboardCanvas({
       const pos = getWorldPos();
       if (!pos) return;
 
+      if (tool === "hand") {
+        if (isHandPanning.current && handPanLast.current) {
+          const dx = e.evt.clientX - handPanLast.current.x;
+          const dy = e.evt.clientY - handPanLast.current.y;
+          handPanLast.current = { x: e.evt.clientX, y: e.evt.clientY };
+          const v = viewportController.getState();
+          viewportController.set({ ...v, x: v.x + dx, y: v.y + dy });
+        }
+        return;
+      }
+
       if (tool === "select") {
         clearTimeout(longPressTimer.current);
         const uiLayer = uiLayerRef.current;
@@ -1329,7 +1359,9 @@ export function WhiteboardCanvas({
       const tool = activeToolRef.current;
       const pos = getWorldPos();
 
-      if (tool === "select") {
+      if (tool === "select" || tool === "hand") {
+        isHandPanning.current = false;
+        handPanLast.current = null;
         clearTimeout(longPressTimer.current);
         const uiLayer = uiLayerRef.current;
 
@@ -1368,6 +1400,10 @@ export function WhiteboardCanvas({
                   props.y1 = (props.y1 as number) + dy;
                   props.x2 = (props.x2 as number) + dx;
                   props.y2 = (props.y2 as number) + dy;
+                  if (typeof props.x3 === "number") {
+                    props.x3 += dx;
+                    props.y3 = (props.y3 as number) + dy;
+                  }
                 }
                 commitEvent({
                   event_type: "object.updated",
@@ -1795,6 +1831,7 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const cursorMap: Record<ToolType, string> = {
     select: "default",
+    hand: "grab",
     pen: "crosshair",
     highlighter: "crosshair",
     eraser: "cell",
@@ -1884,6 +1921,18 @@ export function WhiteboardCanvas({
             },
           });
         }}
+        onMoveObject={(id, nx, ny) => {
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: { x: nx, y: ny } },
+          });
+        }}
+        onUpdateSolidParams={(id, nextParams) => {
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: { params: nextParams } },
+          });
+        }}
       />
 
       {/* Zoom controls */}
@@ -1957,10 +2006,27 @@ export function WhiteboardCanvas({
           y={toolbarScreenPos.y}
           actions={resolvedActions}
           actionContext={actionContext}
+          onOpenCustomize={() => setShowCustomizer((v) => !v)}
           onOpenMoreMenu={(e) => {
             e.stopPropagation();
             setContextMenu({ x: toolbarScreenPos.x, y: toolbarScreenPos.y + 20 });
           }}
+        />
+      )}
+
+      {/* Interactive 2D Object Customizer Popover */}
+      {showCustomizer && selectedIds.length === 1 && scene.objects[selectedIds[0]] && toolbarScreenPos && (
+        <ObjectCustomizerPopover
+          object={scene.objects[selectedIds[0]]}
+          x={toolbarScreenPos.x}
+          y={toolbarScreenPos.y}
+          onPatchProps={(id, patch) => {
+            commitEvent({
+              event_type: "object.updated",
+              payload: { id, props_patch: patch },
+            });
+          }}
+          onClose={() => setShowCustomizer(false)}
         />
       )}
 

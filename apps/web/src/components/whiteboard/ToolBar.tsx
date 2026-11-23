@@ -18,6 +18,7 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
   { type: "select",      label: "Seleksi (V)", icon: "↖",  group: "select" },
+  { type: "hand",        label: "Tangan / Geser (H)", icon: "✋", group: "select" },
   { type: "pen",         label: "Pena",       icon: "✏️",  group: "draw" },
   { type: "highlighter", label: "Stabilo",    icon: "🖊",  group: "draw" },
   { type: "eraser",      label: "Hapus",      icon: "⌫",   group: "draw" },
