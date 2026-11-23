@@ -61,9 +61,11 @@ import {
 import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import { SelectionToolbar } from "@/components/whiteboard/SelectionToolbar";
 import {
-  getResizeHandles,
+  getShapeVertices,
+  getShapeHandles,
   findHitResizeHandle,
   computeResizedProps,
+  insertVertexAtPoint,
   type ResizeHandleKind,
   type BBox,
 } from "@/lib/resizeHandles";
@@ -967,8 +969,102 @@ export function WhiteboardCanvas({
 
     if (selectedIds.length > 0) {
       for (const id of selectedIds) {
+        const obj = scene.objects[id];
         const bbox = getItemBBox(id, scene);
-        if (bbox) {
+        if (!bbox) continue;
+
+        // Shape-matched selection outline (triangle -> triangle, circle -> circle, polygon -> polygon!)
+        if (obj) {
+          const p = obj.props as Record<string, unknown>;
+          const verts = getShapeVertices(obj);
+
+          if (verts && verts.length >= 6) {
+            uiLayer.add(
+              new Konva.Line({
+                points: verts,
+                closed: true,
+                stroke: "#4f46e5",
+                strokeWidth: 1.8,
+                dash: [6, 3],
+                listening: false,
+              })
+            );
+          } else if (obj.object_type === "circle") {
+            uiLayer.add(
+              new Konva.Circle({
+                x: Number(p.x ?? bbox.x + bbox.w / 2),
+                y: Number(p.y ?? bbox.y + bbox.h / 2),
+                radius: Number(p.r ?? p.radius ?? bbox.w / 2) + 4,
+                stroke: "#4f46e5",
+                strokeWidth: 1.8,
+                dash: [6, 3],
+                listening: false,
+              })
+            );
+          } else if (obj.object_type === "ellipse") {
+            const cx = Number(p.cx ?? p.x ?? bbox.x + bbox.w / 2);
+            const cy = Number(p.cy ?? p.y ?? bbox.y + bbox.h / 2);
+            const rx = Number(p.rx ?? bbox.w / 2) + 4;
+            const ry = Number(p.ry ?? bbox.h / 2) + 4;
+            uiLayer.add(
+              new Konva.Line({
+                points: generateEllipsePoints(cx, cy, rx, ry),
+                closed: true,
+                stroke: "#4f46e5",
+                strokeWidth: 1.8,
+                dash: [6, 3],
+                listening: false,
+              })
+            );
+          } else if (obj.object_type === "line" || obj.object_type === "arrow") {
+            uiLayer.add(
+              new Konva.Line({
+                points: [
+                  Number(p.x1 ?? bbox.x),
+                  Number(p.y1 ?? bbox.y),
+                  Number(p.x2 ?? bbox.x + bbox.w),
+                  Number(p.y2 ?? bbox.y + bbox.h),
+                ],
+                stroke: "#4f46e5",
+                strokeWidth: 1.8,
+                dash: [6, 3],
+                listening: false,
+              })
+            );
+          } else {
+            uiLayer.add(
+              new Konva.Rect({
+                x: bbox.x - 4,
+                y: bbox.y - 4,
+                width: bbox.w + 8,
+                height: bbox.h + 8,
+                stroke: "#4f46e5",
+                strokeWidth: 1.8,
+                dash: [6, 3],
+                listening: false,
+                cornerRadius: 4,
+              })
+            );
+          }
+
+          // Shape-matched corner / vertex resize handles for single selected 2D object
+          if (selectedIds.length === 1) {
+            for (const h of getShapeHandles(obj, bbox)) {
+              uiLayer.add(
+                new Konva.Circle({
+                  x: h.x,
+                  y: h.y,
+                  radius: 5.5,
+                  fill: "#ffffff",
+                  stroke: "#4f46e5",
+                  strokeWidth: 2,
+                  listening: false,
+                })
+              );
+            }
+          }
+        } else {
+          // Freehand stroke selection outline
           uiLayer.add(
             new Konva.Rect({
               x: bbox.x - 4,
@@ -982,25 +1078,6 @@ export function WhiteboardCanvas({
               cornerRadius: 4,
             })
           );
-
-          // Direct corner/edge resize handles for single selected 2D object
-          if (selectedIds.length === 1 && scene.objects[id]) {
-            for (const h of getResizeHandles(bbox)) {
-              uiLayer.add(
-                new Konva.Rect({
-                  x: h.x - 5,
-                  y: h.y - 5,
-                  width: 10,
-                  height: 10,
-                  fill: "#ffffff",
-                  stroke: "#4f46e5",
-                  strokeWidth: 2,
-                  cornerRadius: 2,
-                  listening: false,
-                })
-              );
-            }
-          }
         }
       }
     }
@@ -1254,7 +1331,7 @@ export function WhiteboardCanvas({
         const selObj = scene.objects[selId];
         const selBBox = selObj ? getItemBBox(selId, scene) : null;
         if (selObj && selBBox) {
-          const hitHandle = findHitResizeHandle(pos, selBBox, viewportController.getState().scale);
+          const hitHandle = findHitResizeHandle(pos, selBBox, viewportController.getState().scale, selObj);
           if (hitHandle) {
             activeResizeRef.current = {
               id: selId,
@@ -1359,6 +1436,44 @@ export function WhiteboardCanvas({
       }
 
       if (tool === "hand") {
+        if (isDraggingSelection.current && dragSelectionStart.current) {
+          const dx = pos.x - dragSelectionStart.current.x;
+          const dy = pos.y - dragSelectionStart.current.y;
+          if (Math.hypot(dx, dy) > 0.5) {
+            dragSelectionStart.current = { x: pos.x, y: pos.y };
+            for (const id of selectedIds) {
+              const obj = scene.objects[id];
+              if (obj) {
+                const props = { ...(obj.props as Record<string, unknown>) };
+                if (Array.isArray(props.customPoints)) {
+                  props.customPoints = (props.customPoints as number[]).map((v, i) =>
+                    i % 2 === 0 ? v + dx : v + dy
+                  );
+                } else {
+                  if (typeof props.x === "number") props.x += dx;
+                  if (typeof props.y === "number") props.y += dy;
+                  if (typeof props.cx === "number") props.cx += dx;
+                  if (typeof props.cy === "number") props.cy += dy;
+                  if (typeof props.x1 === "number") {
+                    props.x1 += dx;
+                    props.y1 = (props.y1 as number) + dy;
+                    props.x2 = (props.x2 as number) + dx;
+                    props.y2 = (props.y2 as number) + dy;
+                    if (typeof props.x3 === "number") {
+                      props.x3 += dx;
+                      props.y3 = (props.y3 as number) + dy;
+                    }
+                  }
+                }
+                commitEvent({
+                  event_type: "object.updated",
+                  payload: { id, props_patch: props },
+                } as unknown as WhiteboardEvent);
+              }
+            }
+          }
+          return;
+        }
         if (isHandPanning.current && handPanLast.current) {
           const dx = e.evt.clientX - handPanLast.current.x;
           const dy = e.evt.clientY - handPanLast.current.y;
@@ -1945,6 +2060,21 @@ export function WhiteboardCanvas({
         onPointerMove={handleStagePointerMove}
         onPointerUp={handleStagePointerUp}
         onPointerLeave={handleStagePointerUp}
+        onDblClick={() => {
+          if (readOnly || selectedIds.length !== 1) return;
+          const pos = getWorldPos();
+          if (!pos) return;
+          const selId = selectedIds[0];
+          const selObj = scene.objects[selId];
+          if (!selObj) return;
+          const patched = insertVertexAtPoint(selObj, pos);
+          if (patched) {
+            commitEvent({
+              event_type: "object.updated",
+              payload: { id: selId, props_patch: patched },
+            } as unknown as WhiteboardEvent);
+          }
+        }}
       >
         {/* Layer 1: committedLayer — listening only while tool is select/eraser */}
         <Layer

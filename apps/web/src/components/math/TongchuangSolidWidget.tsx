@@ -211,7 +211,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [autoRotate, setAutoRotate] = useState(false);
   const [preset, setPreset] = useState<CameraPreset>('iso');
   const [presetTick, setPresetTick] = useState(0);
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [unfoldT, setUnfoldT] = useState(0);
   const [isUnfolding, setIsUnfolding] = useState(false);
@@ -464,18 +464,21 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         ];
 
         const mat = new THREE.MeshStandardMaterial({
-          color: 0x94a3b8,
+          color: 0xf8fafc,
           transparent: true,
-          opacity: 0.14,
+          opacity: 0.04,
           side: THREE.DoubleSide,
-          depthWrite: false,
+          depthWrite: true,
+          polygonOffset: true,
+          polygonOffsetFactor: 2,
+          polygonOffsetUnits: 2,
         });
         const mesh = new THREE.Mesh(geom, mat);
         rootGroup.add(mesh);
         faceEntriesRef.current.push({ mesh, mat, normal: unitNormal, fIdx });
       });
 
-      // Crisp white Tongchuang wireframe edges
+      // Textbook 3D Edges: Solid crisp front edges + Dashed hidden back edges (exact Image 2 style!)
       const edgeGeom = new THREE.BufferGeometry();
       const edgePos: number[] = [];
       for (const [u, v] of polyhedron.edges) {
@@ -487,14 +490,39 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         );
       }
       edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
-      const edgeLines = new THREE.LineSegments(
-        edgeGeom,
-        new THREE.LineBasicMaterial({ color: wireColor, transparent: true, opacity: 0.95 })
-      );
-      rootGroup.add(edgeLines);
 
-      // Interactive vertex + midpoint spheres
-      const sphereGeom = new THREE.SphereGeometry(0.15, 14, 14);
+      // Pass 1: Hidden back edges (dashed, rendered where depth > occluder)
+      const hiddenEdgeLines = new THREE.LineSegments(
+        edgeGeom,
+        new THREE.LineDashedMaterial({
+          color: 0x64748b,
+          dashSize: 0.22,
+          gapSize: 0.16,
+          transparent: true,
+          opacity: 0.72,
+          depthTest: true,
+          depthFunc: THREE.GreaterDepth,
+          depthWrite: false,
+        })
+      );
+      hiddenEdgeLines.computeLineDistances();
+      rootGroup.add(hiddenEdgeLines);
+
+      // Pass 2: Front visible edges (solid crisp dark ink)
+      const frontEdgeLines = new THREE.LineSegments(
+        edgeGeom,
+        new THREE.LineBasicMaterial({
+          color: wireColor,
+          transparent: true,
+          opacity: 0.96,
+          depthTest: true,
+          depthFunc: THREE.LessEqualDepth,
+        })
+      );
+      rootGroup.add(frontEdgeLines);
+
+      // Interactive vertex + midpoint spheres (hidden in clean default view; shown in Irisan or Label mode)
+      const sphereGeom = new THREE.SphereGeometry(0.14, 14, 14);
       for (const node of interactiveNodes) {
         const tp = toThree(node.pos);
         const mat = new THREE.MeshStandardMaterial({
@@ -504,27 +532,86 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         });
         const mesh = new THREE.Mesh(sphereGeom, mat);
         mesh.position.set(tp[0] - center[0], tp[1] - center[1], tp[2] - center[2]);
-        mesh.visible = node.kind === 'vertex';
+        mesh.visible = false;
         rootGroup.add(mesh);
         nodeMeshesRef.current.push({ mesh, node });
       }
     } else {
+      // Clean textbook curved solids (Cylinder, Cone, Sphere) — Image 2 style, 360° rotatable!
       centerRef.current = [0, 0, 0];
       const { geometry } = buildThreeGeometry(localParams);
-      const fillMat = new THREE.MeshStandardMaterial({
-        color: 0x38bdf8,
+      // Depth occluder so back arcs render dashed cleanly
+      const occluderMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
         transparent: true,
-        opacity: 0.32,
-        side: THREE.DoubleSide,
+        opacity: 0.03,
+        depthWrite: true,
+        polygonOffset: true,
+        polygonOffsetFactor: 2,
+        polygonOffsetUnits: 2,
       });
-      rootGroup.add(new THREE.Mesh(geometry, fillMat));
-      const wireMat = new THREE.MeshBasicMaterial({
-        color: wireColor,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.85,
-      });
-      rootGroup.add(new THREE.Mesh(geometry, wireMat));
+      rootGroup.add(new THREE.Mesh(geometry, occluderMat));
+
+      const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
+      const dashedBack = new THREE.LineSegments(
+        edgesGeom,
+        new THREE.LineDashedMaterial({
+          color: 0x64748b,
+          dashSize: 0.2,
+          gapSize: 0.15,
+          transparent: true,
+          opacity: 0.65,
+          depthFunc: THREE.GreaterDepth,
+          depthWrite: false,
+        })
+      );
+      dashedBack.computeLineDistances();
+      rootGroup.add(dashedBack);
+
+      const solidFront = new THREE.LineSegments(
+        edgesGeom,
+        new THREE.LineBasicMaterial({
+          color: wireColor,
+          depthFunc: THREE.LessEqualDepth,
+        })
+      );
+      rootGroup.add(solidFront);
+
+      // For Sphere: add clean textbook equator & meridian rings (solid front, dashed back)
+      if (localParams.type === 'sphere') {
+        const r = localParams.r;
+        const makeRing = (rotX: number, rotY: number) => {
+          const pts: THREE.Vector3[] = [];
+          for (let i = 0; i <= 64; i++) {
+            const a = (i / 64) * Math.PI * 2;
+            pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+          }
+          const rg = new THREE.BufferGeometry().setFromPoints(pts);
+          const back = new THREE.Line(
+            rg,
+            new THREE.LineDashedMaterial({
+              color: 0x64748b,
+              dashSize: 0.18,
+              gapSize: 0.14,
+              depthFunc: THREE.GreaterDepth,
+              depthWrite: false,
+            })
+          );
+          back.computeLineDistances();
+          back.rotation.set(rotX, rotY, 0);
+          rootGroup.add(back);
+
+          const front = new THREE.Line(
+            rg,
+            new THREE.LineBasicMaterial({ color: wireColor, depthFunc: THREE.LessEqualDepth })
+          );
+          front.rotation.set(rotX, rotY, 0);
+          rootGroup.add(front);
+        };
+        makeRing(0, 0);
+        makeRing(Math.PI / 2, 0);
+        makeRing(Math.PI / 2, Math.PI / 2);
+      }
     }
 
     // Raycaster for clicking vertex / edge-midpoint nodes
@@ -599,9 +686,10 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         entry.mat.opacity = isFoldFace ? 0.72 : st.explodeT > 0.05 ? 0.42 : 0.14;
       }
 
-      // Update node visibility & highlight
+      // Update node visibility & highlight (clean textbook look by default; visible in Irisan or Label mode)
       for (const item of nodeMeshesRef.current) {
-        item.mesh.visible = item.node.kind === 'vertex' || st.mode === 'section';
+        item.mesh.visible =
+          st.mode === 'section' || (st.showLabels && item.node.kind === 'vertex');
         const isSel = st.selectedNodes.includes(item.node.id);
         item.mesh.scale.setScalar(isSel ? 1.45 : 1);
         const mat = item.mesh.material as THREE.MeshStandardMaterial;

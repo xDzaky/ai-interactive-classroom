@@ -1,51 +1,45 @@
 /**
- * ToolBar — P02-T05
- * Whiteboard tool selection toolbar with shape builder controls.
- * Renders tool buttons, color picker, stroke width slider, and shape creation.
+ * ToolBar.tsx — Minimal, Clean Whiteboard Toolbar
+ * Ultra-clean vertical pill toolbar: Select, Hand, Pen, Eraser, Quick Shapes (Kotak, Lingkaran, Segitiga + More popover), Text,
+ * compact Color/Stroke popover, and Undo/Redo. Zero scrollbar!
  */
+import { useState } from "react";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 
-// ---------------------------------------------------------------------------
-// Tool button definitions
-// ---------------------------------------------------------------------------
+export type AutoShapeMode = "auto" | "hold" | "off";
 
 interface ToolDef {
   type: ToolType;
   label: string;
   icon: string;
-  group: "select" | "draw" | "shapes" | "other";
 }
 
-const TOOLS: ToolDef[] = [
-  { type: "select",      label: "Seleksi (V)", icon: "↖",  group: "select" },
-  { type: "hand",        label: "Tangan / Geser (H)", icon: "✋", group: "select" },
-  { type: "pen",         label: "Pena",       icon: "✏️",  group: "draw" },
-  { type: "highlighter", label: "Stabilo",    icon: "🖊",  group: "draw" },
-  { type: "eraser",      label: "Hapus",      icon: "⌫",   group: "draw" },
-  { type: "line",        label: "Garis",      icon: "╱",   group: "shapes" },
-  { type: "arrow",       label: "Panah",      icon: "→",   group: "shapes" },
-  { type: "rect",        label: "Kotak",      icon: "▭",   group: "shapes" },
-  { type: "circle",      label: "Lingkaran",  icon: "◯",   group: "shapes" },
-  { type: "ellipse",     label: "Elips",      icon: "⬭",   group: "shapes" },
-  { type: "triangle",    label: "Segitiga",   icon: "△",   group: "shapes" },
-  { type: "rhombus",     label: "Belah Ketupat", icon: "◇", group: "shapes" },
-  { type: "pentagon",    label: "Segi Lima",  icon: "⬠",   group: "shapes" },
-  { type: "hexagon",     label: "Segi Enam",  icon: "⬡",   group: "shapes" },
-  { type: "star",        label: "Bintang",    icon: "☆",   group: "shapes" },
-  { type: "text",        label: "Teks",       icon: "T",   group: "other" },
+const PRIMARY_TOOLS: ToolDef[] = [
+  { type: "select", label: "Seleksi (V)", icon: "↖" },
+  { type: "hand",   label: "Tangan / Geser (H)", icon: "✋" },
+  { type: "pen",    label: "Pena", icon: "✏️" },
+  { type: "eraser", label: "Hapus", icon: "⌫" },
+  { type: "rect",   label: "Kotak", icon: "▭" },
+  { type: "circle", label: "Lingkaran", icon: "◯" },
+  { type: "triangle", label: "Segitiga", icon: "△" },
+];
+
+const MORE_SHAPES: ToolDef[] = [
+  { type: "highlighter", label: "Stabilo", icon: "🖊" },
+  { type: "line",     label: "Garis", icon: "╱" },
+  { type: "arrow",    label: "Panah", icon: "→" },
+  { type: "ellipse",  label: "Elips", icon: "⬭" },
+  { type: "rhombus",  label: "Belah Ketupat", icon: "◇" },
+  { type: "pentagon", label: "Segi Lima", icon: "⬠" },
+  { type: "hexagon",  label: "Segi Enam", icon: "⬡" },
+  { type: "star",     label: "Bintang", icon: "☆" },
+  { type: "text",     label: "Teks", icon: "T" },
 ];
 
 const PRESET_COLORS = [
-  "#111827", "#ef4444", "#f97316", "#eab308",
+  "#0f172a", "#ef4444", "#f97316", "#eab308",
   "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899",
-  "#ffffff", "#6b7280",
 ];
-
-export type AutoShapeMode = "auto" | "hold" | "off";
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
 
 export interface ToolBarProps {
   activeTool: ToolType;
@@ -63,10 +57,6 @@ export interface ToolBarProps {
   canRedo?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// ToolBar component
-// ---------------------------------------------------------------------------
-
 export function ToolBar({
   activeTool,
   color,
@@ -82,210 +72,222 @@ export function ToolBar({
   canUndo = false,
   canRedo = false,
 }: ToolBarProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+
+  const activeMore = MORE_SHAPES.find((s) => s.type === activeTool);
+
   const nextMode: Record<AutoShapeMode, AutoShapeMode> = {
     auto: "hold",
     hold: "off",
     off: "auto",
   };
-
-  const modeInfo: Record<AutoShapeMode, { label: string; icon: string }> = {
-    auto: { label: "Auto-shape: Otomatis", icon: "✨" },
-    hold: { label: "Auto-shape: Tahan", icon: "⏳" },
-    off: { label: "Auto-shape: Mati", icon: "🚫" },
+  const modeLabel: Record<AutoShapeMode, string> = {
+    auto: "Auto-shape: Otomatis",
+    hold: "Auto-shape: Tahan",
+    off: "Auto-shape: Mati",
   };
+
   return (
     <div
       role="toolbar"
       aria-label="Alat papan tulis"
-      className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white p-2 shadow-md w-14 max-h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden select-none"
+      className="relative flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm select-none w-12"
     >
-      {/* Tool buttons grouped — Select tool at top (P10-T02) */}
-      {(["select", "draw", "shapes", "other"] as const).map((group) => (
-        <div key={group} className="flex flex-col gap-0.5">
-          {TOOLS.filter((t) => t.group === group).map((tool) => (
-            <button
-              key={tool.type}
-              onClick={() => onToolChange(tool.type)}
-              aria-label={tool.label}
-              aria-pressed={activeTool === tool.type}
-              title={tool.label}
-              className={[
-                "flex h-9 w-9 items-center justify-center rounded-lg text-base transition-colors",
-                activeTool === tool.type
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-100",
-              ].join(" ")}
-            >
-              {tool.icon}
-            </button>
-          ))}
-          <div className="my-0.5 h-px bg-gray-100" />
-        </div>
+      {/* Primary clean tools */}
+      {PRIMARY_TOOLS.map((tool) => (
+        <button
+          key={tool.type}
+          type="button"
+          onClick={() => {
+            onToolChange(tool.type);
+            setMoreOpen(false);
+            setStyleOpen(false);
+          }}
+          aria-label={tool.label}
+          aria-pressed={activeTool === tool.type}
+          title={tool.label}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl text-base transition-all ${
+            activeTool === tool.type
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
+        >
+          {tool.icon}
+        </button>
       ))}
 
-      {/* Color picker */}
-      <div className="flex flex-col gap-0.5" role="group" aria-label="Warna">
-        {/* Current color swatch + native picker */}
-        <label
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 border-gray-200 hover:border-gray-400 transition-colors"
-          title="Pilih warna"
-          aria-label="Pilih warna kustom"
-          style={{ backgroundColor: color }}
+      {/* Compact More Shapes / Text Popover */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            setMoreOpen((v) => !v);
+            setStyleOpen(false);
+          }}
+          aria-label="Bentuk & Alat Lainnya"
+          aria-expanded={moreOpen}
+          aria-pressed={Boolean(activeMore)}
+          title={activeMore ? activeMore.label : "Bentuk & Alat Lainnya"}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl text-base transition-all ${
+            activeMore || moreOpen
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
         >
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => onColorChange(e.target.value)}
-            className="sr-only"
-            aria-label="Warna kustom"
-          />
-        </label>
-        {/* Preset color dots */}
-        <div className="grid grid-cols-2 gap-0.5 py-0.5">
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => onColorChange(c)}
-              aria-label={`Warna ${c}`}
-              title={c}
-              className={[
-                "h-3.5 w-3.5 rounded-full transition-transform hover:scale-125",
-                color === c ? "ring-2 ring-blue-500 ring-offset-1" : "",
-              ].join(" ")}
-              style={{ backgroundColor: c, border: c === "#ffffff" ? "1px solid #d1d5db" : "none" }}
-            />
-          ))}
-        </div>
-      </div>
+          {activeMore ? activeMore.icon : "⋯"}
+        </button>
 
-      <div className="my-0.5 h-px bg-gray-100" />
-
-      {/* Stroke width */}
-      <div role="group" aria-label="Ketebalan garis" className="flex flex-col items-center gap-1 py-1">
-        {[2, 4, 8].map((w) => (
-          <button
-            key={w}
-            onClick={() => onStrokeWidthChange(w)}
-            aria-label={`Ketebalan ${w}px`}
-            aria-pressed={strokeWidth === w}
-            title={`${w}px`}
-            className={[
-              "flex h-7 w-9 items-center justify-center rounded-md transition-colors",
-              strokeWidth === w ? "bg-blue-100" : "hover:bg-gray-100",
-            ].join(" ")}
+        {moreOpen && (
+          <div
+            role="menu"
+            aria-label="Daftar Bentuk Geometris"
+            className="absolute left-12 top-0 z-40 grid w-40 grid-cols-3 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
           >
-            <div
-              className="rounded-full bg-gray-700"
-              style={{ width: `${w * 3}px`, height: `${w}px` }}
-            />
-          </button>
-        ))}
+            {MORE_SHAPES.map((shape) => (
+              <button
+                key={shape.type}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onToolChange(shape.type);
+                  setMoreOpen(false);
+                }}
+                aria-label={shape.label}
+                aria-pressed={activeTool === shape.type}
+                title={shape.label}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm transition ${
+                  activeTool === shape.type
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {shape.icon}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="my-0.5 h-px bg-gray-100" />
+      <div className="my-0.5 h-px w-7 bg-slate-200" />
 
-      {/* Auto-shape mode selector */}
-      {onAutoShapeModeChange && (
-        <>
-          <div className="flex flex-col items-center">
-            <button
-              onClick={() => onAutoShapeModeChange(nextMode[autoShapeMode])}
-              aria-label={modeInfo[autoShapeMode].label}
-              title={modeInfo[autoShapeMode].label}
-              data-testid="toolbar-autoshape-toggle"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-700 transition-colors hover:bg-gray-100"
-            >
-              {modeInfo[autoShapeMode].icon}
-            </button>
+      {/* Compact Color & Stroke Width Popover */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            setStyleOpen((v) => !v);
+            setMoreOpen(false);
+          }}
+          aria-label="Warna dan Ketebalan"
+          aria-expanded={styleOpen}
+          title="Warna & Ketebalan Garis"
+          className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-slate-100 transition"
+        >
+          <span
+            className="h-5 w-5 rounded-full border-2 border-slate-300 shadow-xs"
+            style={{ backgroundColor: color }}
+          />
+        </button>
+
+        {styleOpen && (
+          <div className="absolute left-12 top-0 z-40 w-44 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Warna Tinta
+            </div>
+            <div className="mb-3 grid grid-cols-4 gap-1.5">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => onColorChange(c)}
+                  aria-label={`Warna ${c}`}
+                  className={`h-6 w-6 rounded-full border transition hover:scale-110 ${
+                    color.toLowerCase() === c.toLowerCase()
+                      ? "ring-2 ring-indigo-500 border-white scale-110"
+                      : "border-slate-300"
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <label className="flex flex-col gap-1 text-[10px] font-semibold text-slate-500">
+              <span>Ketebalan: {strokeWidth}px</span>
+              <input
+                type="range"
+                min={1}
+                max={16}
+                value={strokeWidth}
+                onChange={(e) => onStrokeWidthChange(Number(e.target.value))}
+                aria-label="Ketebalan garis"
+                className="w-full accent-indigo-600"
+              />
+            </label>
           </div>
-          <div className="my-0.5 h-px bg-gray-100" />
-        </>
+        )}
+      </div>
+
+      {/* Auto-shape toggle */}
+      {onAutoShapeModeChange && (
+        <button
+          type="button"
+          onClick={() => onAutoShapeModeChange(nextMode[autoShapeMode])}
+          aria-label={modeLabel[autoShapeMode]}
+          title={modeLabel[autoShapeMode]}
+          className="flex h-8 w-8 items-center justify-center rounded-xl text-sm text-slate-600 hover:bg-slate-100"
+        >
+          {autoShapeMode === "auto" ? "✨" : autoShapeMode === "hold" ? "⏳" : "🚫"}
+        </button>
       )}
 
-      {/* Undo / Redo */}
-      <div className="flex flex-col gap-0.5">
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          aria-label="Batalkan"
-          title="Batalkan (Ctrl+Z)"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          ↩
-        </button>
-        <button
-          onClick={onRedo}
-          disabled={!canRedo}
-          aria-label="Ulangi"
-          title="Ulangi (Ctrl+Y)"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          ↪
-        </button>
-      </div>
+      <div className="my-0.5 h-px w-7 bg-slate-200" />
 
-      {/* Export */}
+      {/* Undo / Redo */}
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={!canUndo}
+        aria-label="Batalkan"
+        title="Batalkan (Ctrl+Z)"
+        className="flex h-8 w-8 items-center justify-center rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+      >
+        ↩
+      </button>
+      <button
+        type="button"
+        onClick={onRedo}
+        disabled={!canRedo}
+        aria-label="Ulangi"
+        title="Ulangi (Ctrl+Y)"
+        className="flex h-8 w-8 items-center justify-center rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+      >
+        ↪
+      </button>
+
       {onExportPng && (
-        <>
-          <div className="my-0.5 h-px bg-gray-100" />
-          <button
-            onClick={onExportPng}
-            aria-label="Ekspor PNG"
-            title="Ekspor sebagai PNG"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 text-xs"
-          >
-            ⬇
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={onExportPng}
+          aria-label="Ekspor PNG"
+          title="Ekspor PNG"
+          className="flex h-8 w-8 items-center justify-center rounded-xl text-sm text-slate-600 hover:bg-slate-100"
+        >
+          💾
+        </button>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// ShapePropertiesPanel — floating panel for numeric shape editing
+// ShapePropertiesPanel (preserved for backward compatibility)
 // ---------------------------------------------------------------------------
 
-export interface ShapePropsValue {
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-  r?: number;
-  strokeWidth?: number;
-  fill?: string;
-  stroke?: string;
-  fontSize?: number;
-}
-
 export interface ShapePropertiesPanelProps {
-  objectType: string | null;
-  values: ShapePropsValue;
-  onChange: (patch: Partial<ShapePropsValue>) => void;
+  objectType: "rect" | "circle" | "triangle" | "line" | "text" | null;
+  values: Record<string, number | string>;
+  onChange: (patch: Record<string, number | string>) => void;
   onClose: () => void;
-}
-
-function NumField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number | undefined;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-gray-600">
-      <span className="w-10 shrink-0">{label}</span>
-      <input
-        type="number"
-        value={value ?? ""}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-16 rounded border border-gray-200 px-1.5 py-0.5 text-xs focus:outline-blue-400"
-        aria-label={label}
-      />
-    </label>
-  );
 }
 
 export function ShapePropertiesPanel({
@@ -300,56 +302,77 @@ export function ShapePropertiesPanel({
     <div
       role="dialog"
       aria-label="Properti bentuk"
-      className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-lg text-sm w-48"
+      className="w-56 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-800 shadow-xl"
     >
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-gray-700 capitalize">{objectType}</span>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-bold capitalize">{objectType}</span>
         <button
+          type="button"
           onClick={onClose}
           aria-label="Tutup panel properti"
-          className="text-gray-400 hover:text-gray-700"
-        >×</button>
+          className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        >
+          ×
+        </button>
       </div>
-
-      {/* Position */}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Posisi</span>
-        <NumField label="X" value={values.x} onChange={(v) => onChange({ x: v })} />
-        <NumField label="Y" value={values.y} onChange={(v) => onChange({ y: v })} />
+      <div className="space-y-2">
+        <label className="flex items-center justify-between gap-2">
+          <span>X</span>
+          <input
+            type="number"
+            aria-label="X"
+            value={Number(values.x ?? 0)}
+            onChange={(e) => onChange({ x: Number(e.target.value) })}
+            className="w-24 rounded border border-slate-200 px-2 py-1"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-2">
+          <span>Y</span>
+          <input
+            type="number"
+            aria-label="Y"
+            value={Number(values.y ?? 0)}
+            onChange={(e) => onChange({ y: Number(e.target.value) })}
+            className="w-24 rounded border border-slate-200 px-2 py-1"
+          />
+        </label>
+        {objectType === "rect" && (
+          <>
+            <label className="flex items-center justify-between gap-2">
+              <span>Lebar</span>
+              <input
+                type="number"
+                aria-label="Lebar"
+                value={Number(values.w ?? 100)}
+                onChange={(e) => onChange({ w: Number(e.target.value) })}
+                className="w-24 rounded border border-slate-200 px-2 py-1"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              <span>Tinggi</span>
+              <input
+                type="number"
+                aria-label="Tinggi"
+                value={Number(values.h ?? 60)}
+                onChange={(e) => onChange({ h: Number(e.target.value) })}
+                className="w-24 rounded border border-slate-200 px-2 py-1"
+              />
+            </label>
+          </>
+        )}
+        {objectType === "circle" && (
+          <label className="flex items-center justify-between gap-2">
+            <span>Radius</span>
+            <input
+              type="number"
+              aria-label="Radius"
+              value={Number(values.r ?? 40)}
+              onChange={(e) => onChange({ r: Number(e.target.value) })}
+              className="w-24 rounded border border-slate-200 px-2 py-1"
+            />
+          </label>
+        )}
       </div>
-
-      {/* Size */}
-      {(objectType === "rect" || objectType === "image") && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ukuran</span>
-          <NumField label="Lebar" value={values.w} onChange={(v) => onChange({ w: v })} />
-          <NumField label="Tinggi" value={values.h} onChange={(v) => onChange({ h: v })} />
-        </div>
-      )}
-
-      {/* Radius for circle */}
-      {objectType === "circle" && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ukuran</span>
-          <NumField label="Radius" value={values.r} onChange={(v) => onChange({ r: v })} />
-        </div>
-      )}
-
-      {/* Font size for text */}
-      {(objectType === "text" || objectType === "annotation") && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Teks</span>
-          <NumField label="Ukuran" value={values.fontSize} onChange={(v) => onChange({ fontSize: v })} />
-        </div>
-      )}
-
-      {/* Stroke width */}
-      {objectType !== "text" && objectType !== "annotation" && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Garis</span>
-          <NumField label="Tebal" value={values.strokeWidth} onChange={(v) => onChange({ strokeWidth: v })} />
-        </div>
-      )}
     </div>
   );
 }

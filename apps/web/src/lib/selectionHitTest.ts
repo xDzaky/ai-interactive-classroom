@@ -14,6 +14,18 @@ export interface BoundingBox2D {
 }
 
 export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
+  const raw = obj.props as Record<string, unknown>;
+  if (Array.isArray(raw.customPoints) && raw.customPoints.length >= 6) {
+    const pts = raw.customPoints as number[];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < pts.length; i += 2) {
+      if (pts[i] < minX) minX = pts[i];
+      if (pts[i] > maxX) maxX = pts[i];
+      if (pts[i + 1] < minY) minY = pts[i + 1];
+      if (pts[i + 1] > maxY) maxY = pts[i + 1];
+    }
+    return { x: minX, y: minY, w: Math.max(10, maxX - minX), h: Math.max(10, maxY - minY) };
+  }
   const p = obj.props as Record<string, number & string>;
   switch (obj.object_type) {
     case 'rect': {

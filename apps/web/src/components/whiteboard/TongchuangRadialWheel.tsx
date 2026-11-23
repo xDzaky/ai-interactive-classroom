@@ -407,7 +407,7 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 title={c.label}
                 onClick={() => {
                   onRecolorObject?.(c.value);
-                  onClose?.();
+                  // Keep menu open so user can preview/switch colors without re-opening
                 }}
                 style={{
                   left: '50%',
@@ -453,7 +453,7 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 onClick={() => {
                   onColorChange?.(c.value);
                   onToolChange?.('pen');
-                  onClose?.();
+                  // Stay open until user clicks outside
                 }}
                 style={{
                   left: '50%',
@@ -490,7 +490,6 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
                 onClick={() => {
                   onStrokeWidthChange?.(sw.value);
                   onToolChange?.('pen');
-                  onClose?.();
                 }}
                 style={{
                   left: '50%',
@@ -595,13 +594,45 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
         </div>
       )}
 
-      {/* MAIN WHITE CIRCULAR DISC */}
-      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 shadow-[0_12px_36px_rgba(0,0,0,0.45)] backdrop-blur-md">
+      {/* MAIN WHITE CIRCULAR DISC WITH CRISP 6-SECTOR DIVIDER LINES */}
+      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 shadow-[0_12px_36px_rgba(0,0,0,0.22)] backdrop-blur-md">
+        {/* Radial divider lines separating every feature sector */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 144 144"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        >
+          {[0, 60, 120, 180, 240, 300].map((deg) => {
+            const rad = (deg * Math.PI) / 180;
+            const x1 = 72 + Math.cos(rad) * 28;
+            const y1 = 72 + Math.sin(rad) * 28;
+            const x2 = 72 + Math.cos(rad) * 70;
+            const y2 = 72 + Math.sin(rad) * 70;
+            return (
+              <line
+                key={deg}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="#e2e8f0"
+                strokeWidth="1.25"
+              />
+            );
+          })}
+        </svg>
+
         {ringSlots.map((slot) => {
           const rad = (slot.angleDeg * Math.PI) / 180;
           const r = 48;
           const x = Math.round(Math.cos(rad) * r);
           const y = Math.round(Math.sin(rad) * r);
+
+          const handleHover = () => {
+            if (slot.id === 'obj_color') setExpandedArc('object_color');
+            else if (slot.id === 'pen') setExpandedArc('pen');
+            else if (slot.id === 'solid3d') setExpandedArc('solid');
+          };
 
           return (
             <button
@@ -612,6 +643,7 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
               disabled={slot.disabled}
               aria-label={slot.label}
               title={slot.label}
+              onMouseEnter={handleHover}
               onClick={slot.onClick}
               style={{
                 left: '50%',
@@ -640,6 +672,9 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
           data-testid="wheel-center-ai"
           aria-label={mode === 'object' ? 'Jelaskan Objek dengan AI' : 'Buka Menu Cerdas AI'}
           title={mode === 'object' ? 'Jelaskan Objek dengan AI' : 'Menu Cerdas AI'}
+          onMouseEnter={() => {
+            if (mode === 'canvas') setExpandedArc('ai');
+          }}
           onClick={() => {
             if (mode === 'object') {
               onExplainAi?.();

@@ -76,13 +76,25 @@ export function generateStarPoints(
 }
 
 export function computeObjectBbox(obj: BoardObject): BoundingBox {
-  const p = obj.props as Record<string, number & string>;
+  const p = obj.props as Record<string, unknown>;
+  if (Array.isArray(p.customPoints) && p.customPoints.length >= 6) {
+    const pts = p.customPoints as number[];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < pts.length; i += 2) {
+      if (pts[i] < minX) minX = pts[i];
+      if (pts[i] > maxX) maxX = pts[i];
+      if (pts[i + 1] < minY) minY = pts[i + 1];
+      if (pts[i + 1] > maxY) maxY = pts[i + 1];
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  const pn = obj.props as Record<string, number & string>;
   switch (obj.object_type) {
     case "rect": {
-      const x = Number(p.x ?? 0);
-      const y = Number(p.y ?? 0);
-      const w = Number(p.w ?? p.width ?? 100);
-      const h = Number(p.h ?? p.height ?? 60);
+      const x = Number(pn.x ?? 0);
+      const y = Number(pn.y ?? 0);
+      const w = Number(pn.w ?? pn.width ?? 100);
+      const h = Number(pn.h ?? pn.height ?? 60);
       return { x, y, w, h };
     }
     case "circle": {
@@ -168,6 +180,28 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
       onNodeRef(obj.id, node, bbox);
     }
   };
+
+  // Custom editable polygon vertices (created when double-clicking corners/edges or dragging vertices)
+  const rawProps = obj.props as Record<string, unknown>;
+  if (Array.isArray(rawProps.customPoints) && rawProps.customPoints.length >= 6) {
+    return (
+      <Line
+        id={obj.id}
+        ref={refCallback}
+        points={rawProps.customPoints as number[]}
+        closed
+        fill={p.fill ?? "transparent"}
+        stroke={p.stroke ?? "#0f172a"}
+        strokeWidth={strokeW}
+        lineCap="round"
+        lineJoin="round"
+        listening={listening}
+        perfectDrawEnabled={false}
+        shadowForStrokeEnabled={false}
+        hitStrokeWidth={hitW}
+      />
+    );
+  }
 
   switch (obj.object_type) {
     case "rect":
