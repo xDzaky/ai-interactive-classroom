@@ -73,9 +73,12 @@ interface VizSolidOverlayProps {
   canvasWidth: number;
   canvasHeight: number;
   isLive: boolean;
+  isSelected?: boolean;
   snapshotUrl?: string;
   tongchuangMode?: boolean;
   onActivate: () => void;
+  onSelect?: () => void;
+  onDeselect?: () => void;
   onSnapshot: (url: string) => void;
   onDelete?: () => void;
   onExplain?: () => void;
@@ -92,9 +95,12 @@ function VizSolidOverlay({
   canvasWidth,
   canvasHeight,
   isLive,
+  isSelected = true,
   snapshotUrl,
   tongchuangMode = false,
   onActivate,
+  onSelect,
+  onDeselect,
   onSnapshot,
   onDelete,
   onExplain,
@@ -196,8 +202,10 @@ function VizSolidOverlay({
               id={obj.id}
               params={solidParams}
               label={typeof props.label === "string" ? props.label : undefined}
-              selected={true}
+              selected={isSelected}
               compact={true}
+              onSelect={onSelect}
+              onCloseToolbar={onDeselect}
               onSnapshot={onSnapshot}
               onDelete={onDelete}
               onExplainAi={onExplain}
@@ -242,8 +250,10 @@ function VizSolidOverlay({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            background: "#0d1117",
-            color: "#94a3b8",
+            background: tongchuangMode ? "rgba(255,255,255,0.92)" : "#0d1117",
+            color: tongchuangMode ? "#475569" : "#94a3b8",
+            border: tongchuangMode ? "1px dashed #cbd5e1" : undefined,
+            borderRadius: tongchuangMode ? 16 : undefined,
           }}
         >
           {snapshotUrl ? (
@@ -395,14 +405,22 @@ export function WhiteboardOverlay({
     [scene]
   );
 
-  // Maximum 3 live WebGL canvases (P10-T07)
+  // Maximum 3 live WebGL canvases (P10-T07) + Single selected solid toolbar
   const [activeSolidIds, setActiveSolidIds] = useState<string[]>([]);
+  const [selectedSolidId, setSelectedSolidId] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const solidIds = vizObjects
       .filter((o) => o.object_type === "viz_solid")
       .map((o) => o.id);
+
+    // Auto-select newly added solid so its toolbar is active (and only 1 toolbar shows at a time)
+    if (solidIds.length > 0) {
+      setSelectedSolidId((prev) => (prev && solidIds.includes(prev) ? prev : solidIds[solidIds.length - 1]));
+    } else {
+      setSelectedSolidId(null);
+    }
 
     setActiveSolidIds((prev) => {
       const kept = prev.filter((id) => solidIds.includes(id));
@@ -455,9 +473,15 @@ export function WhiteboardOverlay({
             canvasWidth={width}
             canvasHeight={height}
             isLive={activeSolidIds.includes(obj.id)}
+            isSelected={selectedSolidId === obj.id}
             snapshotUrl={snapshots[obj.id]}
             tongchuangMode={tongchuangMode}
-            onActivate={() => activateSolid(obj.id)}
+            onActivate={() => {
+              activateSolid(obj.id);
+              setSelectedSolidId(obj.id);
+            }}
+            onSelect={() => setSelectedSolidId(obj.id)}
+            onDeselect={() => setSelectedSolidId(null)}
             onSnapshot={(url) => handleSnapshot(obj.id, url)}
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onExplain={onExplainObject ? () => onExplainObject(obj) : undefined}
