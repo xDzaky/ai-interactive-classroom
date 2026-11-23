@@ -68,9 +68,13 @@ try {
     });
   }
 } catch {
-  // Already non-configurable — assign directly as fallback
-  if (!anyReact[KEY]) {
-    anyReact[KEY] = shim;
+  // Frozen ES Module Namespace in production builds cannot be mutated — safely ignore
+  try {
+    if (Object.isExtensible(anyReact) && !anyReact[KEY]) {
+      anyReact[KEY] = shim;
+    }
+  } catch {
+    // ignore
   }
 }
 

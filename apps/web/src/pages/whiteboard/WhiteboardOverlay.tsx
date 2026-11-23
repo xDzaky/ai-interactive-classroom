@@ -21,7 +21,9 @@ const TongchuangSolidWidget = lazy(() =>
   })),
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
+import { MathTextBlockWidget } from "../../components/math/MathTextBlockWidget.js";
 import type { SolidType, SolidParams } from "@ai-classroom/geometry-core";
+import type { MathVisualIntent } from "@ai-classroom/math-core";
 import type { ViewportController, ViewportState } from "@/lib/viewport";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,11 +48,17 @@ export interface WhiteboardOverlayProps {
   defaultWidgetSize?: number;
   /** Render transparent Tongchuang interactive 3D widgets with cross-section, unfold, and white action bar */
   tongchuangMode?: boolean;
+  /** Unified selection IDs from WhiteboardCanvas (eliminates dual-toolbar) */
+  selectedIds?: string[];
+  onSelectIds?: (ids: string[]) => void;
   onDeleteObject?: (id: string) => void;
   onExplainObject?: (obj: BoardObject) => void;
   onDuplicateObject?: (obj: BoardObject) => void;
   onMoveObject?: (id: string, x: number, y: number) => void;
   onUpdateSolidParams?: (id: string, params: SolidParams) => void;
+  onUpdateObjectProps?: (id: string, propsPatch: Record<string, unknown>) => void;
+  onVisualizeMathBlock?: (mathBlockObj: BoardObject, intent: MathVisualIntent) => void;
+  onOpenInspector?: (obj: BoardObject) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,17 +120,22 @@ function VizSolidOverlay({
   const { x: wx, y: wy } = extractTransform(obj);
   const [isNearViewport, setIsNearViewport] = useState(true);
 
-  // Imperative DOM transform update
+  // Imperative DOM transform update (GPU-accelerated translate3d, 1:1 synced with Konva)
+  const rawProps = obj.props as Record<string, unknown>;
+  const boxW = typeof rawProps.w === "number" ? rawProps.w : widgetSize;
+  const boxH = typeof rawProps.h === "number" ? rawProps.h : widgetSize;
+
   useEffect(() => {
     const updateStyleAndVisibility = (v: ViewportState) => {
       if (containerRef.current) {
         const sx = wx * v.scale + v.x;
         const sy = wy * v.scale + v.y;
-        const scaledSize = widgetSize * v.scale;
+        const scaledW = boxW * v.scale;
+        const scaledH = boxH * v.scale;
         containerRef.current.style.left = `${sx}px`;
         containerRef.current.style.top = `${sy}px`;
-        containerRef.current.style.width = `${scaledSize}px`;
-        containerRef.current.style.height = `${scaledSize}px`;
+        containerRef.current.style.width = `${scaledW}px`;
+        containerRef.current.style.height = `${scaledH}px`;
       }
 
       // Check distance to viewport (margin 800px in world coordinates)
@@ -133,9 +146,9 @@ function VizSolidOverlay({
       const vWorldBottom = (-v.y + canvasHeight) / v.scale + margin;
 
       const near =
-        wx + widgetSize >= vWorldLeft &&
+        wx + boxW >= vWorldLeft &&
         wx <= vWorldRight &&
-        wy + widgetSize >= vWorldTop &&
+        wy + boxH >= vWorldTop &&
         wy <= vWorldBottom;
 
       setIsNearViewport(near);
@@ -148,7 +161,7 @@ function VizSolidOverlay({
     } else {
       updateStyleAndVisibility({ x: view.x, y: view.y, scale: view.scale });
     }
-  }, [viewportController, view.x, view.y, view.scale, wx, wy, widgetSize, canvasWidth, canvasHeight]);
+  }, [viewportController, view.x, view.y, view.scale, wx, wy, boxW, boxH, canvasWidth, canvasHeight]);
 
   const props = obj.props as Record<string, unknown>;
   const solidType = (props.solid_type as SolidType) ?? "cube";
@@ -176,7 +189,8 @@ function VizSolidOverlay({
   const initialY = viewportController ? viewportController.getState().y : view.y;
   const initialSx = wx * initialScale + initialX;
   const initialSy = wy * initialScale + initialY;
-  const initialSize = widgetSize * initialScale;
+  const initialW = boxW * initialScale;
+  const initialH = boxH * initialScale;
 
   return (
     <div
@@ -186,8 +200,9 @@ function VizSolidOverlay({
         position: "absolute",
         left: initialSx,
         top: initialSy,
-        width: initialSize,
-        height: initialSize,
+        width: initialW,
+        height: initialH,
+        zIndex: isSelected ? 20 : 6,
         pointerEvents: "auto",
         border: tongchuangMode ? "none" : "1px solid rgba(100,100,255,0.3)",
         borderRadius: tongchuangMode ? 12 : 4,
@@ -201,6 +216,9 @@ function VizSolidOverlay({
             <TongchuangSolidWidget
               id={obj.id}
               params={solidParams}
+              extendedKind={typeof props.extended_kind === "string" ? props.extended_kind : undefined}
+              profilePointsCm={Array.isArray(props.profile_points_cm) ? (props.profile_points_cm as [number, number][]) : undefined}
+              extraParams={typeof props.extra_params === "object" && props.extra_params !== null ? (props.extra_params as Record<string, unknown>) : undefined}
               label={typeof props.label === "string" ? props.label : undefined}
               selected={isSelected}
               compact={true}
@@ -250,9 +268,13 @@ function VizSolidOverlay({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            background: tongchuangMode ? "rgba(255,255,255,0.92)" : "#0d1117",
+            background: snapshotUrl
+              ? "transparent"
+              : tongchuangMode
+              ? "rgba(255,255,255,0.55)"
+              : "#0d1117",
             color: tongchuangMode ? "#475569" : "#94a3b8",
-            border: tongchuangMode ? "1px dashed #cbd5e1" : undefined,
+            border: snapshotUrl ? "none" : tongchuangMode ? "1px dashed #cbd5e1" : undefined,
             borderRadius: tongchuangMode ? 16 : undefined,
           }}
         >
@@ -260,12 +282,17 @@ function VizSolidOverlay({
             <img
               src={snapshotUrl}
               alt={`Snapshot ${solidType}`}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                pointerEvents: "none",
+              }}
             />
           ) : (
             <div style={{ textAlign: "center", padding: 8 }}>
               <div style={{ fontSize: 24, marginBottom: 4 }}>🧊</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", textTransform: "capitalize" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: tongchuangMode ? "#334155" : "#e2e8f0", textTransform: "capitalize" }}>
                 {solidType}
               </div>
             </div>
@@ -273,17 +300,17 @@ function VizSolidOverlay({
           <span
             style={{
               position: "absolute",
-              bottom: 8,
+              bottom: 6,
               padding: "2px 8px",
-              borderRadius: 12,
-              background: "rgba(0, 0, 0, 0.75)",
-              color: "#38bdf8",
-              fontSize: 11,
-              fontWeight: 500,
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: 999,
+              background: "rgba(15, 23, 42, 0.72)",
+              color: "#e0f2fe",
+              fontSize: 10,
+              fontWeight: 600,
+              backdropFilter: "blur(4px)",
             }}
           >
-            Klik untuk interaksi 3D
+            Klik untuk aktifkan 3D
           </span>
         </div>
       )}
@@ -375,6 +402,97 @@ function VizGraphOverlay({ obj, view, viewportController, widgetSize }: VizGraph
   );
 }
 
+// ─── MathBlockOverlay ────────────────────────────────────────────────────────
+
+interface MathBlockOverlayProps {
+  obj: BoardObject;
+  view: ViewTransform;
+  viewportController?: ViewportController;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChangeLatex: (next: string) => void;
+  onVisualize: (intent: MathVisualIntent) => void;
+  onMove?: (x: number, y: number) => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
+}
+
+function MathBlockOverlay({
+  obj,
+  view,
+  viewportController,
+  isSelected,
+  onSelect,
+  onChangeLatex,
+  onVisualize,
+  onMove,
+  onDelete,
+  onDuplicate,
+}: MathBlockOverlayProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { x: wx, y: wy } = extractTransform(obj);
+
+  useEffect(() => {
+    const updateStyle = (v: ViewportState) => {
+      if (containerRef.current) {
+        const sx = wx * v.scale + v.x;
+        const sy = wy * v.scale + v.y;
+        containerRef.current.style.transform = `translate3d(${sx}px, ${sy}px, 0)`;
+      }
+    };
+    if (viewportController) {
+      const unsub = viewportController.subscribe(updateStyle);
+      updateStyle(viewportController.getState());
+      return unsub;
+    } else {
+      updateStyle({ x: view.x, y: view.y, scale: view.scale });
+    }
+  }, [viewportController, view.x, view.y, view.scale, wx, wy]);
+
+  const props = obj.props as Record<string, unknown>;
+  const latex = typeof props.latex === "string" ? props.latex : "";
+  const initialScale = viewportController ? viewportController.getState().scale : view.scale;
+  const initialX = viewportController ? viewportController.getState().x : view.x;
+  const initialY = viewportController ? viewportController.getState().y : view.y;
+  const initialSx = wx * initialScale + initialX;
+  const initialSy = wy * initialScale + initialY;
+
+  return (
+    <div
+      ref={containerRef}
+      data-testid={`viz-math-block-${obj.id}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        transform: `translate3d(${initialSx}px, ${initialSy}px, 0)`,
+        zIndex: isSelected ? 24 : 10,
+        pointerEvents: "auto",
+        willChange: "transform",
+      }}
+    >
+      <MathTextBlockWidget
+        id={obj.id}
+        latex={latex}
+        selected={isSelected}
+        onSelect={onSelect}
+        onChangeLatex={onChangeLatex}
+        onVisualize={onVisualize}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        onMovePosition={
+          onMove
+            ? (dx, dy) => {
+                const s = viewportController ? viewportController.getState().scale : view.scale;
+                onMove(wx + dx / (s || 1), wy + dy / (s || 1));
+              }
+            : undefined
+        }
+      />
+    </div>
+  );
+}
+
 // ─── WhiteboardOverlay ────────────────────────────────────────────────────────
 
 export function WhiteboardOverlay({
@@ -385,11 +503,15 @@ export function WhiteboardOverlay({
   height,
   defaultWidgetSize = 240,
   tongchuangMode = false,
+  selectedIds,
+  onSelectIds,
   onDeleteObject,
   onExplainObject,
   onDuplicateObject,
   onMoveObject,
   onUpdateSolidParams,
+  onUpdateObjectProps,
+  onVisualizeMathBlock,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -400,27 +522,49 @@ export function WhiteboardOverlay({
         .filter(
           (obj): obj is BoardObject =>
             obj !== undefined &&
-            (obj.object_type === "viz_solid" || obj.object_type === "viz_graph")
+            (obj.object_type === "viz_solid" ||
+              obj.object_type === "viz_graph" ||
+              obj.object_type === "math_block")
         ),
     [scene]
   );
 
-  // Maximum 3 live WebGL canvases (P10-T07) + Single selected solid toolbar
+  // Maximum 3 live WebGL canvases (P10-T07) + Single Selection State Machine
   const [activeSolidIds, setActiveSolidIds] = useState<string[]>([]);
-  const [selectedSolidId, setSelectedSolidId] = useState<string | null>(null);
+  const [internalSelectedSolidId, setInternalSelectedSolidId] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
 
+  const isControlledSelection = Array.isArray(selectedIds) && typeof onSelectIds === "function";
+  const selectedSolidId = isControlledSelection
+    ? selectedIds.length === 1 && scene.objects[selectedIds[0]]?.object_type === "viz_solid"
+      ? selectedIds[0]
+      : null
+    : internalSelectedSolidId;
+
+  const setSelectedSolid = useCallback(
+    (id: string | null) => {
+      if (isControlledSelection && onSelectIds) {
+        onSelectIds(id ? [id] : []);
+      } else {
+        setInternalSelectedSolidId(id);
+      }
+    },
+    [isControlledSelection, onSelectIds]
+  );
+
+  const prevSolidCountRef = useRef(0);
   useEffect(() => {
     const solidIds = vizObjects
       .filter((o) => o.object_type === "viz_solid")
       .map((o) => o.id);
 
-    // Auto-select newly added solid so its toolbar is active (and only 1 toolbar shows at a time)
-    if (solidIds.length > 0) {
-      setSelectedSolidId((prev) => (prev && solidIds.includes(prev) ? prev : solidIds[solidIds.length - 1]));
-    } else {
-      setSelectedSolidId(null);
+    // Auto-select newly added solid so its toolbar is active immediately
+    if (solidIds.length > prevSolidCountRef.current && solidIds.length > 0) {
+      setSelectedSolid(solidIds[solidIds.length - 1]);
+    } else if (solidIds.length === 0 && internalSelectedSolidId) {
+      setInternalSelectedSolidId(null);
     }
+    prevSolidCountRef.current = solidIds.length;
 
     setActiveSolidIds((prev) => {
       const kept = prev.filter((id) => solidIds.includes(id));
@@ -433,7 +577,7 @@ export function WhiteboardOverlay({
       }
       return kept;
     });
-  }, [vizObjects]);
+  }, [vizObjects, setSelectedSolid, internalSelectedSolidId]);
 
   const activateSolid = useCallback((id: string) => {
     setActiveSolidIds((prev) => {
@@ -478,16 +622,34 @@ export function WhiteboardOverlay({
             tongchuangMode={tongchuangMode}
             onActivate={() => {
               activateSolid(obj.id);
-              setSelectedSolidId(obj.id);
+              setSelectedSolid(obj.id);
             }}
-            onSelect={() => setSelectedSolidId(obj.id)}
-            onDeselect={() => setSelectedSolidId(null)}
+            onSelect={() => setSelectedSolid(obj.id)}
+            onDeselect={() => setSelectedSolid(null)}
             onSnapshot={(url) => handleSnapshot(obj.id, url)}
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onExplain={onExplainObject ? () => onExplainObject(obj) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
             onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
             onUpdateParams={onUpdateSolidParams ? (np) => onUpdateSolidParams(obj.id, np) : undefined}
+          />
+        ) : obj.object_type === "math_block" ? (
+          <MathBlockOverlay
+            key={obj.id}
+            obj={obj}
+            view={view}
+            viewportController={viewportController}
+            isSelected={Boolean(selectedIds?.includes(obj.id))}
+            onSelect={() => setSelectedSolid(obj.id)}
+            onChangeLatex={(nextLatex) => {
+              onUpdateObjectProps?.(obj.id, { latex: nextLatex });
+            }}
+            onVisualize={(intent) => {
+              onVisualizeMathBlock?.(obj, intent);
+            }}
+            onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
+            onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+            onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
           />
         ) : (
           <VizGraphOverlay

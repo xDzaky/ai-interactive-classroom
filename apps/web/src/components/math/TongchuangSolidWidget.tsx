@@ -25,8 +25,25 @@ import {
   vecCross,
   vecDot,
   vecLength,
+  normalizeProfile2D,
+  createRegularPolygonProfile,
+  extrudeProfile,
+  taperProfile,
+  buildTetrahedron,
+  buildOctahedron,
+  buildIcosahedron,
+  verifyEulerCharacteristic,
 } from '@ai-classroom/geometry-core';
 import { buildThreeGeometry } from '@/lib/threeGeometry';
+import {
+  setupStudioLighting,
+  createGlassFaceMaterial,
+  createTextbookEdges,
+  createCrossSectionMaterials,
+  FACE_EXPLODE_PALETTE,
+  SOLID_THEMES,
+  type SolidThemeKey,
+} from '@/lib/threeMaterials';
 import { toThree } from '@/lib/coords';
 import { useWeakDevice } from '@/lib/useWeakDevice';
 
@@ -36,6 +53,10 @@ export type CameraPreset = 'iso' | 'front' | 'top' | 'side';
 export interface TongchuangSolidWidgetProps {
   id: string;
   params: SolidParams;
+  extendedKind?: string;
+  profilePointsCm?: [number, number][];
+  extraParams?: Record<string, unknown>;
+  theme?: SolidThemeKey;
   label?: string;
   selected?: boolean;
   onSelect?: () => void;
@@ -125,7 +146,59 @@ export function projectSectionPolygon2D(section: SectionPolygon): ProjectedSecti
   return { points2D, anglesDeg, sideLengths, area: section.area, perimeter: section.perimeter };
 }
 
-function buildPolyhedronFromParams(params: SolidParams): Polyhedron | null {
+function buildPolyhedronFromParams(
+  params: SolidParams,
+  extendedKind?: string,
+  profilePointsCm?: [number, number][],
+  extraParams?: Record<string, unknown>,
+): Polyhedron | null {
+  if (extendedKind === 'tetrahedron') {
+    return buildTetrahedron(Number(extraParams?.s ?? (params.type === 'pyramid' ? params.b : 3)));
+  }
+  if (extendedKind === 'octahedron') {
+    return buildOctahedron(Number(extraParams?.s ?? 3));
+  }
+  if (extendedKind === 'icosahedron') {
+    return buildIcosahedron(Number(extraParams?.r ?? 2.4));
+  }
+  if (extendedKind === 'prism_n') {
+    const sides = Number(extraParams?.sides ?? 6);
+    const r = Number(extraParams?.r ?? 2);
+    const h = Number(extraParams?.height ?? (params.type === 'prism' ? params.h : 4));
+    const obX = Number(extraParams?.obliqueX ?? 0);
+    return extrudeProfile(createRegularPolygonProfile(sides, r), h, obX, 0).polyhedron;
+  }
+  if (extendedKind === 'pyramid_n') {
+    const sides = Number(extraParams?.sides ?? 5);
+    const r = Number(extraParams?.r ?? 2.2);
+    const h = Number(extraParams?.height ?? (params.type === 'pyramid' ? params.h : 4));
+    return taperProfile(createRegularPolygonProfile(sides, r), h, 0).polyhedron;
+  }
+  if (extendedKind === 'custom_prism' && profilePointsCm && profilePointsCm.length >= 3) {
+    const h = Number(extraParams?.height ?? (params.type === 'prism' ? params.h : 4));
+    const obX = Number(extraParams?.obliqueX ?? 0);
+    return extrudeProfile(normalizeProfile2D(profilePointsCm, true), h, obX, 0).polyhedron;
+  }
+  if (
+    (extendedKind === 'custom_pyramid' || extendedKind === 'frustum') &&
+    profilePointsCm &&
+    profilePointsCm.length >= 3
+  ) {
+    const h = Number(extraParams?.height ?? (params.type === 'pyramid' ? params.h : 4));
+    const topScale = extendedKind === 'frustum' ? Number(extraParams?.topScale ?? 0.45) : 0;
+    return taperProfile(normalizeProfile2D(profilePointsCm, true), h, topScale).polyhedron;
+  }
+  if (extendedKind === 'frustum') {
+    const sides = Number(extraParams?.sides ?? 4);
+    const r = Number(extraParams?.r ?? 2.4);
+    const h = Number(extraParams?.height ?? 3.5);
+    const topScale = Number(extraParams?.topScale ?? 0.48);
+    return taperProfile(createRegularPolygonProfile(sides, r), h, topScale).polyhedron;
+  }
+  if (extendedKind === 'ellipsoid' || extendedKind === 'hemisphere' || extendedKind === 'surface_3d') {
+    return null;
+  }
+
   switch (params.type) {
     case 'cube':
       return buildPolyhedron('cube', { s: params.s });
@@ -188,6 +261,10 @@ function disposeGroup(group: THREE.Group) {
 export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   id,
   params,
+  extendedKind,
+  profilePointsCm,
+  extraParams,
+  theme = 'ice',
   label,
   selected = true,
   onSelect,
@@ -234,7 +311,14 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const onSnapshotRef = useRef(onSnapshot);
   onSnapshotRef.current = onSnapshot;
 
-  const polyhedron = useMemo(() => buildPolyhedronFromParams(localParams), [localParams]);
+  const polyhedron = useMemo(
+    () => buildPolyhedronFromParams(localParams, extendedKind, profilePointsCm, extraParams),
+    [localParams, extendedKind, profilePointsCm, extraParams]
+  );
+  const eulerInfo = useMemo(
+    () => (polyhedron ? verifyEulerCharacteristic(polyhedron) : null),
+    [polyhedron]
+  );
   const geoStats = useMemo(() => {
     try {
       return computeGeometry(localParams);
@@ -367,10 +451,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     controls.autoRotateSpeed = 2.4;
     controlsRef.current = controls;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(8, 12, 10);
-    scene.add(dir);
+    setupStudioLighting(scene);
 
     const solidGroup = new THREE.Group();
     const sectionGroup = new THREE.Group();
@@ -431,7 +512,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       rafId = requestAnimationFrame(animate);
       const st = stateRef.current;
 
-      // Update Explode / Unfold face offsets smoothly
+      // Update Explode / Unfold face offsets smoothly with harmonious pastel distinction
+      const themeColors = SOLID_THEMES[theme];
       for (const entry of faceEntriesRef.current) {
         const dist = st.explodeT * 1.15 + (entry.fIdx > 0 ? st.unfoldT * 0.85 : 0);
         entry.mesh.position.set(
@@ -440,8 +522,17 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           entry.normal[2] * dist
         );
         const isFoldFace = st.mode === 'unfold' && entry.fIdx === 1;
-        entry.mat.color.setHex(isFoldFace ? 0xf97316 : 0xe2e8f0);
-        entry.mat.opacity = isFoldFace ? 0.65 : st.explodeT > 0.05 ? 0.32 : 0.04;
+        const isExploded = st.explodeT > 0.04 || st.unfoldT > 0.04;
+        if (isFoldFace) {
+          entry.mat.color.setHex(0xf97316);
+          entry.mat.opacity = 0.58;
+        } else if (isExploded) {
+          entry.mat.color.setHex(FACE_EXPLODE_PALETTE[entry.fIdx % FACE_EXPLODE_PALETTE.length]);
+          entry.mat.opacity = 0.42;
+        } else {
+          entry.mat.color.setHex(themeColors.faceHex);
+          entry.mat.opacity = 0.22;
+        }
       }
 
       // Update vertex/midpoint node visibility
@@ -468,7 +559,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         }
       }
 
-      // Imperative DOM label projection (ZERO React re-renders!)
+      // Imperative DOM label projection (ZERO React re-renders! Anti-collision outward push + back-side dim)
       const labelContainer = labelLayerRef.current;
       if (labelContainer) {
         if (!st.showLabels && st.mode !== 'section') {
@@ -477,6 +568,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           labelContainer.style.display = 'block';
           const cw = renderer.domElement.clientWidth || w;
           const ch = renderer.domElement.clientHeight || h;
+          const centerProj = new THREE.Vector3(0, 0, 0).project(camera);
+          const cxScreen = (centerProj.x * 0.5 + 0.5) * cw;
+          const cyScreen = (-centerProj.y * 0.5 + 0.5) * ch;
           const children = labelContainer.children;
           let idx = 0;
           for (const item of nodeMeshesRef.current) {
@@ -485,9 +579,16 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
             if (!el) break;
             item.mesh.getWorldPosition(projVec);
             projVec.project(camera);
-            const sx = (projVec.x * 0.5 + 0.5) * cw;
-            const sy = (-projVec.y * 0.5 + 0.5) * ch;
-            el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translate(-50%, -130%)`;
+            const rawSx = (projVec.x * 0.5 + 0.5) * cw;
+            const rawSy = (-projVec.y * 0.5 + 0.5) * ch;
+            // Push label slightly outward from centroid so it never overlaps edges
+            const dx = rawSx - cxScreen;
+            const dy = rawSy - cyScreen;
+            const dLen = Math.hypot(dx, dy) || 1;
+            const sx = rawSx + (dx / dLen) * 14;
+            const sy = rawSy + (dy / dLen) * 14;
+            el.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translate(-50%, -50%)`;
+            el.style.opacity = projVec.z > centerProj.z + 0.015 ? '0.52' : '1';
           }
         }
       }
@@ -523,8 +624,6 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
     faceEntriesRef.current = [];
     nodeMeshesRef.current = [];
-
-    const wireColor = 0x0f172a;
 
     if (polyhedron) {
       const threeVerts = polyhedron.vertices.map((v) => toThree(v));
@@ -570,16 +669,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           normalThree[2] / nLen,
         ];
 
-        const mat = new THREE.MeshStandardMaterial({
-          color: 0xe2e8f0,
-          transparent: true,
-          opacity: 0.04,
-          side: THREE.DoubleSide,
-          depthWrite: true,
-          polygonOffset: true,
-          polygonOffsetFactor: 2,
-          polygonOffsetUnits: 2,
-        });
+        const mat = createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.22, THREE.DoubleSide);
         const mesh = new THREE.Mesh(geom, mat);
         solidGroup.add(mesh);
         faceEntriesRef.current.push({ mesh, mat, normal: unitNormal, fIdx });
@@ -598,25 +688,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       }
       edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
 
-      const hiddenEdges = new THREE.LineSegments(
-        edgeGeom,
-        new THREE.LineDashedMaterial({
-          color: 0x64748b,
-          dashSize: 0.18 / normScale,
-          gapSize: 0.14 / normScale,
-          transparent: true,
-          opacity: 0.72,
-          depthFunc: THREE.GreaterDepth,
-          depthWrite: false,
-        })
-      );
-      hiddenEdges.computeLineDistances();
+      const { hiddenEdges, frontEdges } = createTextbookEdges(edgeGeom, normScale, theme);
       solidGroup.add(hiddenEdges);
-
-      const frontEdges = new THREE.LineSegments(
-        edgeGeom,
-        new THREE.LineBasicMaterial({ color: wireColor, depthFunc: THREE.LessEqualDepth })
-      );
       solidGroup.add(frontEdges);
 
       // Interactive vertex & midpoint spheres
@@ -634,82 +707,79 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       }
     } else {
       centerRef.current = [0, 0, 0];
-      const { geometry, dimensions } = buildThreeGeometry(localParams);
+      const { geometry, dimensions } = buildThreeGeometry(localParams, extendedKind, extraParams);
       const maxDim = Math.max(dimensions.width, dimensions.height, dimensions.depth, 1);
       const normScale = 3.8 / maxDim;
       baseScaleRef.current = normScale;
       solidGroup.scale.setScalar(normScale);
 
-      const occluderMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.03,
-        depthWrite: true,
-        polygonOffset: true,
-        polygonOffsetFactor: 2,
-        polygonOffsetUnits: 2,
-      });
-      solidGroup.add(new THREE.Mesh(geometry, occluderMat));
+      if (extendedKind === 'surface_3d') {
+        const surfMat = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          side: THREE.DoubleSide,
+          roughness: 0.35,
+          metalness: 0.08,
+          transparent: true,
+          opacity: 0.88,
+        });
+        solidGroup.add(new THREE.Mesh(geometry, surfMat));
+        const wireGeom = new THREE.WireframeGeometry(geometry);
+        solidGroup.add(
+          new THREE.LineSegments(
+            wireGeom,
+            new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.18 })
+          )
+        );
+      } else {
+        // Dual-pass glassmorphic translucency (BackSide then FrontSide) — zero Z-fighting!
+        solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.14, THREE.BackSide)));
+        solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.24, THREE.FrontSide)));
 
-      const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
-      const dashedBack = new THREE.LineSegments(
-        edgesGeom,
-        new THREE.LineDashedMaterial({
-          color: 0x64748b,
-          dashSize: 0.16 / normScale,
-          gapSize: 0.12 / normScale,
-          depthFunc: THREE.GreaterDepth,
-          depthWrite: false,
-        })
-      );
-      dashedBack.computeLineDistances();
-      solidGroup.add(dashedBack);
+        const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
+        const { hiddenEdges, frontEdges } = createTextbookEdges(edgesGeom, normScale, theme);
+        solidGroup.add(hiddenEdges);
+        solidGroup.add(frontEdges);
 
-      solidGroup.add(
-        new THREE.LineSegments(
-          edgesGeom,
-          new THREE.LineBasicMaterial({ color: wireColor, depthFunc: THREE.LessEqualDepth })
-        )
-      );
+        if (localParams.type === 'sphere' && extendedKind !== 'ellipsoid' && extendedKind !== 'hemisphere') {
+          const r = localParams.r;
+          const makeRing = (rotX: number, rotY: number) => {
+            const pts: THREE.Vector3[] = [];
+            for (let i = 0; i <= 64; i++) {
+              const a = (i / 64) * Math.PI * 2;
+              pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+            }
+            const rg = new THREE.BufferGeometry().setFromPoints(pts);
+            const back = new THREE.Line(
+              rg,
+              new THREE.LineDashedMaterial({
+                color: SOLID_THEMES[theme].hiddenEdgeHex,
+                dashSize: 0.16 / normScale,
+                gapSize: 0.12 / normScale,
+                transparent: true,
+                opacity: 0.55,
+                depthFunc: THREE.GreaterDepth,
+                depthWrite: false,
+              })
+            );
+            back.computeLineDistances();
+            back.rotation.set(rotX, rotY, 0);
+            solidGroup.add(back);
 
-      if (localParams.type === 'sphere') {
-        const r = localParams.r;
-        const makeRing = (rotX: number, rotY: number) => {
-          const pts: THREE.Vector3[] = [];
-          for (let i = 0; i <= 64; i++) {
-            const a = (i / 64) * Math.PI * 2;
-            pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
-          }
-          const rg = new THREE.BufferGeometry().setFromPoints(pts);
-          const back = new THREE.Line(
-            rg,
-            new THREE.LineDashedMaterial({
-              color: 0x64748b,
-              dashSize: 0.16 / normScale,
-              gapSize: 0.12 / normScale,
-              depthFunc: THREE.GreaterDepth,
-              depthWrite: false,
-            })
-          );
-          back.computeLineDistances();
-          back.rotation.set(rotX, rotY, 0);
-          solidGroup.add(back);
-
-          const front = new THREE.Line(
-            rg,
-            new THREE.LineBasicMaterial({ color: wireColor, depthFunc: THREE.LessEqualDepth })
-          );
-          front.rotation.set(rotX, rotY, 0);
-          solidGroup.add(front);
-        };
-        makeRing(0, 0);
-        makeRing(Math.PI / 2, 0);
-        makeRing(Math.PI / 2, Math.PI / 2);
+            const front = new THREE.Line(
+              rg,
+              new THREE.LineBasicMaterial({ color: SOLID_THEMES[theme].edgeHex, depthFunc: THREE.LessEqualDepth })
+            );
+            front.rotation.set(rotX, rotY, 0);
+            solidGroup.add(front);
+          };
+          makeRing(0, 0);
+          makeRing(Math.PI / 2, 0);
+        }
       }
     }
-  }, [polyhedron, interactiveNodes, localParams]);
+  }, [polyhedron, interactiveNodes, localParams, extendedKind, extraParams, theme]);
 
-  // ── 3. IN-PLACE CROSS-SECTION REBUILD ─────────────────────────────────────
+  // ── 3. IN-PLACE CROSS-SECTION REBUILD (Electric Blue Plane + Glowing Pins) ─
   useEffect(() => {
     const group = sectionGroupRef.current;
     if (!group) return;
@@ -722,6 +792,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       return [t[0] - center[0], t[1] - center[1], t[2] - center[2]] as [number, number, number];
     });
 
+    const { fillMat, outlineMat, pinMat } = createCrossSectionMaterials();
     const meshGeom = new THREE.BufferGeometry();
     const pos: number[] = [];
     for (let i = 1; i < pts.length - 1; i++) {
@@ -729,18 +800,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
     meshGeom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     meshGeom.computeVertexNormals();
-    group.add(
-      new THREE.Mesh(
-        meshGeom,
-        new THREE.MeshBasicMaterial({
-          color: 0x2563eb,
-          transparent: true,
-          opacity: 0.62,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        })
-      )
-    );
+    group.add(new THREE.Mesh(meshGeom, fillMat));
 
     const outGeom = new THREE.BufferGeometry();
     const outPos: number[] = [];
@@ -748,9 +808,16 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       outPos.push(...pts[i], ...pts[(i + 1) % pts.length]);
     }
     outGeom.setAttribute('position', new THREE.Float32BufferAttribute(outPos, 3));
-    group.add(
-      new THREE.LineSegments(outGeom, new THREE.LineBasicMaterial({ color: 0x1d4ed8, depthTest: false }))
-    );
+    group.add(new THREE.LineSegments(outGeom, outlineMat));
+
+    // Glowing intersection vertex pins
+    const pinRadius = 0.085 / Math.max(baseScaleRef.current, 0.2);
+    const pinGeom = new THREE.SphereGeometry(pinRadius, 12, 12);
+    for (const pt of pts) {
+      const pin = new THREE.Mesh(pinGeom, pinMat);
+      pin.position.set(pt[0], pt[1], pt[2]);
+      group.add(pin);
+    }
   }, [sectionPolygon]);
 
   // Drag-to-move 3D solid on board
@@ -903,6 +970,11 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
                 <div>Diagonal Bidang: <strong className="font-mono">{(localParams.s * Math.SQRT2).toFixed(2)} cm</strong></div>
                 <div>Diagonal Ruang: <strong className="font-mono">{(localParams.s * Math.sqrt(3)).toFixed(2)} cm</strong></div>
               </>
+            )}
+            {eulerInfo && (
+              <div className="mt-1 border-t border-emerald-100 pt-1 text-[10px] text-slate-600">
+                Euler: <strong className="font-mono text-emerald-700">V({eulerInfo.V}) − E({eulerInfo.E}) + F({eulerInfo.F}) = {eulerInfo.chi}</strong>
+              </div>
             )}
           </div>
         )}

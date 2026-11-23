@@ -5,7 +5,15 @@
  * Zero Konva/DOM dependencies.
  */
 
-import type { BoardObject } from '@ai-classroom/whiteboard-core';
+import {
+  localToWorld,
+  resizeWithPinnedAnchor,
+  computeRotationAngle,
+  getRotationHandleWorldPos,
+  type BoardObject,
+  type CanonicalTransform,
+  type BoxHandleKind,
+} from '@ai-classroom/whiteboard-core';
 
 export interface BBox {
   x: number;
@@ -23,6 +31,7 @@ export type ResizeHandleKind =
   | 's'
   | 'sw'
   | 'w'
+  | 'rotate'
   | `v:${number}`;
 
 export interface HandlePoint {
@@ -61,6 +70,44 @@ export function getShapeVertices(obj: BoardObject): number[] | null {
       const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 40));
       const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 50));
       return [cx, cy - ry, cx + rx, cy, cx, cy + ry, cx - rx, cy];
+    }
+    case 'trapezoid': {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const bottomW = Number(p.bottomW ?? p.w ?? 120);
+      const topW = Number(p.topW ?? bottomW * 0.6);
+      const h = Number(p.h ?? 80);
+      return [
+        cx - topW / 2, cy - h / 2,
+        cx + topW / 2, cy - h / 2,
+        cx + bottomW / 2, cy + h / 2,
+        cx - bottomW / 2, cy + h / 2,
+      ];
+    }
+    case 'parallelogram': {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const w = Number(p.w ?? 120);
+      const h = Number(p.h ?? 70);
+      const skew = Number(p.skew ?? 24);
+      return [
+        cx - w / 2 + skew, cy - h / 2,
+        cx + w / 2, cy - h / 2,
+        cx + w / 2 - skew, cy + h / 2,
+        cx - w / 2, cy + h / 2,
+      ];
+    }
+    case 'kite': {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const w = Number(p.w ?? 90);
+      const h = Number(p.h ?? 120);
+      return [
+        cx, cy - h / 2,
+        cx + w / 2, cy - h * 0.12,
+        cx, cy + h / 2,
+        cx - w / 2, cy - h * 0.12,
+      ];
     }
     case 'pentagon':
     case 'hexagon':
@@ -124,8 +171,39 @@ export function getResizeHandles(bbox: BBox): HandlePoint[] {
  * - Line / Arrow -> 2 endpoint handles
  * - Rect -> 4 corners + 4 edge midpoints
  */
-export function getShapeHandles(obj: BoardObject, bbox: BBox): HandlePoint[] {
+export function getShapeHandles(obj: BoardObject, bbox: BBox, scale = 1): HandlePoint[] {
   const p = obj.props as Record<string, unknown>;
+  const rot = Number(p.rotation ?? 0);
+  const tf: CanonicalTransform = {
+    cx: bbox.x + bbox.w / 2,
+    cy: bbox.y + bbox.h / 2,
+    width: Math.max(10, bbox.w),
+    height: Math.max(10, bbox.h),
+    rotation: Number.isFinite(rot) ? rot : 0,
+  };
+
+  const applyRot = (handles: HandlePoint[]): HandlePoint[] => {
+    const transformed =
+      Math.abs(tf.rotation) > 1e-4
+        ? handles.map((h) => {
+            const world = localToWorld({ x: h.x - tf.cx, y: h.y - tf.cy }, tf);
+            return { kind: h.kind, x: world.x, y: world.y };
+          })
+        : handles;
+
+    // Add rotation lollipop handle for 2D shapes (not line/arrow/viz_*)
+    if (
+      obj.object_type !== 'line' &&
+      obj.object_type !== 'arrow' &&
+      obj.object_type !== 'viz_solid' &&
+      obj.object_type !== 'viz_graph' &&
+      obj.object_type !== 'math_block'
+    ) {
+      const rotPos = getRotationHandleWorldPos(tf, scale, 28);
+      transformed.push({ kind: 'rotate', x: rotPos.x, y: rotPos.y });
+    }
+    return transformed;
+  };
 
   if (Array.isArray(p.customPoints) && p.customPoints.length >= 6) {
     const pts = p.customPoints as number[];
@@ -133,18 +211,18 @@ export function getShapeHandles(obj: BoardObject, bbox: BBox): HandlePoint[] {
     for (let i = 0; i < pts.length; i += 2) {
       handles.push({ kind: `v:${i / 2}`, x: pts[i], y: pts[i + 1] });
     }
-    return handles;
+    return applyRot(handles);
   }
 
   if (obj.object_type === 'circle' || obj.object_type === 'ellipse') {
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
-    return [
+    return applyRot([
       { kind: 'n', x: cx, y: bbox.y },
       { kind: 'e', x: bbox.x + bbox.w, y: cy },
       { kind: 's', x: cx, y: bbox.y + bbox.h },
       { kind: 'w', x: bbox.x, y: cy },
-    ];
+    ]);
   }
 
   if (obj.object_type === 'line' || obj.object_type === 'arrow') {
@@ -157,6 +235,9 @@ export function getShapeHandles(obj: BoardObject, bbox: BBox): HandlePoint[] {
   if (
     obj.object_type === 'triangle' ||
     obj.object_type === 'rhombus' ||
+    obj.object_type === 'trapezoid' ||
+    obj.object_type === 'parallelogram' ||
+    obj.object_type === 'kite' ||
     obj.object_type === 'pentagon' ||
     obj.object_type === 'hexagon' ||
     obj.object_type === 'polygon' ||
@@ -168,11 +249,11 @@ export function getShapeHandles(obj: BoardObject, bbox: BBox): HandlePoint[] {
       for (let i = 0; i < verts.length; i += 2) {
         handles.push({ kind: `v:${i / 2}`, x: verts[i], y: verts[i + 1] });
       }
-      return handles;
+      return applyRot(handles);
     }
   }
 
-  return getResizeHandles(bbox);
+  return applyRot(getResizeHandles(bbox));
 }
 
 export function findHitResizeHandle(
@@ -182,7 +263,7 @@ export function findHitResizeHandle(
   obj?: BoardObject
 ): ResizeHandleKind | null {
   const tol = Math.max(10, 14 / (scale || 1));
-  const handles = obj ? getShapeHandles(obj, bbox) : getResizeHandles(bbox);
+  const handles = obj ? getShapeHandles(obj, bbox, scale) : getResizeHandles(bbox);
   for (const h of handles) {
     if (Math.hypot(pos.x - h.x, pos.y - h.y) <= tol) {
       return h.kind;
@@ -258,8 +339,16 @@ export function computeResizedProps(
   handle: ResizeHandleKind,
   origBBox: BBox,
   origProps: Record<string, unknown>,
-  pos: { x: number; y: number }
+  pos: { x: number; y: number },
+  shiftKey = false
 ): Record<string, unknown> {
+  // Rotation handle dragging
+  if (handle === 'rotate') {
+    const center = { x: origBBox.x + origBBox.w / 2, y: origBBox.y + origBBox.h / 2 };
+    const nextRot = computeRotationAngle(center, pos, shiftKey);
+    return { ...origProps, rotation: nextRot };
+  }
+
   // Individual vertex dragging (v:0, v:1, ...)
   if (handle.startsWith('v:')) {
     const idx = Number(handle.slice(2));
@@ -278,23 +367,48 @@ export function computeResizedProps(
     return origProps;
   }
 
+  const rot = Number(origProps.rotation ?? 0);
   let minX = origBBox.x;
   let minY = origBBox.y;
   let maxX = origBBox.x + origBBox.w;
   let maxY = origBBox.y + origBBox.h;
+  let newW: number;
+  let newH: number;
+  let newCx: number;
+  let newCy: number;
 
-  if (handle.includes('w')) minX = Math.min(maxX - 12, pos.x);
-  if (handle.includes('e')) maxX = Math.max(minX + 12, pos.x);
-  if (handle.includes('n')) minY = Math.min(maxY - 12, pos.y);
-  if (handle.includes('s')) maxY = Math.max(minY + 12, pos.y);
-
-  const newW = Math.max(12, maxX - minX);
-  const newH = Math.max(12, maxY - minY);
-  const newCx = minX + newW / 2;
-  const newCy = minY + newH / 2;
+  if (Math.abs(rot) > 1e-4) {
+    // Pinned-anchor OBB resize so rotated shapes never slide!
+    const origTf: CanonicalTransform = {
+      cx: origBBox.x + origBBox.w / 2,
+      cy: origBBox.y + origBBox.h / 2,
+      width: Math.max(12, origBBox.w),
+      height: Math.max(12, origBBox.h),
+      rotation: rot,
+    };
+    const nextTf = resizeWithPinnedAnchor(origTf, handle as BoxHandleKind, pos, 12);
+    newW = nextTf.width;
+    newH = nextTf.height;
+    newCx = nextTf.cx;
+    newCy = nextTf.cy;
+    minX = newCx - newW / 2;
+    minY = newCy - newH / 2;
+  } else {
+    if (handle.includes('w')) minX = Math.min(maxX - 12, pos.x);
+    if (handle.includes('e')) maxX = Math.max(minX + 12, pos.x);
+    if (handle.includes('n')) minY = Math.min(maxY - 12, pos.y);
+    if (handle.includes('s')) maxY = Math.max(minY + 12, pos.y);
+    newW = Math.max(12, maxX - minX);
+    newH = Math.max(12, maxY - minY);
+    newCx = minX + newW / 2;
+    newCy = minY + newH / 2;
+  }
 
   switch (obj.object_type) {
     case 'rect':
+    case 'viz_solid':
+    case 'viz_graph':
+    case 'math_block':
       return { ...origProps, x: minX, y: minY, w: newW, h: newH };
 
     case 'circle': {

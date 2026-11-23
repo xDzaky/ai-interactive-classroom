@@ -40,6 +40,9 @@ import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { FormulaToGraphModal } from "@/components/whiteboard/FormulaToGraphModal";
 import { VoiceCommandBar } from "@/components/whiteboard/VoiceCommandBar";
 import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
+import { GeometryCatalogPopover, type CatalogItem } from "@/components/whiteboard/GeometryCatalogPopover";
+import { AITeachingDrawer } from "@/components/whiteboard/AITeachingDrawer";
+import { FunActivityModal } from "@/components/whiteboard/FunActivityModal";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceCommands";
 import { exportStageToPng } from "@/lib/exportPng";
@@ -107,6 +110,9 @@ export default function PersonalRoomPage() {
   const [showVoiceBar, setShowVoiceBar] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [showCatalogPopover, setShowCatalogPopover] = useState(false);
+  const [showAiDrawer, setShowAiDrawer] = useState(false);
+  const [showFunModal, setShowFunModal] = useState(false);
   const [solidParams, setSolidParams] = useState<SolidParams>({ type: "cube", s: 4 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
@@ -180,6 +186,91 @@ export default function PersonalRoomPage() {
   // -------------------------------------------------------------------------
   // Insert live 3D Solid & 2D Graph directly onto the chalkboard
   // -------------------------------------------------------------------------
+  const handleInsertMathBlock = useCallback(
+    (initialLatex = "8^2") => {
+      const id = `math-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const existingCount = Object.keys(boardStateRef.current.scenes[boardStateRef.current.active_scene_id]?.objects ?? {}).length;
+      const offset = (existingCount % 5) * 36;
+      const bx = Math.max(80, Math.round(canvasSize.width * 0.14) + offset);
+      const by = Math.max(80, Math.round(canvasSize.height * 0.18) + offset);
+      handleEvent({
+        event_type: "object.created",
+        payload: {
+          id,
+          object_type: "math_block",
+          props: { x: bx, y: by, w: 320, h: 120, latex: initialLatex },
+        },
+      });
+    },
+    [canvasSize, handleEvent]
+  );
+
+  const handleSelectCatalogItem = useCallback(
+    (item: CatalogItem) => {
+      const cx = Math.max(220, Math.round(canvasSize.width / 2));
+      const cy = Math.max(180, Math.round(canvasSize.height / 2));
+      const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      if (item.action.kind === "shape2d") {
+        const t = item.action.objectType;
+        const baseProps: Record<string, unknown> = {
+          stroke: color,
+          strokeWidth,
+          fill: "transparent",
+          ...item.action.props,
+        };
+        if (t === "rect") {
+          const w = Number(baseProps.w ?? 120);
+          const h = Number(baseProps.h ?? 90);
+          baseProps.x = cx - w / 2;
+          baseProps.y = cy - h / 2;
+        } else if (t === "triangle") {
+          baseProps.x1 = cx;
+          baseProps.y1 = cy - 55;
+          baseProps.x2 = cx + 65;
+          baseProps.y2 = cy + 50;
+          baseProps.x3 = cx - 65;
+          baseProps.y3 = cy + 50;
+        } else if (t === "circle") {
+          baseProps.x = cx;
+          baseProps.y = cy;
+        } else {
+          baseProps.cx = cx;
+          baseProps.cy = cy;
+        }
+        handleEvent({
+          event_type: "object.created",
+          payload: { id, object_type: t, props: baseProps },
+        });
+        setActiveTool("select");
+      } else {
+        const sType = item.action.solidType;
+        const existingCount = Object.keys(boardStateRef.current.scenes[boardStateRef.current.active_scene_id]?.objects ?? {}).length;
+        const offsetX = existingCount === 0 ? 0 : ((existingCount % 3) - 1) * 210;
+        const offsetY = ((existingCount % 2) * 30);
+        handleEvent({
+          event_type: "object.created",
+          payload: {
+            id,
+            object_type: "viz_solid",
+            props: {
+              solid_type: sType,
+              extended_kind: item.action.extendedKind,
+              extra_params: item.action.extraParams,
+              params: DEFAULT_SOLID_PARAMS[sType],
+              label: item.action.label,
+              x: Math.max(80, cx - 160 + offsetX),
+              y: Math.max(60, cy - 160 + offsetY),
+              w: 320,
+              h: 320,
+            },
+          },
+        });
+      }
+    },
+    [canvasSize, color, strokeWidth, handleEvent]
+  );
+
   const handleInsertSolidOnBoard = useCallback(
     (solidType: SolidType) => {
       const id = `solid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -311,11 +402,25 @@ export default function PersonalRoomPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => handleInsertSolidOnBoard("cube")}
-            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            data-testid="open-catalog-btn"
+            onClick={() => setShowCatalogPopover((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+              showCatalogPopover
+                ? "border-indigo-500 bg-indigo-600 text-white"
+                : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+            }`}
           >
             <span>🧊</span>
-            <span className="hidden sm:inline">Kubus 3D</span>
+            <span className="hidden sm:inline">Katalog 2D/3D</span>
+          </button>
+          <button
+            type="button"
+            data-testid="insert-math-block-btn"
+            onClick={() => handleInsertMathBlock("8^2")}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <span>∑</span>
+            <span className="hidden sm:inline">Blok Rumus</span>
           </button>
           <button
             type="button"
@@ -323,7 +428,20 @@ export default function PersonalRoomPage() {
             className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             <span>📈</span>
-            <span className="hidden sm:inline">Rumus → Grafik</span>
+            <span className="hidden md:inline">Grafik</span>
+          </button>
+          <button
+            type="button"
+            data-testid="open-ai-drawer-btn"
+            onClick={() => setShowAiDrawer((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+              showAiDrawer
+                ? "border-violet-500 bg-violet-600 text-white"
+                : "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+            }`}
+          >
+            <span>✨</span>
+            <span className="hidden md:inline">Asisten AI</span>
           </button>
           <button
             type="button"
@@ -335,15 +453,25 @@ export default function PersonalRoomPage() {
             }`}
           >
             <span>🎙️</span>
-            <span className="hidden md:inline">Suara AI</span>
+            <span className="hidden lg:inline">Suara AI</span>
+          </button>
+          <button
+            type="button"
+            data-testid="open-fun-activity-btn"
+            onClick={() => setShowFunModal(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+            title="Aktivitas Seru & Kuis Geometri"
+          >
+            <span>🎯</span>
+            <span className="hidden xl:inline">Aktivitas</span>
           </button>
           <button
             type="button"
             onClick={handleExportPng}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            title="Export PNG"
           >
             <span>💾</span>
-            <span className="hidden lg:inline">Export PNG</span>
           </button>
           <button
             type="button"
@@ -580,6 +708,23 @@ export default function PersonalRoomPage() {
           </div>
         </div>
       )}
+      {/* Searchable 2D / 3D / Platonic / 3D Surface Geometry Catalog */}
+      <GeometryCatalogPopover
+        open={showCatalogPopover}
+        onClose={() => setShowCatalogPopover(false)}
+        onSelect={handleSelectCatalogItem}
+      />
+
+      {/* AI Teaching Assistant Slide-Over Drawer (Problem-Chain, Socratic, RPP) */}
+      <AITeachingDrawer
+        open={showAiDrawer}
+        onClose={() => setShowAiDrawer(false)}
+        onInsertSolid={handleInsertSolidOnBoard}
+        onInsertMathBlock={handleInsertMathBlock}
+      />
+
+      {/* AI Fun Teaching Activity Modal */}
+      <FunActivityModal open={showFunModal} onClose={() => setShowFunModal(false)} />
     </div>
   );
 }

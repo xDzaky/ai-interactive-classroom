@@ -1099,13 +1099,24 @@ export function WhiteboardCanvas({
                 listening: false,
               })
             );
+          } else if (
+            obj.object_type === "viz_solid" ||
+            obj.object_type === "viz_graph" ||
+            obj.object_type === "math_block"
+          ) {
+            // DOM overlay widgets render their own crisp frame & contextual toolbar
           } else {
+            const rotRad = Number((obj.props as Record<string, unknown>).rotation ?? 0);
+            const rotDeg = Number.isFinite(rotRad) ? (rotRad * 180) / Math.PI : 0;
             uiLayer.add(
               new Konva.Rect({
-                x: bbox.x - 4,
-                y: bbox.y - 4,
+                x: bbox.x + bbox.w / 2,
+                y: bbox.y + bbox.h / 2,
+                offsetX: bbox.w / 2 + 4,
+                offsetY: bbox.h / 2 + 4,
                 width: bbox.w + 8,
                 height: bbox.h + 8,
+                rotation: rotDeg,
                 stroke: "#4f46e5",
                 strokeWidth: 1.8,
                 dash: [6, 3],
@@ -1115,16 +1126,37 @@ export function WhiteboardCanvas({
             );
           }
 
-          // Shape-matched corner / vertex resize handles for single selected 2D object
-          if (selectedIds.length === 1) {
-            for (const h of getShapeHandles(obj, bbox)) {
+          // Shape-matched corner / vertex / rotate handles for single selected 2D object
+          if (
+            selectedIds.length === 1 &&
+            obj.object_type !== "viz_solid" &&
+            obj.object_type !== "viz_graph" &&
+            obj.object_type !== "math_block"
+          ) {
+            const handles = getShapeHandles(obj, bbox, viewportController.getState().scale);
+            const rotHandle = handles.find((h) => h.kind === "rotate");
+            if (rotHandle) {
+              const cx = bbox.x + bbox.w / 2;
+              const topMid = { x: cx, y: bbox.y };
+              uiLayer.add(
+                new Konva.Line({
+                  points: [topMid.x, topMid.y, rotHandle.x, rotHandle.y],
+                  stroke: "#4f46e5",
+                  strokeWidth: 1.5,
+                  dash: [3, 2],
+                  listening: false,
+                })
+              );
+            }
+            for (const h of handles) {
+              const isRotate = h.kind === "rotate";
               uiLayer.add(
                 new Konva.Circle({
                   x: h.x,
                   y: h.y,
-                  radius: 5.5,
-                  fill: "#ffffff",
-                  stroke: "#4f46e5",
+                  radius: isRotate ? 6.5 : 5.5,
+                  fill: isRotate ? "#4f46e5" : "#ffffff",
+                  stroke: isRotate ? "#ffffff" : "#4f46e5",
                   strokeWidth: 2,
                   listening: false,
                 })
@@ -1501,12 +1533,19 @@ export function WhiteboardCanvas({
 
       const curScene = sceneRef.current;
 
-      // 1. Live corner/edge/vertex resizing (FigCraft smooth 60fps)
+      // 1. Live corner/edge/vertex/rotate resizing (FigCraft smooth 60fps + 15° Shift snap)
       if (activeResizeRef.current) {
         const r = activeResizeRef.current;
         const obj = curScene.objects[r.id];
         if (obj) {
-          const nextProps = computeResizedProps(obj, r.handle, r.origBBox, r.origProps, pos);
+          const nextProps = computeResizedProps(
+            obj,
+            r.handle,
+            r.origBBox,
+            r.origProps,
+            pos,
+            Boolean(e.evt?.shiftKey)
+          );
           commitEventRef.current({
             event_type: "object.updated",
             payload: { id: r.id, props_patch: nextProps },
@@ -1582,6 +1621,7 @@ export function WhiteboardCanvas({
                 s: "ns-resize",
                 e: "ew-resize",
                 w: "ew-resize",
+                rotate: "grab",
               };
               setDynamicCursor(handleCursors[hh] ?? "crosshair");
               return;
@@ -2159,6 +2199,8 @@ export function WhiteboardCanvas({
         height={height}
         defaultWidgetSize={320}
         tongchuangMode={true}
+        selectedIds={selectedIds}
+        onSelectIds={setSelectedIds}
         onDeleteObject={(id) =>
           commitEvent({ event_type: "object.deleted", payload: { id } })
         }
@@ -2189,6 +2231,112 @@ export function WhiteboardCanvas({
             event_type: "object.updated",
             payload: { id, props_patch: { params: nextParams } },
           });
+        }}
+        onUpdateObjectProps={(id, propsPatch) => {
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: propsPatch },
+          });
+        }}
+        onVisualizeMathBlock={(mathObj, intent) => {
+          const mp = mathObj.props as Record<string, unknown>;
+          const bx = Number(mp.x ?? 180) + 340;
+          const by = Number(mp.y ?? 120);
+          // Find existing linked visual object for bidirectional live sync
+          const existingLinked = Object.values(scene.objects).find(
+            (o) => (o.props as Record<string, unknown>).linkedMathBlockId === mathObj.id
+          );
+
+          if (intent.kind === "function_2d") {
+            if (existingLinked && existingLinked.object_type === "viz_graph") {
+              commitEvent({
+                event_type: "object.updated",
+                payload: { id: existingLinked.id, props_patch: { expressions: [intent.expression] } },
+              });
+            } else {
+              commitEvent({
+                event_type: "object.created",
+                payload: {
+                  id: `graph-${uid()}`,
+                  object_type: "viz_graph",
+                  props: {
+                    x: bx,
+                    y: by,
+                    w: 360,
+                    h: 240,
+                    expressions: [intent.expression],
+                    linkedMathBlockId: mathObj.id,
+                  },
+                },
+              });
+            }
+          } else if (intent.kind === "surface_3d") {
+            if (existingLinked && existingLinked.object_type === "viz_solid") {
+              commitEvent({
+                event_type: "object.updated",
+                payload: {
+                  id: existingLinked.id,
+                  props_patch: {
+                    extended_kind: "surface_3d",
+                    extra_params: { formula3d: intent.formula3d },
+                    label: `z = ${intent.formula3d}`,
+                  },
+                },
+              });
+            } else {
+              commitEvent({
+                event_type: "object.created",
+                payload: {
+                  id: `surf-${uid()}`,
+                  object_type: "viz_solid",
+                  props: {
+                    solid_type: "cube",
+                    extended_kind: "surface_3d",
+                    extra_params: { formula3d: intent.formula3d },
+                    params: { type: "cube", s: 4 },
+                    label: `z = ${intent.formula3d}`,
+                    x: bx,
+                    y: by,
+                    w: 320,
+                    h: 320,
+                    linkedMathBlockId: mathObj.id,
+                  },
+                },
+              });
+            }
+          } else if (intent.kind === "solid_3d") {
+            if (existingLinked && existingLinked.object_type === "viz_solid") {
+              commitEvent({
+                event_type: "object.updated",
+                payload: {
+                  id: existingLinked.id,
+                  props_patch: {
+                    solid_type: intent.solidType,
+                    params: intent.params,
+                    label: intent.label,
+                  },
+                },
+              });
+            } else {
+              commitEvent({
+                event_type: "object.created",
+                payload: {
+                  id: `solid-${uid()}`,
+                  object_type: "viz_solid",
+                  props: {
+                    solid_type: intent.solidType,
+                    params: intent.params,
+                    label: intent.label,
+                    x: bx,
+                    y: by,
+                    w: 320,
+                    h: 320,
+                    linkedMathBlockId: mathObj.id,
+                  },
+                },
+              });
+            }
+          }
         }}
       />
 
@@ -2256,8 +2404,19 @@ export function WhiteboardCanvas({
         onDismiss={() => setRevertToast({ visible: false, shapeKind: "" })}
       />
 
-      {/* FigCraft-style Live Dimension Badge (W × H) below selected object/group */}
+      {/* FigCraft-style Live Dimension & Angle Badge (W × H · θ°) below selected 2D object/group */}
       {selectedIds.length > 0 && selectionBBox && (() => {
+        const singleObj = selectedIds.length === 1 ? scene.objects[selectedIds[0]] : null;
+        if (
+          singleObj &&
+          (singleObj.object_type === "viz_solid" ||
+            singleObj.object_type === "viz_graph" ||
+            singleObj.object_type === "math_block")
+        ) {
+          return null;
+        }
+        const rotRad = singleObj ? Number((singleObj.props as Record<string, unknown>).rotation ?? 0) : 0;
+        const rotDeg = Math.round(((rotRad * 180) / Math.PI) % 360);
         const bottomCenter = viewportController.toScreen(
           selectionBBox.x + selectionBBox.w / 2,
           selectionBBox.y + selectionBBox.h
@@ -2272,13 +2431,20 @@ export function WhiteboardCanvas({
             }}
           >
             {Math.round(selectionBBox.w)} × {Math.round(selectionBBox.h)}
+            {rotDeg !== 0 ? ` · ${rotDeg}°` : ""}
             {selectedIds.length > 1 ? ` (${selectedIds.length})` : ""}
           </div>
         );
       })()}
 
-      {/* Floating selection toolbar (P11-T02, P12-T02) */}
-      {selectedIds.length > 0 && toolbarScreenPos && (
+      {/* Floating selection toolbar (suppressed when a DOM widget with its own contextual bar is selected) */}
+      {selectedIds.length > 0 && toolbarScreenPos && !(
+        selectedIds.length === 1 &&
+        scene.objects[selectedIds[0]] &&
+        (scene.objects[selectedIds[0]].object_type === "viz_solid" ||
+          scene.objects[selectedIds[0]].object_type === "viz_graph" ||
+          scene.objects[selectedIds[0]].object_type === "math_block")
+      ) && (
         <SelectionToolbar
           x={toolbarScreenPos.x}
           y={toolbarScreenPos.y}

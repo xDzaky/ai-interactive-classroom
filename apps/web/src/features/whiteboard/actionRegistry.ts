@@ -49,7 +49,21 @@ export function is2DConvertible(ctx: ActionContext): boolean {
   const id = ctx.selectedIds[0];
   const obj = ctx.scene.objects[id];
   if (!obj) return false;
-  return ['rect', 'circle', 'triangle', 'ellipse'].includes(obj.object_type);
+  if (Array.isArray((obj.props as Record<string, unknown>).customPoints)) return true;
+  return [
+    'rect',
+    'circle',
+    'triangle',
+    'ellipse',
+    'rhombus',
+    'trapezoid',
+    'parallelogram',
+    'kite',
+    'pentagon',
+    'hexagon',
+    'polygon',
+    'star',
+  ].includes(obj.object_type);
 }
 
 export const WHITEBOARD_ACTIONS: ActionItem[] = [

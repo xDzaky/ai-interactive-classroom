@@ -173,10 +173,18 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
   const p = obj.props as Record<string, number & string>;
   const strokeW = Number(p.strokeWidth ?? 2);
   const hitW = Math.min(12, strokeW + 6);
+  const rotRad = Number(p.rotation ?? 0);
+  const rotDeg = Number.isFinite(rotRad) ? (rotRad * 180) / Math.PI : 0;
+  const bbox = computeObjectBbox(obj);
+  const pivotX = bbox.x + bbox.w / 2;
+  const pivotY = bbox.y + bbox.h / 2;
+  const lineRotProps =
+    Math.abs(rotDeg) > 1e-3
+      ? { x: pivotX, y: pivotY, offsetX: pivotX, offsetY: pivotY, rotation: rotDeg }
+      : {};
 
   const refCallback = (node: Konva.Node | null) => {
     if (onNodeRef) {
-      const bbox = computeObjectBbox(obj);
       onNodeRef(obj.id, node, bbox);
     }
   };
@@ -199,30 +207,38 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
         perfectDrawEnabled={false}
         shadowForStrokeEnabled={false}
         hitStrokeWidth={hitW}
+        {...lineRotProps}
       />
     );
   }
 
   switch (obj.object_type) {
-    case "rect":
+    case "rect": {
+      const rw = Number(p.w ?? p.width ?? 100);
+      const rh = Number(p.h ?? p.height ?? 60);
+      const rx = Number(p.x ?? 0);
+      const ry = Number(p.y ?? 0);
       return (
         <Rect
           id={obj.id}
           ref={refCallback}
-          x={p.x ?? 0}
-          y={p.y ?? 0}
-          width={p.w ?? p.width ?? 100}
-          height={p.h ?? p.height ?? 60}
+          x={rx + rw / 2}
+          y={ry + rh / 2}
+          offsetX={rw / 2}
+          offsetY={rh / 2}
+          width={rw}
+          height={rh}
           fill={p.fill ?? "transparent"}
           stroke={p.stroke ?? "#6366f1"}
           strokeWidth={strokeW}
-          rotation={p.rotation ?? 0}
+          rotation={rotDeg}
           listening={listening}
           perfectDrawEnabled={false}
           shadowForStrokeEnabled={false}
           hitStrokeWidth={hitW}
         />
       );
+    }
     case "circle":
       return (
         <Circle
@@ -258,6 +274,7 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
           perfectDrawEnabled={false}
           shadowForStrokeEnabled={false}
           hitStrokeWidth={hitW}
+          {...lineRotProps}
         />
       );
     }
@@ -277,6 +294,7 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
           perfectDrawEnabled={false}
           shadowForStrokeEnabled={false}
           hitStrokeWidth={hitW}
+          {...lineRotProps}
         />
       );
     case "rhombus": {
@@ -299,6 +317,96 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
           perfectDrawEnabled={false}
           shadowForStrokeEnabled={false}
           hitStrokeWidth={hitW}
+          {...lineRotProps}
+        />
+      );
+    }
+    case "trapezoid": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const bottomW = Number(p.bottomW ?? p.w ?? 120);
+      const topW = Number(p.topW ?? bottomW * 0.6);
+      const h = Number(p.h ?? 80);
+      return (
+        <Line
+          id={obj.id}
+          ref={refCallback}
+          points={[
+            cx - topW / 2, cy - h / 2,
+            cx + topW / 2, cy - h / 2,
+            cx + bottomW / 2, cy + h / 2,
+            cx - bottomW / 2, cy + h / 2,
+          ]}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={strokeW}
+          lineCap="round"
+          lineJoin="round"
+          listening={listening}
+          perfectDrawEnabled={false}
+          shadowForStrokeEnabled={false}
+          hitStrokeWidth={hitW}
+          {...lineRotProps}
+        />
+      );
+    }
+    case "parallelogram": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const w = Number(p.w ?? 120);
+      const h = Number(p.h ?? 70);
+      const skew = Number(p.skew ?? 24);
+      return (
+        <Line
+          id={obj.id}
+          ref={refCallback}
+          points={[
+            cx - w / 2 + skew, cy - h / 2,
+            cx + w / 2, cy - h / 2,
+            cx + w / 2 - skew, cy + h / 2,
+            cx - w / 2, cy + h / 2,
+          ]}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={strokeW}
+          lineCap="round"
+          lineJoin="round"
+          listening={listening}
+          perfectDrawEnabled={false}
+          shadowForStrokeEnabled={false}
+          hitStrokeWidth={hitW}
+          {...lineRotProps}
+        />
+      );
+    }
+    case "kite": {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const w = Number(p.w ?? 90);
+      const h = Number(p.h ?? 120);
+      return (
+        <Line
+          id={obj.id}
+          ref={refCallback}
+          points={[
+            cx, cy - h / 2,
+            cx + w / 2, cy - h * 0.12,
+            cx, cy + h / 2,
+            cx - w / 2, cy - h * 0.12,
+          ]}
+          closed
+          fill={p.fill ?? "transparent"}
+          stroke={p.stroke ?? "#6366f1"}
+          strokeWidth={strokeW}
+          lineCap="round"
+          lineJoin="round"
+          listening={listening}
+          perfectDrawEnabled={false}
+          shadowForStrokeEnabled={false}
+          hitStrokeWidth={hitW}
+          {...lineRotProps}
         />
       );
     }

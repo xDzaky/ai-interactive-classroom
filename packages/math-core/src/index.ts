@@ -449,3 +449,6 @@ function findBraceEnd(s: string, start: number): [number, string] {
   if (depth !== 0) return [-1, ""];
   return [i, s.slice(start, i)];
 }
+
+export * from "./intentClassifier.js";
+

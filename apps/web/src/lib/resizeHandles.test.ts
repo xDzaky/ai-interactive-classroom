@@ -28,8 +28,9 @@ describe('resizeHandles (Shape-Matched Handles, Vertex Drag & Double-Click Inser
       updated_at: 0,
     };
     const handles = getShapeHandles(tri, { x: 100, y: 100, w: 100, h: 100 });
-    expect(handles).toHaveLength(3);
+    expect(handles).toHaveLength(4); // 3 vertices + 1 rotate handle
     expect(handles[0]).toEqual({ kind: 'v:0', x: 150, y: 100 });
+    expect(handles[3].kind).toBe('rotate');
 
     const next = computeResizedProps(tri, 'v:0', { x: 100, y: 100, w: 100, h: 100 }, tri.props, { x: 160, y: 60 });
     expect(next.x1).toBe(160);
@@ -58,7 +59,7 @@ describe('resizeHandles (Shape-Matched Handles, Vertex Drag & Double-Click Inser
       updated_at: 0,
     };
     const cBbox = { x: 150, y: 100, w: 100, h: 100 };
-    expect(getShapeHandles(circleObj, cBbox)).toHaveLength(4);
+    expect(getShapeHandles(circleObj, cBbox)).toHaveLength(5); // 4 cardinals + 1 rotate handle
     const next = computeResizedProps(circleObj, 'e', cBbox, circleObj.props, { x: 310, y: 150 });
     expect(next.r).toBe(80);
   });

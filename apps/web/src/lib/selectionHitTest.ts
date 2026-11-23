@@ -4,13 +4,41 @@
  * Completely pure arithmetic — zero DOM, zero Konva dependencies.
  */
 
-import type { BoardObject, BoardStroke, SceneState } from '@ai-classroom/whiteboard-core';
+import {
+  isPointInOBB,
+  type BoardObject,
+  type BoardStroke,
+  type SceneState,
+  type CanonicalTransform,
+} from '@ai-classroom/whiteboard-core';
 
 export interface BoundingBox2D {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+export const DEFAULT_SOLID_WIDGET_SIZE = 320;
+export const DEFAULT_GRAPH_WIDGET_WIDTH = 360;
+export const DEFAULT_GRAPH_WIDGET_HEIGHT = 240;
+export const DEFAULT_MATH_BLOCK_WIDTH = 320;
+export const DEFAULT_MATH_BLOCK_HEIGHT = 120;
+
+export function getObjectRotation(obj: BoardObject): number {
+  const rot = Number((obj.props as Record<string, unknown>).rotation ?? 0);
+  return Number.isFinite(rot) ? rot : 0;
+}
+
+export function getObjectTransform(obj: BoardObject): CanonicalTransform {
+  const bbox = computeObjectBbox(obj);
+  return {
+    cx: bbox.x + bbox.w / 2,
+    cy: bbox.y + bbox.h / 2,
+    width: Math.max(10, bbox.w),
+    height: Math.max(10, bbox.h),
+    rotation: getObjectRotation(obj),
+  };
 }
 
 export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
@@ -88,12 +116,35 @@ export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
       const minY = Math.min(y1, y2);
       return { x: minX, y: minY, w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
     }
-    case 'viz_solid':
+    case 'trapezoid':
+    case 'parallelogram':
+    case 'kite': {
+      const cx = Number(p.cx ?? p.x ?? 0);
+      const cy = Number(p.cy ?? p.y ?? 0);
+      const w = Number(p.w ?? p.bottomW ?? 120);
+      const h = Number(p.h ?? 80);
+      return { x: cx - w / 2, y: cy - h / 2, w, h };
+    }
+    case 'viz_solid': {
+      const x = Number(p.x ?? (typeof p.cx === 'number' ? p.cx - DEFAULT_SOLID_WIDGET_SIZE / 2 : 200));
+      const y = Number(p.y ?? (typeof p.cy === 'number' ? p.cy - DEFAULT_SOLID_WIDGET_SIZE / 2 : 120));
+      const w = Number(p.w ?? p.width ?? DEFAULT_SOLID_WIDGET_SIZE);
+      const h = Number(p.h ?? p.height ?? DEFAULT_SOLID_WIDGET_SIZE);
+      return { x, y, w, h };
+    }
     case 'viz_graph': {
-      const cx = Number(p.cx ?? (p.x ?? 200));
-      const cy = Number(p.cy ?? (p.y ?? 200));
-      const size = 180;
-      return { x: cx - size / 2, y: cy - size / 2, w: size, h: size };
+      const x = Number(p.x ?? 200);
+      const y = Number(p.y ?? 120);
+      const w = Number(p.w ?? p.width ?? DEFAULT_GRAPH_WIDGET_WIDTH);
+      const h = Number(p.h ?? p.height ?? DEFAULT_GRAPH_WIDGET_HEIGHT);
+      return { x, y, w, h };
+    }
+    case 'math_block': {
+      const x = Number(p.x ?? 200);
+      const y = Number(p.y ?? 120);
+      const w = Number(p.w ?? p.width ?? DEFAULT_MATH_BLOCK_WIDTH);
+      const h = Number(p.h ?? p.height ?? DEFAULT_MATH_BLOCK_HEIGHT);
+      return { x, y, w, h };
     }
     default: {
       const x = Number(p.x ?? 0);
@@ -174,27 +225,40 @@ export function doBBoxesIntersect(
 
 /**
  * Finds the topmost item (object or stroke) at world position (x, y).
+ * Uses OBB hit-testing for rotated objects so hitboxes always align with visuals.
  */
 export function findHitItem(
   pt: { x: number; y: number },
   scene: SceneState
 ): string | null {
+  const hitTestId = (id: string): boolean => {
+    const obj = scene.objects[id];
+    if (obj) {
+      const rot = getObjectRotation(obj);
+      if (Math.abs(rot) > 1e-4) {
+        return isPointInOBB(pt, getObjectTransform(obj), 8);
+      }
+      return isPointInBBox(pt, computeObjectBbox(obj));
+    }
+    const stroke = scene.strokes[id];
+    if (stroke) {
+      return isPointInBBox(pt, getStrokeBBox(stroke));
+    }
+    return false;
+  };
+
   // Check order in reverse (topmost first)
   for (let i = scene.order.length - 1; i >= 0; i--) {
     const id = scene.order[i];
-    const bbox = getItemBBox(id, scene);
-    if (bbox && isPointInBBox(pt, bbox)) {
+    if (hitTestId(id)) {
       return id;
     }
   }
 
   // Also check any objects not in order
   for (const id of Object.keys(scene.objects)) {
-    if (!scene.order.includes(id)) {
-      const bbox = computeObjectBbox(scene.objects[id]);
-      if (isPointInBBox(pt, bbox)) {
-        return id;
-      }
+    if (!scene.order.includes(id) && hitTestId(id)) {
+      return id;
     }
   }
 

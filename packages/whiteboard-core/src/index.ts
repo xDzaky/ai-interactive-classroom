@@ -41,11 +41,15 @@ export const BoardObjectSchema = z.object({
     "image",
     "viz_solid",
     "viz_graph",
+    "math_block",
     "annotation",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)
     "rhombus",        // cx, cy, w, h
+    "trapezoid",      // cx, cy, topW, bottomW, h
+    "parallelogram",  // cx, cy, w, h, skew
+    "kite",           // cx, cy, w, h
     "star",           // cx, cy, outerR, innerR, points
     "pentagon",       // alias for polygon sides=5
     "hexagon",        // alias for polygon sides=6
@@ -276,3 +280,4 @@ export function createScene(id: string, name?: string): SceneState {
 }
 
 export * from "./reducer.js";
+export * from "./transform.js";

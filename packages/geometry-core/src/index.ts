@@ -310,3 +310,11 @@ export * from "./measure.js";
 // ---------------------------------------------------------------------------
 export * from "./unfold.js";
 
+// ---------------------------------------------------------------------------
+// Universal Profile2D, 3D Manifold Operators & 2D Intelligent Folding
+// ---------------------------------------------------------------------------
+export * from "./profile2d.js";
+export * from "./operators3d.js";
+export * from "./folding2d.js";
+
+

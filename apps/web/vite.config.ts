@@ -59,7 +59,7 @@ export default defineConfig({
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react-router-dom"],
           "query-vendor": ["@tanstack/react-query"],
-          "three-vendor": ["three", "@react-three/fiber", "@react-three/drei"],
+          "three-vendor": ["three"],
           "canvas-vendor": ["konva", "react-konva", "perfect-freehand"],
           "math-vendor": ["mathlive", "katex"],
         },

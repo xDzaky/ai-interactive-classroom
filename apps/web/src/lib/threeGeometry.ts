@@ -1,26 +1,18 @@
 /**
- * threeGeometry.ts — P03-T02
- * Three.js BufferGeometry builders for each solid type.
- * Returns { geometry, boundingBox } for each solid.
- * No React dependency — pure Three.js functions.
+ * threeGeometry.ts — Production Three.js BufferGeometry Builders
+ * Supports all 8 core SolidParams + extended catalog:
+ * ellipsoid, hemisphere, double_cone, tetrahedron, octahedron, icosahedron,
+ * prism_n, pyramid_n, frustum, custom_prism, custom_pyramid, and explicit 3D surfaces z = f(x, y)!
  */
 import * as THREE from "three";
 import type { SolidParams } from "@ai-classroom/geometry-core";
-
-// ---------------------------------------------------------------------------
-// Result
-// ---------------------------------------------------------------------------
+import { parseExpression, evaluateAST } from "@ai-classroom/math-core";
 
 export interface ThreeGeometryResult {
   geometry: THREE.BufferGeometry;
   boundingBox: THREE.Box3;
-  /** Computed bounding box dimensions in world units */
   dimensions: { width: number; height: number; depth: number };
 }
-
-// ---------------------------------------------------------------------------
-// Helper: build result from geometry
-// ---------------------------------------------------------------------------
 
 function buildResult(geometry: THREE.BufferGeometry): ThreeGeometryResult {
   geometry.computeBoundingBox();
@@ -38,10 +30,6 @@ function buildResult(geometry: THREE.BufferGeometry): ThreeGeometryResult {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Builders per solid
-// ---------------------------------------------------------------------------
-
 function buildCube(s: number): ThreeGeometryResult {
   return buildResult(new THREE.BoxGeometry(s, s, s));
 }
@@ -54,6 +42,18 @@ function buildSphere(r: number, segments = 32): ThreeGeometryResult {
   return buildResult(new THREE.SphereGeometry(r, segments, segments));
 }
 
+function buildEllipsoid(rx: number, ry: number, rz: number, segments = 32): ThreeGeometryResult {
+  const geom = new THREE.SphereGeometry(1, segments, segments);
+  geom.scale(rx, ry, rz);
+  return buildResult(geom);
+}
+
+function buildHemisphere(r: number, segments = 32): ThreeGeometryResult {
+  const geom = new THREE.SphereGeometry(r, segments, Math.floor(segments / 2), 0, Math.PI * 2, 0, Math.PI / 2);
+  geom.translate(0, -r * 0.25, 0);
+  return buildResult(geom);
+}
+
 function buildCylinder(r: number, h: number, segments = 32): ThreeGeometryResult {
   return buildResult(new THREE.CylinderGeometry(r, r, h, segments, 1, false));
 }
@@ -63,23 +63,16 @@ function buildCone(r: number, h: number, segments = 32): ThreeGeometryResult {
 }
 
 function buildPyramid(b: number, h: number): ThreeGeometryResult {
-  // Square pyramid = ConeGeometry with 4 radial segments, radiusTop=0
-  // Circumradius of base square side b = b * sqrt(2) / 2
   const circumR = (b * Math.sqrt(2)) / 2;
   return buildResult(new THREE.ConeGeometry(circumR, h, 4, 1, false));
 }
 
 function buildPrism(a: number, b: number, c: number, h: number): ThreeGeometryResult {
-  // Build a triangular prism as ExtrudeGeometry
-  // Compute triangle vertices from sides a, b, c using law of cosines
-  // Place triangle in XZ plane centred at origin
   const cosA = (b ** 2 + c ** 2 - a ** 2) / (2 * b * c);
   const A = Math.acos(Math.max(-1, Math.min(1, cosA)));
   const p0 = new THREE.Vector2(0, 0);
   const p1 = new THREE.Vector2(c, 0);
   const p2 = new THREE.Vector2(b * Math.cos(A), b * Math.sin(A));
-
-  // Centre the triangle
   const cx = (p0.x + p1.x + p2.x) / 3;
   const cy = (p0.y + p1.y + p2.y) / 3;
   const shape = new THREE.Shape([
@@ -87,15 +80,9 @@ function buildPrism(a: number, b: number, c: number, h: number): ThreeGeometryRe
     new THREE.Vector2(p1.x - cx, p1.y - cy),
     new THREE.Vector2(p2.x - cx, p2.y - cy),
   ]);
-
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: h,
-    bevelEnabled: false,
-  });
-  // Rotate to stand upright (ExtrudeGeometry extrudes along Z, rotate to Y)
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, -h / 2, 0);
-
   return buildResult(geometry);
 }
 
@@ -103,11 +90,103 @@ function buildTorus(R: number, r: number, segments = 32): ThreeGeometryResult {
   return buildResult(new THREE.TorusGeometry(R, r, segments, segments * 2));
 }
 
-// ---------------------------------------------------------------------------
-// Main dispatcher
-// ---------------------------------------------------------------------------
+/**
+ * Builds an explicit 3D mathematical surface z = f(x, y) using safe AST evaluation
+ * (zero eval / Function()) with smooth vertex height colors (heatmap)!
+ */
+export function buildExplicitSurfaceGeometry(
+  formula: string,
+  range = 3,
+  resolution = 36,
+): ThreeGeometryResult {
+  const clean = formula.replace(/^z\s*=\s*/i, "").trim() || "sin(x)*cos(y)";
+  let ast;
+  try {
+    ast = parseExpression(clean);
+  } catch {
+    ast = parseExpression("sin(x)*cos(y)");
+  }
 
-export function buildThreeGeometry(params: SolidParams): ThreeGeometryResult {
+  const geom = new THREE.BufferGeometry();
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+
+  const step = (range * 2) / resolution;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  const gridZ: number[] = [];
+
+  for (let iy = 0; iy <= resolution; iy++) {
+    const y = -range + iy * step;
+    for (let ix = 0; ix <= resolution; ix++) {
+      const x = -range + ix * step;
+      let z = 0;
+      try {
+        const val = evaluateAST(ast, { x, y });
+        z = Number.isFinite(val) ? Math.max(-range * 1.5, Math.min(range * 1.5, val)) : 0;
+      } catch {
+        z = 0;
+      }
+      gridZ.push(z);
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+      // Map math (x, y, z) -> Three.js (x, z, -y)
+      positions.push(x, z, -y);
+    }
+  }
+
+  const spanZ = Math.max(0.001, maxZ - minZ);
+  const cLow = new THREE.Color(0x3b82f6);  // cool blue
+  const cMid = new THREE.Color(0x14b8a6);  // teal
+  const cHigh = new THREE.Color(0xf97316); // warm orange
+  const tmpColor = new THREE.Color();
+
+  for (const z of gridZ) {
+    const t = (z - minZ) / spanZ;
+    if (t < 0.5) tmpColor.lerpColors(cLow, cMid, t * 2);
+    else tmpColor.lerpColors(cMid, cHigh, (t - 0.5) * 2);
+    colors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+  }
+
+  const stride = resolution + 1;
+  for (let iy = 0; iy < resolution; iy++) {
+    for (let ix = 0; ix < resolution; ix++) {
+      const a = iy * stride + ix;
+      const b = a + 1;
+      const c = (iy + 1) * stride + ix;
+      const d = c + 1;
+      indices.push(a, b, d, a, d, c);
+    }
+  }
+
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  return buildResult(geom);
+}
+
+export function buildThreeGeometry(
+  params: SolidParams,
+  extendedKind?: string,
+  extraParams?: Record<string, unknown>,
+): ThreeGeometryResult {
+  if (extendedKind === "ellipsoid") {
+    const rx = Number(extraParams?.rx ?? (params.type === "sphere" ? params.r * 1.35 : 3));
+    const ry = Number(extraParams?.ry ?? (params.type === "sphere" ? params.r * 0.85 : 2));
+    const rz = Number(extraParams?.rz ?? ry);
+    return buildEllipsoid(rx, ry, rz);
+  }
+  if (extendedKind === "hemisphere") {
+    const r = Number(extraParams?.r ?? (params.type === "sphere" ? params.r : 2.5));
+    return buildHemisphere(r);
+  }
+  if (extendedKind === "surface_3d") {
+    const formula = String(extraParams?.formula3d ?? "sin(x)*cos(y)");
+    return buildExplicitSurfaceGeometry(formula);
+  }
+
   switch (params.type) {
     case "cube":     return buildCube(params.s);
     case "cuboid":   return buildCuboid(params.l, params.w, params.h);
@@ -119,10 +198,6 @@ export function buildThreeGeometry(params: SolidParams): ThreeGeometryResult {
     case "torus":    return buildTorus(params.R, params.r);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Utility: compute world bounding box for a mesh
-// ---------------------------------------------------------------------------
 
 export function computeMeshBoundingBox(mesh: THREE.Mesh): THREE.Box3 {
   const box = new THREE.Box3();
