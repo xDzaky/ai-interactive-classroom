@@ -248,3 +248,177 @@ export function buildIcosahedron(radius = 2.5): Polyhedron {
   ];
   return { kind: 'prism', vertices, edges: extractUniqueEdges(faces), faces, labels: makeLabels(12) };
 }
+
+/**
+ * Regular Dodecahedron (5th Platonic Solid: V=20, E=30, F=12, V-E+F = 2)
+ */
+export function buildDodecahedron(radius = 2.4): Polyhedron {
+  const phi = (1 + Math.sqrt(5)) / 2;
+  const inv = 1 / phi;
+  const raw: Vec3[] = [
+    // (±1, ±1, ±1) — 0..7
+    [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+    [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1],
+    // (0, ±inv, ±phi) — 8..11
+    [0, inv, phi], [0, inv, -phi], [0, -inv, phi], [0, -inv, -phi],
+    // (±inv, ±phi, 0) — 12..15
+    [inv, phi, 0], [inv, -phi, 0], [-inv, phi, 0], [-inv, -phi, 0],
+    // (±phi, 0, ±inv) — 16..19
+    [phi, 0, inv], [phi, 0, -inv], [-phi, 0, inv], [-phi, 0, -inv],
+  ];
+  const scale = radius / Math.sqrt(3);
+  const vertices: Vec3[] = raw.map(([x, y, z]) => [x * scale, y * scale, z * scale]);
+  const faces = [
+    [0, 8, 10, 2, 16],
+    [0, 16, 17, 1, 12],
+    [0, 12, 14, 4, 8],
+    [1, 17, 3, 11, 9],
+    [1, 9, 5, 14, 12],
+    [2, 10, 6, 15, 13],
+    [2, 13, 3, 17, 16],
+    [3, 13, 15, 7, 11],
+    [4, 14, 5, 19, 18],
+    [4, 18, 6, 10, 8],
+    [5, 9, 11, 7, 19],
+    [6, 18, 19, 7, 15],
+  ];
+  return { kind: 'prism', vertices, edges: extractUniqueEdges(faces), faces, labels: makeLabels(20) };
+}
+
+// ---------------------------------------------------------------------------
+// Ear-Clipping Triangulation for Simple Concave & Convex Polygons
+// ---------------------------------------------------------------------------
+
+function cross2D(a: [number, number], b: [number, number], c: [number, number]): number {
+  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+}
+
+function pointInTri2D(
+  p: [number, number],
+  a: [number, number],
+  b: [number, number],
+  c: [number, number],
+): boolean {
+  const c1 = cross2D(a, b, p);
+  const c2 = cross2D(b, c, p);
+  const c3 = cross2D(c, a, p);
+  return c1 >= -1e-9 && c2 >= -1e-9 && c3 >= -1e-9;
+}
+
+/**
+ * Triangulates any simple 2D polygon (including concave polygons like crowns, stars, L-shapes)
+ * using Ear-Clipping. Returns triangle index triples referencing `pts`.
+ */
+export function triangulatePolygon2D(pts: [number, number][]): [number, number, number][] {
+  const n = pts.length;
+  if (n < 3) return [];
+  if (n === 3) return [[0, 1, 2]];
+
+  // Compute signed area to know winding (ensure working list is CCW)
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    signedArea += a[0] * b[1] - b[0] * a[1];
+  }
+  const indices = Array.from({ length: n }, (_, i) => (signedArea >= 0 ? i : n - 1 - i));
+  const triangles: [number, number, number][] = [];
+
+  let guard = n * n + 10;
+  while (indices.length > 3 && guard-- > 0) {
+    let earFound = false;
+    const m = indices.length;
+    for (let i = 0; i < m; i++) {
+      const prevIdx = indices[(i - 1 + m) % m];
+      const currIdx = indices[i];
+      const nextIdx = indices[(i + 1) % m];
+      const a = pts[prevIdx];
+      const b = pts[currIdx];
+      const c = pts[nextIdx];
+
+      // Must be a convex vertex (CCW turn)
+      if (cross2D(a, b, c) <= 1e-9) continue;
+
+      // Must not contain any other polygon vertex inside triangle (a, b, c)
+      let hasInside = false;
+      for (let j = 0; j < m; j++) {
+        const testIdx = indices[j];
+        if (testIdx === prevIdx || testIdx === currIdx || testIdx === nextIdx) continue;
+        if (pointInTri2D(pts[testIdx], a, b, c)) {
+          hasInside = true;
+          break;
+        }
+      }
+      if (!hasInside) {
+        triangles.push(
+          signedArea >= 0 ? [prevIdx, currIdx, nextIdx] : [prevIdx, nextIdx, currIdx],
+        );
+        indices.splice(i, 1);
+        earFound = true;
+        break;
+      }
+    }
+    if (!earFound) break;
+  }
+
+  if (indices.length === 3) {
+    triangles.push(
+      signedArea >= 0
+        ? [indices[0], indices[1], indices[2]]
+        : [indices[0], indices[2], indices[1]],
+    );
+  }
+  return triangles;
+}
+
+/**
+ * Projects a planar 3D polygon face (possibly concave!) onto its local 2D basis
+ * and triangulates via Ear-Clipping. Returns triples of vertex indices into `vertices`.
+ */
+export function triangulateFace3D(
+  vertices: Vec3[],
+  faceIndices: number[],
+): [number, number, number][] {
+  const k = faceIndices.length;
+  if (k < 3) return [];
+  if (k === 3) return [[faceIndices[0], faceIndices[1], faceIndices[2]]];
+
+  // Newell's method for robust face normal (works on concave faces!)
+  let nx = 0;
+  let ny = 0;
+  let nz = 0;
+  for (let i = 0; i < k; i++) {
+    const a = vertices[faceIndices[i]];
+    const b = vertices[faceIndices[(i + 1) % k]];
+    nx += (a[1] - b[1]) * (a[2] + b[2]);
+    ny += (a[2] - b[2]) * (a[0] + b[0]);
+    nz += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  const nLen = Math.hypot(nx, ny, nz) || 1;
+  const n: Vec3 = [nx / nLen, ny / nLen, nz / nLen];
+
+  // Build orthonormal basis (u, v) on face plane
+  const ref: Vec3 = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const ux = ref[1] * n[2] - ref[2] * n[1];
+  const uy = ref[2] * n[0] - ref[0] * n[2];
+  const uz = ref[0] * n[1] - ref[1] * n[0];
+  const uLen = Math.hypot(ux, uy, uz) || 1;
+  const u: Vec3 = [ux / uLen, uy / uLen, uz / uLen];
+  const v: Vec3 = [
+    n[1] * u[2] - n[2] * u[1],
+    n[2] * u[0] - n[0] * u[2],
+    n[0] * u[1] - n[1] * u[0],
+  ];
+
+  const origin = vertices[faceIndices[0]];
+  const pts2D: [number, number][] = faceIndices.map((vi) => {
+    const p = vertices[vi];
+    const dx = p[0] - origin[0];
+    const dy = p[1] - origin[1];
+    const dz = p[2] - origin[2];
+    return [dx * u[0] + dy * u[1] + dz * u[2], dx * v[0] + dy * v[1] + dz * v[2]];
+  });
+
+  const localTris = triangulatePolygon2D(pts2D);
+  return localTris.map(([a, b, c]) => [faceIndices[a], faceIndices[b], faceIndices[c]]);
+}

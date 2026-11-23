@@ -43,6 +43,8 @@ import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
 import { GeometryCatalogPopover, type CatalogItem } from "@/components/whiteboard/GeometryCatalogPopover";
 import { AITeachingDrawer } from "@/components/whiteboard/AITeachingDrawer";
 import { FunActivityModal } from "@/components/whiteboard/FunActivityModal";
+import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
+import { RemotePeerBridge, generatePairingCode } from "@/lib/remotePeerBridge";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceCommands";
 import { exportStageToPng } from "@/lib/exportPng";
@@ -113,13 +115,19 @@ export default function PersonalRoomPage() {
   const [showCatalogPopover, setShowCatalogPopover] = useState(false);
   const [showAiDrawer, setShowAiDrawer] = useState(false);
   const [showFunModal, setShowFunModal] = useState(false);
+  const [showRemoteModal, setShowRemoteModal] = useState(false);
+  const [remoteCode] = useState(() => generatePairingCode());
+  const [remoteConnected, setRemoteConnected] = useState(false);
+  const [remoteLaser, setRemoteLaser] = useState<{ nx: number; ny: number } | null>(null);
+  const [isBlanked, setIsBlanked] = useState(false);
   const [solidParams, setSolidParams] = useState<SolidParams>({ type: "cube", s: 4 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     function update() {
+      const isMobile = window.innerWidth < 768;
       setCanvasSize({
-        width: Math.max(400, window.innerWidth - 56),
+        width: Math.max(320, isMobile ? window.innerWidth : window.innerWidth - 56),
         height: Math.max(300, window.innerHeight - 56),
       });
     }
@@ -182,6 +190,77 @@ export default function PersonalRoomPage() {
     setBoardState(result.state);
     setHistory(result.history);
   }, []);
+
+  // Dual-Transport Mobile Remote Bridge (works in Mode Tanpa Login!)
+  useEffect(() => {
+    const bridge = new RemotePeerBridge(remoteCode, "desktop");
+    const unsub = bridge.onMessage((msg) => {
+      setRemoteConnected(true);
+      const p = msg.payload ?? {};
+      switch (msg.type) {
+        case "ping":
+          bridge.send("pong");
+          break;
+        case "laser_move":
+          if (typeof p.nx === "number" && typeof p.ny === "number") {
+            setRemoteLaser({ nx: p.nx, ny: p.ny });
+          }
+          break;
+        case "laser_off":
+          setRemoteLaser(null);
+          break;
+        case "solid_orbit":
+          window.dispatchEvent(
+            new CustomEvent("ai-classroom:remote-solid", {
+              detail: { kind: "orbit", dAzimuth: p.dAzimuth, dPolar: p.dPolar },
+            }),
+          );
+          break;
+        case "solid_action":
+          window.dispatchEvent(
+            new CustomEvent("ai-classroom:remote-solid", {
+              detail: { kind: "action", action: p.action },
+            }),
+          );
+          break;
+        case "remote_stroke":
+          if (Array.isArray(p.points) && p.points.length >= 2) {
+            const pts = (p.points as [number, number][]).map(([nx, ny]) => [
+              nx * Math.max(400, window.innerWidth - 56),
+              ny * Math.max(300, window.innerHeight - 56),
+              0.5,
+            ] as [number, number, number]);
+            handleEvent({
+              event_type: "stroke.committed",
+              payload: {
+                id: `remote-stroke-${Date.now()}`,
+                points: pts,
+                color: String(p.color ?? "#0f172a"),
+                width: 3,
+                tool: "pen",
+              },
+            });
+          }
+          break;
+        case "undo":
+          handleUndo();
+          break;
+        case "redo":
+          handleRedo();
+          break;
+        case "blank":
+          setIsBlanked(true);
+          break;
+        case "unblank":
+          setIsBlanked(false);
+          break;
+      }
+    });
+    return () => {
+      unsub();
+      bridge.close();
+    };
+  }, [remoteCode, handleEvent, handleUndo, handleRedo]);
 
   // -------------------------------------------------------------------------
   // Insert live 3D Solid & 2D Graph directly onto the chalkboard
@@ -388,8 +467,8 @@ export default function PersonalRoomPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-tight text-slate-900">AI Smart Whiteboard</span>
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+              <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 whitespace-nowrap">AI Smart Whiteboard</span>
+              <span className="hidden sm:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
                 Mode Tanpa Login
               </span>
             </div>
@@ -417,24 +496,30 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="insert-math-block-btn"
             onClick={() => handleInsertMathBlock("8^2")}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
           >
             <span>∑</span>
             <span className="hidden sm:inline">Blok Rumus</span>
           </button>
           <button
             type="button"
-            onClick={() => setShowFormulaModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+            data-testid="open-remote-modal-btn"
+            onClick={() => setShowRemoteModal(true)}
+            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+              remoteConnected
+                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+            title="Hubungkan Remote HP (QR / Kode 6 Digit / Link)"
           >
-            <span>📈</span>
-            <span className="hidden md:inline">Grafik</span>
+            <span>📱</span>
+            <span className="hidden md:inline">{remoteConnected ? "HP Aktif" : "Remote HP"}</span>
           </button>
           <button
             type="button"
             data-testid="open-ai-drawer-btn"
             onClick={() => setShowAiDrawer((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
               showAiDrawer
                 ? "border-violet-500 bg-violet-600 text-white"
                 : "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
@@ -446,7 +531,7 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={() => setShowVoiceBar((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+            className={`hidden sm:flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
               showVoiceBar
                 ? "border-cyan-400 bg-cyan-50 text-cyan-700"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
@@ -459,7 +544,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="open-fun-activity-btn"
             onClick={() => setShowFunModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+            className="hidden md:flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
             title="Aktivitas Seru & Kuis Geometri"
           >
             <span>🎯</span>
@@ -468,7 +553,7 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={handleExportPng}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
             title="Export PNG"
           >
             <span>💾</span>
@@ -477,14 +562,14 @@ export default function PersonalRoomPage() {
             type="button"
             onClick={handleClearBoard}
             title="Bersihkan Papan"
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
             <span>🧹</span>
           </button>
-          <div className="mx-1 h-5 w-px bg-slate-200" />
+          <div className="hidden sm:block mx-1 h-5 w-px bg-slate-200" />
           <Link
             to="/login"
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 active:scale-95"
+            className="hidden sm:flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 active:scale-95"
           >
             👨‍🏫 Masuk Guru
           </Link>
@@ -492,10 +577,10 @@ export default function PersonalRoomPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Toolbar (Always-White Theme) */}
+        {/* Left Toolbar — Desktop & Tablet only (hidden on <768px mobile where Bottom Thumb Dock takes over) */}
         <aside
           data-toolbar
-          className="flex shrink-0 items-start justify-center border-r border-slate-200 bg-slate-50 p-1.5"
+          className="hidden md:flex shrink-0 items-start justify-center border-r border-slate-200 bg-slate-50 p-1.5"
           aria-label="Toolbar Gambar"
           style={{ zIndex: 10 }}
         >
@@ -516,7 +601,8 @@ export default function PersonalRoomPage() {
         {/* Main White Canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
         <main
           ref={overlayContainerRef}
-          className="relative flex-1 overflow-hidden bg-white"
+          className="relative flex-1 overflow-hidden bg-white select-none"
+          style={{ touchAction: "none" }}
           aria-label="Papan tulis pribadi"
         >
           <WhiteboardCanvas
@@ -542,13 +628,58 @@ export default function PersonalRoomPage() {
             onToggleVoice={() => setShowVoiceBar((v) => !v)}
             onOpenSummary={() => setShowSummaryModal(true)}
             onOpenTemplates={() => setShowTemplatesModal(true)}
+            remoteLaser={remoteLaser}
             stageRef={stageRef}
           />
 
-          {/* Signature Tongchuang Floating White Bottom Dock */}
+          {/* Mobile Bottom Thumb Dock (< 768px) — thumb-reachable core tools */}
+          <div
+            data-testid="mobile-thumb-dock"
+            className="pointer-events-auto absolute bottom-3 left-1/2 z-30 flex md:hidden -translate-x-1/2 items-center gap-1 rounded-2xl border border-slate-200 bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-md select-none"
+          >
+            {(
+              [
+                ["select", "↖", "Pilih"],
+                ["hand", "✋", "Geser"],
+                ["pen", "✏️", "Pena"],
+                ["eraser", "⌫", "Hapus"],
+              ] as const
+            ).map(([t, icon, lbl]) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setActiveTool(t)}
+                aria-label={lbl}
+                className={`flex h-10 w-10 items-center justify-center rounded-xl text-base transition ${
+                  activeTool === t ? "bg-indigo-600 text-white shadow-sm" : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {icon}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowCatalogPopover((v) => !v)}
+              aria-label="Katalog 2D/3D"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-base text-indigo-700 bg-indigo-50"
+            >
+              🧊
+            </button>
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={history.past.length === 0}
+              aria-label="Undo"
+              className="flex h-10 w-9 items-center justify-center rounded-xl text-sm text-slate-600 disabled:opacity-35"
+            >
+              ↩
+            </button>
+          </div>
+
+          {/* Signature Tongchuang Floating White Bottom Dock (Desktop/Tablet >= 768px) */}
           <div
             data-testid="tongchuang-bottom-dock"
-            className="pointer-events-auto absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 select-none"
+            className="pointer-events-auto absolute bottom-4 left-1/2 z-30 hidden md:flex -translate-x-1/2 items-center gap-2 select-none"
           >
             <button
               type="button"
@@ -725,6 +856,25 @@ export default function PersonalRoomPage() {
 
       {/* AI Fun Teaching Activity Modal */}
       <FunActivityModal open={showFunModal} onClose={() => setShowFunModal(false)} />
+
+      {/* Dual-Transport Phone Remote Pairing Modal (QR + 6-Digit Code + Link) */}
+      <ConnectDeviceModal
+        serverlessCode={remoteCode}
+        remoteConnected={remoteConnected}
+        open={showRemoteModal}
+        onClose={() => setShowRemoteModal(false)}
+      />
+
+      {/* Blank Screen Overlay (triggered from Mobile Remote) */}
+      {isBlanked && (
+        <div
+          onClick={() => setIsBlanked(false)}
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-slate-950/95 text-slate-400 cursor-pointer"
+        >
+          <span className="text-4xl mb-2">⬛</span>
+          <p className="text-sm font-medium">Layar Papan Tulis Diredam (Klik di mana saja untuk membuka)</p>
+        </div>
+      )}
     </div>
   );
 }

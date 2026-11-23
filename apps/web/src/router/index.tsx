@@ -87,6 +87,8 @@ export const router = createBrowserRouter([
       { path: "room/personal", element: withSuspense(PersonalRoomPage) },
       { path: "sandbox", element: withSuspense(PersonalRoomPage) },
       { path: "controller", element: withSuspense(ControllerPage) },
+      { path: "remote", element: withSuspense(ControllerPage) },
+      { path: "connect", element: withSuspense(ControllerPage) },
       { path: "*", element: withSuspense(NotFoundPage) },
     ],
   },

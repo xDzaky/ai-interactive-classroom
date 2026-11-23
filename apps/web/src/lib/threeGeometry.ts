@@ -5,6 +5,7 @@
  * prism_n, pyramid_n, frustum, custom_prism, custom_pyramid, and explicit 3D surfaces z = f(x, y)!
  */
 import * as THREE from "three";
+import { ParametricGeometry } from "three/examples/jsm/geometries/ParametricGeometry.js";
 import type { SolidParams } from "@ai-classroom/geometry-core";
 import { parseExpression, evaluateAST } from "@ai-classroom/math-core";
 
@@ -167,6 +168,69 @@ export function buildExplicitSurfaceGeometry(
   return buildResult(geom);
 }
 
+/**
+ * Builds parametric 3D surfaces S(u, v) using Three.js ParametricGeometry with heatmap vertex colors.
+ * Presets: 'mobius' (Möbius Strip), 'helicoid' (Helicoid), 'torus_knot' (Torus Knot tube).
+ */
+export function buildParametricSurfaceGeometry(
+  preset: "mobius" | "helicoid" | "torus_knot" = "mobius",
+): ThreeGeometryResult {
+  let geom: THREE.BufferGeometry;
+  if (preset === "torus_knot") {
+    geom = new THREE.TorusKnotGeometry(1.8, 0.48, 96, 18);
+  } else if (preset === "helicoid") {
+    geom = new ParametricGeometry(
+      (u, v, target) => {
+        const alpha = (u - 0.5) * 4 * Math.PI;
+        const r = (v - 0.5) * 3.2;
+        target.set(r * Math.cos(alpha), alpha * 0.35, r * Math.sin(alpha));
+      },
+      48,
+      20,
+    );
+  } else {
+    // Möbius Strip
+    geom = new ParametricGeometry(
+      (u, v, target) => {
+        const theta = u * Math.PI * 2;
+        const w = (v - 0.5) * 1.4;
+        const R = 2.1;
+        const x = (R + w * Math.cos(theta / 2)) * Math.cos(theta);
+        const z = (R + w * Math.cos(theta / 2)) * Math.sin(theta);
+        const y = w * Math.sin(theta / 2);
+        target.set(x, y, z);
+      },
+      64,
+      16,
+    );
+  }
+
+  // Apply height-based heatmap vertex colors
+  const pos = geom.getAttribute("position");
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const span = Math.max(0.001, maxY - minY);
+  const cLow = new THREE.Color(0x6366f1);
+  const cMid = new THREE.Color(0x14b8a6);
+  const cHigh = new THREE.Color(0xf97316);
+  const tmp = new THREE.Color();
+  const colors: number[] = [];
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getY(i) - minY) / span;
+    if (t < 0.5) tmp.lerpColors(cLow, cMid, t * 2);
+    else tmp.lerpColors(cMid, cHigh, (t - 0.5) * 2);
+    colors.push(tmp.r, tmp.g, tmp.b);
+  }
+  geom.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geom.computeVertexNormals();
+  return buildResult(geom);
+}
+
 export function buildThreeGeometry(
   params: SolidParams,
   extendedKind?: string,
@@ -185,6 +249,10 @@ export function buildThreeGeometry(
   if (extendedKind === "surface_3d") {
     const formula = String(extraParams?.formula3d ?? "sin(x)*cos(y)");
     return buildExplicitSurfaceGeometry(formula);
+  }
+  if (extendedKind === "parametric_3d") {
+    const preset = String(extraParams?.preset ?? "mobius") as "mobius" | "helicoid" | "torus_knot";
+    return buildParametricSurfaceGeometry(preset);
   }
 
   switch (params.type) {

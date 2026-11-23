@@ -32,6 +32,8 @@ import {
   buildTetrahedron,
   buildOctahedron,
   buildIcosahedron,
+  buildDodecahedron,
+  triangulateFace3D,
   verifyEulerCharacteristic,
 } from '@ai-classroom/geometry-core';
 import { buildThreeGeometry } from '@/lib/threeGeometry';
@@ -39,11 +41,14 @@ import {
   setupStudioLighting,
   createGlassFaceMaterial,
   createTextbookEdges,
+  createContactShadowPlane,
+  createAltitudeAndRightAngleHelper,
   createCrossSectionMaterials,
   FACE_EXPLODE_PALETTE,
   SOLID_THEMES,
   type SolidThemeKey,
 } from '@/lib/threeMaterials';
+import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { toThree } from '@/lib/coords';
 import { useWeakDevice } from '@/lib/useWeakDevice';
 
@@ -161,6 +166,9 @@ function buildPolyhedronFromParams(
   if (extendedKind === 'icosahedron') {
     return buildIcosahedron(Number(extraParams?.r ?? 2.4));
   }
+  if (extendedKind === 'dodecahedron') {
+    return buildDodecahedron(Number(extraParams?.r ?? 2.4));
+  }
   if (extendedKind === 'prism_n') {
     const sides = Number(extraParams?.sides ?? 6);
     const r = Number(extraParams?.r ?? 2);
@@ -195,7 +203,12 @@ function buildPolyhedronFromParams(
     const topScale = Number(extraParams?.topScale ?? 0.48);
     return taperProfile(createRegularPolygonProfile(sides, r), h, topScale).polyhedron;
   }
-  if (extendedKind === 'ellipsoid' || extendedKind === 'hemisphere' || extendedKind === 'surface_3d') {
+  if (
+    extendedKind === 'ellipsoid' ||
+    extendedKind === 'hemisphere' ||
+    extendedKind === 'surface_3d' ||
+    extendedKind === 'parametric_3d'
+  ) {
     return null;
   }
 
@@ -285,6 +298,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [mode, setMode] = useState<SolidToolMode>('orbit');
   const [autoRotate, setAutoRotate] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  const [showGuides, setShowGuides] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [planeOffset, setPlaneOffset] = useState<number>(0); // -1..1 for slice slider
   const [planeTilt, setPlaneTilt] = useState<number>(25);    // degrees
@@ -293,6 +307,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [isUnfolding, setIsUnfolding] = useState(false);
   const [explodeT, setExplodeT] = useState(0);
   const [localParams, setLocalParams] = useState<SolidParams>(params);
+  const targetCamPosRef = useRef<THREE.Vector3 | null>(null);
+  const lineMaterialsRef = useRef<LineMaterial[]>([]);
+  const rendererSizeRef = useRef<[number, number]>([320, 260]);
 
   // Sync external params ONLY when values genuinely differ
   const paramsKey = JSON.stringify(params);
@@ -453,6 +470,10 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
     setupStudioLighting(scene);
 
+    // Ground contact shadow plane
+    const contactShadow = createContactShadowPlane(2.7, -2.35);
+    scene.add(contactShadow);
+
     const solidGroup = new THREE.Group();
     const sectionGroup = new THREE.Group();
     solidGroup.add(sectionGroup);
@@ -497,9 +518,13 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       if (!container) return;
       const nw = Math.max(160, container.clientWidth);
       const nh = Math.max(140, container.clientHeight);
+      rendererSizeRef.current = [nw, nh];
       camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
       renderer.setSize(nw, nh);
+      for (const lm of lineMaterialsRef.current) {
+        lm.resolution.set(nw, nh);
+      }
     });
     ro.observe(container);
 
@@ -543,6 +568,15 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         item.mesh.scale.setScalar(isSel ? 1.45 : 1);
         const mat = item.mesh.material as THREE.MeshStandardMaterial;
         mat.color.setHex(isSel ? 0xec4899 : item.node.kind === 'midpoint' ? 0xf472b6 : 0x4f46e5);
+      }
+
+      // Spring camera preset interpolation
+      if (targetCamPosRef.current) {
+        camera.position.lerp(targetCamPosRef.current, 0.14);
+        if (camera.position.distanceTo(targetCamPosRef.current) < 0.04) {
+          camera.position.copy(targetCamPosRef.current);
+          targetCamPosRef.current = null;
+        }
       }
 
       controls.autoRotate = st.autoRotate && !isWeakDevice;
@@ -624,6 +658,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
     faceEntriesRef.current = [];
     nodeMeshesRef.current = [];
+    lineMaterialsRef.current = [];
 
     if (polyhedron) {
       const threeVerts = polyhedron.vertices.map((v) => toThree(v));
@@ -637,21 +672,29 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
       // Auto-normalize scale so any solid fits cleanly inside the viewport (no clipping/glitch!)
       let maxR = 1;
+      let minY = Infinity;
+      let maxY = -Infinity;
       for (const v of threeVerts) {
-        maxR = Math.max(maxR, Math.hypot(v[0] - center[0], v[1] - center[1], v[2] - center[2]));
+        const rx = v[0] - center[0];
+        const ry = v[1] - center[1];
+        const rz = v[2] - center[2];
+        maxR = Math.max(maxR, Math.hypot(rx, ry, rz));
+        if (ry < minY) minY = ry;
+        if (ry > maxY) maxY = ry;
       }
       const normScale = 2.6 / maxR;
       baseScaleRef.current = normScale;
       solidGroup.scale.setScalar(normScale);
 
-      // Faces (depth occluder so back edges dash accurately at every 360° angle)
+      // Faces via Ear-Clipping triangulation (supports concave crowns/stars/L-shapes with ZERO bleeding cap!)
       polyhedron.faces.forEach((faceIndices, fIdx) => {
         const geom = new THREE.BufferGeometry();
         const positions: number[] = [];
-        const v0 = threeVerts[faceIndices[0]];
-        for (let i = 1; i < faceIndices.length - 1; i++) {
-          const v1 = threeVerts[faceIndices[i]];
-          const v2 = threeVerts[faceIndices[i + 1]];
+        const tris = triangulateFace3D(polyhedron.vertices, faceIndices);
+        for (const [ia, ib, ic] of tris) {
+          const v0 = threeVerts[ia];
+          const v1 = threeVerts[ib];
+          const v2 = threeVerts[ic];
           positions.push(
             v0[0] - center[0], v0[1] - center[1], v0[2] - center[2],
             v1[0] - center[0], v1[1] - center[1], v1[2] - center[2],
@@ -675,7 +718,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         faceEntriesRef.current.push({ mesh, mat, normal: unitNormal, fIdx });
       });
 
-      // Clean textbook solid front + dashed hidden back edges
+      // Anti-aliased FAT textbook solid front (2.2px) + dashed hidden back edges (1.5px)
       const edgeGeom = new THREE.BufferGeometry();
       const edgePos: number[] = [];
       for (const [u, v] of polyhedron.edges) {
@@ -688,9 +731,21 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       }
       edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
 
-      const { hiddenEdges, frontEdges } = createTextbookEdges(edgeGeom, normScale, theme);
+      const { hiddenEdges, frontEdges, materials } = createTextbookEdges(
+        edgeGeom,
+        normScale,
+        theme,
+        rendererSizeRef.current
+      );
+      lineMaterialsRef.current.push(...materials);
       solidGroup.add(hiddenEdges);
       solidGroup.add(frontEdges);
+
+      // Optional textbook Altitude (t) & 90° Right-Angle Marker
+      if (showGuides && isFinite(minY) && isFinite(maxY)) {
+        const guideGroup = createAltitudeAndRightAngleHelper(minY, maxY, 0.28 / normScale);
+        solidGroup.add(guideGroup);
+      }
 
       // Interactive vertex & midpoint spheres
       const sphereGeom = new THREE.SphereGeometry(0.11 / normScale, 12, 12);
@@ -713,21 +768,21 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       baseScaleRef.current = normScale;
       solidGroup.scale.setScalar(normScale);
 
-      if (extendedKind === 'surface_3d') {
+      if (extendedKind === 'surface_3d' || extendedKind === 'parametric_3d') {
         const surfMat = new THREE.MeshStandardMaterial({
           vertexColors: true,
           side: THREE.DoubleSide,
-          roughness: 0.35,
+          roughness: 0.32,
           metalness: 0.08,
           transparent: true,
-          opacity: 0.88,
+          opacity: 0.9,
         });
         solidGroup.add(new THREE.Mesh(geometry, surfMat));
         const wireGeom = new THREE.WireframeGeometry(geometry);
         solidGroup.add(
           new THREE.LineSegments(
             wireGeom,
-            new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.18 })
+            new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.16 })
           )
         );
       } else {
@@ -736,9 +791,19 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.24, THREE.FrontSide)));
 
         const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
-        const { hiddenEdges, frontEdges } = createTextbookEdges(edgesGeom, normScale, theme);
+        const { hiddenEdges, frontEdges, materials } = createTextbookEdges(
+          edgesGeom,
+          normScale,
+          theme,
+          rendererSizeRef.current
+        );
+        lineMaterialsRef.current.push(...materials);
         solidGroup.add(hiddenEdges);
         solidGroup.add(frontEdges);
+        if (showGuides) {
+          const halfH = dimensions.height / 2;
+          solidGroup.add(createAltitudeAndRightAngleHelper(-halfH, halfH, 0.26 / normScale));
+        }
 
         if (localParams.type === 'sphere' && extendedKind !== 'ellipsoid' && extendedKind !== 'hemisphere') {
           const r = localParams.r;
@@ -777,7 +842,60 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         }
       }
     }
-  }, [polyhedron, interactiveNodes, localParams, extendedKind, extraParams, theme]);
+  }, [polyhedron, interactiveNodes, localParams, extendedKind, extraParams, theme, showGuides]);
+
+  // ── Remote Mobile Controller 3D Orbit & Action Listener ───────────────────
+  useEffect(() => {
+    if (!selected) return;
+    const onRemoteSolid = (ev: Event) => {
+      const detail = (ev as CustomEvent<{
+        kind: 'orbit' | 'action';
+        dAzimuth?: number;
+        dPolar?: number;
+        action?: string;
+      }>).detail;
+      if (!detail) return;
+      if (detail.kind === 'orbit' && cameraRef.current) {
+        const cam = cameraRef.current;
+        const spherical = new THREE.Spherical().setFromVector3(cam.position);
+        spherical.theta -= (detail.dAzimuth ?? 0) * 1.4;
+        spherical.phi = Math.max(0.18, Math.min(Math.PI - 0.18, spherical.phi - (detail.dPolar ?? 0) * 1.4));
+        cam.position.setFromSpherical(spherical);
+        cam.lookAt(0, 0, 0);
+        targetCamPosRef.current = null;
+      } else if (detail.kind === 'action') {
+        if (detail.action === 'section') {
+          setMode((m) => (m === 'section' ? 'orbit' : 'section'));
+          setUsePlaneSlider(true);
+        } else if (detail.action === 'unfold') {
+          setMode((m) => (m === 'unfold' ? 'orbit' : 'unfold'));
+        } else if (detail.action === 'explode') {
+          setMode((m) => {
+            const next = m === 'explode' ? 'orbit' : 'explode';
+            setExplodeT(next === 'explode' ? 0.55 : 0);
+            return next;
+          });
+        } else if (detail.action === 'reset') {
+          setMode('orbit');
+          setUnfoldT(0);
+          setExplodeT(0);
+          targetCamPosRef.current = new THREE.Vector3(5.2, 4.2, 6.2);
+        }
+      }
+    };
+    window.addEventListener('ai-classroom:remote-solid', onRemoteSolid);
+    return () => window.removeEventListener('ai-classroom:remote-solid', onRemoteSolid);
+  }, [selected]);
+
+  const applyCameraPreset = (preset: CameraPreset) => {
+    const map: Record<CameraPreset, THREE.Vector3> = {
+      iso: new THREE.Vector3(5.2, 4.2, 6.2),
+      front: new THREE.Vector3(0, 0.4, 8.6),
+      top: new THREE.Vector3(0.01, 8.8, 0.01),
+      side: new THREE.Vector3(8.6, 0.4, 0),
+    };
+    targetCamPosRef.current = map[preset];
+  };
 
   // ── 3. IN-PLACE CROSS-SECTION REBUILD (Electric Blue Plane + Glowing Pins) ─
   useEffect(() => {
@@ -864,16 +982,42 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       }}
       className="relative flex h-full w-full flex-col items-center justify-center select-none"
     >
-      {/* Top drag handle (only when selected) */}
-      {selected && onMovePosition && (
-        <div
-          data-testid={`solid-drag-handle-${id}`}
-          onPointerDown={handleDragStart}
-          title="Seret untuk menggeser bangun 3D"
-          className="absolute top-1 left-1/2 z-30 -translate-x-1/2 flex cursor-grab items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 active:cursor-grabbing"
-        >
-          <span>✋</span>
-          <span>Geser</span>
+      {/* Top drag handle + Spring Camera Presets & 90° Guide Toggle (only when selected) */}
+      {selected && (
+        <div className="absolute top-1 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1 whitespace-nowrap">
+          {onMovePosition && (
+            <div
+              data-testid={`solid-drag-handle-${id}`}
+              onPointerDown={handleDragStart}
+              title="Seret untuk menggeser bangun 3D"
+              className="flex cursor-grab items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 active:cursor-grabbing"
+            >
+              <span>✋</span>
+              <span>Geser</span>
+            </div>
+          )}
+          <div className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-white/95 px-1 py-0.5 shadow-sm">
+            {([['iso', 'Iso'], ['front', 'Depan'], ['top', 'Atas'], ['side', 'Samping']] as const).map(([key, lbl]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => applyCameraPreset(key)}
+                className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+              >
+                {lbl}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowGuides((v) => !v)}
+              title="Tampilkan Garis Tinggi (t) & Sudut 90°"
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold transition ${
+                showGuides ? 'bg-rose-500 text-white' : 'text-slate-500 hover:bg-rose-50 hover:text-rose-600'
+              }`}
+            >
+              90°
+            </button>
+          </div>
         </div>
       )}
 

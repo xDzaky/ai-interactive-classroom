@@ -176,6 +176,104 @@ export function intersectPolyhedronPlane(poly: Polyhedron, plane: Plane): Sectio
 }
 
 /**
+ * Intersect a (possibly concave!) polyhedron with a plane, returning ALL disconnected
+ * cross-section polygons (e.g., slicing a crown-shaped prism horizontally yields multiple prongs).
+ * Builds edge-on-face intersection segments and chains them into closed loops.
+ */
+export function intersectPolyhedronPlaneMulti(
+  poly: Polyhedron,
+  plane: Plane,
+): SectionPolygon[] {
+  const segments: [Vec3, Vec3][] = [];
+
+  for (const face of poly.faces) {
+    const hits: Vec3[] = [];
+    for (let i = 0; i < face.length; i++) {
+      const p1 = poly.vertices[face[i]];
+      const p2 = poly.vertices[face[(i + 1) % face.length]];
+      const hit = intersectSegmentPlane(p1, p2, plane);
+      if (hit && !hits.some((h) => pt3Dist(h, hit.point) < 1e-4)) {
+        hits.push(hit.point);
+      }
+    }
+    if (hits.length === 2) {
+      segments.push([hits[0], hits[1]]);
+    } else if (hits.length > 2) {
+      // Sort collinear hits along the face-plane intersection line and pair consecutive spans
+      const dir = vecNormalize(vecSub(hits[1], hits[0]));
+      hits.sort((a, b) => vecDot(vecSub(a, hits[0]), dir) - vecDot(vecSub(b, hits[0]), dir));
+      for (let i = 0; i + 1 < hits.length; i += 2) {
+        segments.push([hits[i], hits[i + 1]]);
+      }
+    }
+  }
+
+  if (segments.length < 3) {
+    const single = intersectPolyhedronPlane(poly, plane);
+    return single ? [single] : [];
+  }
+
+  // Chain segments into closed loops
+  const used = new Array<boolean>(segments.length).fill(false);
+  const loops: Vec3[][] = [];
+
+  for (let startIdx = 0; startIdx < segments.length; startIdx++) {
+    if (used[startIdx]) continue;
+    used[startIdx] = true;
+    const loop: Vec3[] = [segments[startIdx][0], segments[startIdx][1]];
+
+    let extended = true;
+    while (extended) {
+      extended = false;
+      const tail = loop[loop.length - 1];
+      for (let j = 0; j < segments.length; j++) {
+        if (used[j]) continue;
+        const [a, b] = segments[j];
+        if (pt3Dist(tail, a) < 1e-3) {
+          used[j] = true;
+          if (pt3Dist(b, loop[0]) > 1e-3) loop.push(b);
+          extended = true;
+          break;
+        }
+        if (pt3Dist(tail, b) < 1e-3) {
+          used[j] = true;
+          if (pt3Dist(a, loop[0]) > 1e-3) loop.push(a);
+          extended = true;
+          break;
+        }
+      }
+    }
+    if (loop.length >= 3) loops.push(loop);
+  }
+
+  return loops.map((pts) => {
+    const k = pts.length;
+    let perimeter = 0;
+    for (let i = 0; i < k; i++) perimeter += pt3Dist(pts[i], pts[(i + 1) % k]);
+
+    // Area via plane normal projection (accurate for concave polygons too!)
+    let areaVec: Vec3 = [0, 0, 0];
+    for (let i = 0; i < k; i++) {
+      const c = vecCross(pts[i], pts[(i + 1) % k]);
+      areaVec = vecAdd(areaVec, c);
+    }
+    const area = 0.5 * Math.abs(vecDot(areaVec, plane.n));
+
+    const anglesDeg: number[] = [];
+    for (let i = 0; i < k; i++) {
+      const prev = pts[(i - 1 + k) % k];
+      const curr = pts[i];
+      const next = pts[(i + 1) % k];
+      const v1 = vecNormalize(vecSub(prev, curr));
+      const v2 = vecNormalize(vecSub(next, curr));
+      const cosA = Math.max(-1, Math.min(1, vecDot(v1, v2)));
+      anglesDeg.push((Math.acos(cosA) * 180) / Math.PI);
+    }
+    return { points: pts, area, perimeter, anglesDeg };
+  });
+}
+
+/**
  * Shortest distance from point p to line defined by points a and b.
  */
 export function pointLineDistance(p: Vec3, a: Vec3, b: Vec3): number {

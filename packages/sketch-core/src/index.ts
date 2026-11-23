@@ -8,3 +8,5 @@ export * from './constants.js';
 export * from './resample.js';
 export * from './geometry.js';
 export * from './recognizer.js';
+export * from './dollarP.js';
+export * from './multistroke3d.js';

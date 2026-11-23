@@ -36,10 +36,15 @@ import {
 } from "./objects/RenderObject";
 import {
   recognizeShape as recognizeShapeV2,
+  recognizeMultiStroke3D,
+  clusterRecentStrokes,
   type Pt,
   type ShapeCandidate,
+  type TimedStroke,
+  type MultiStroke3DResult,
   computeBBox,
 } from "@ai-classroom/sketch-core";
+import { TouchGestureEngine } from "@/lib/touchGestureEngine";
 import {
   ShapeSuggestionChip,
   ShapeRevertToast,
@@ -112,6 +117,7 @@ export interface WhiteboardCanvasProps {
   onToggleVoice?: () => void;
   onOpenSummary?: () => void;
   onOpenTemplates?: () => void;
+  remoteLaser?: { nx: number; ny: number } | null;
 }
 
 interface ViewTransform {
@@ -581,6 +587,7 @@ export function WhiteboardCanvas({
   onToggleVoice,
   onOpenSummary,
   onOpenTemplates,
+  remoteLaser = null,
 }: WhiteboardCanvasProps) {
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
@@ -911,6 +918,120 @@ export function WhiteboardCanvas({
     },
     [selectedIds, scene, commitEvent]
   );
+
+  // Multi-stroke 3D sketch recognition buffer & confirmation chip
+  const recentStrokesRef = useRef<TimedStroke[]>([]);
+  const [sketch3dChip, setSketch3dChip] = useState<{
+    result: MultiStroke3DResult;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+
+  const handleAcceptSketch3D = useCallback(() => {
+    if (!sketch3dChip) return;
+    const { result } = sketch3dChip;
+    const isCustom = result.kind === "custom_prism";
+    const solidType = isCustom ? "prism" : (result.kind as SolidType);
+    const solidParamsMap: Record<string, Record<string, unknown>> = {
+      cube: { type: "cube", s: result.params.s ?? 4 },
+      cuboid: { type: "cuboid", l: result.params.l ?? 5, w: result.params.w ?? 3, h: result.params.h ?? 3 },
+      cylinder: { type: "cylinder", r: result.params.r ?? 2, h: result.params.h ?? 5 },
+      cone: { type: "cone", r: result.params.r ?? 2.5, h: result.params.h ?? 5 },
+      pyramid: { type: "pyramid", b: result.params.b ?? 4, h: result.params.h ?? 5 },
+      prism: { type: "prism", a: 4, b: 4, c: 4, h: 5 },
+      sphere: { type: "sphere", r: result.params.r ?? 3 },
+    };
+    const deleteEvents: WhiteboardEvent[] = result.strokeIds.map((sid) => ({
+      event_type: "object.deleted",
+      payload: { id: sid },
+    }));
+    const solidEvent: WhiteboardEvent = {
+      event_type: "object.created",
+      payload: {
+        id: `solid3d-${uid()}`,
+        object_type: "viz_solid",
+        props: {
+          solid_type: solidType,
+          extended_kind: isCustom ? "custom_prism" : undefined,
+          profile_points_cm: isCustom ? result.profilePoints : undefined,
+          extra_params: isCustom ? { height: result.params.height ?? 3.5 } : undefined,
+          params: solidParamsMap[solidType] ?? { type: "cube", s: 4 },
+          label: result.label,
+          x: Math.max(40, result.bbox.x),
+          y: Math.max(40, result.bbox.y),
+          w: Math.max(280, Math.min(380, result.bbox.w + 80)),
+          h: Math.max(280, Math.min(380, result.bbox.h + 80)),
+        },
+      },
+    };
+    commitEventRef.current({
+      event_type: "batch",
+      payload: { events: [...deleteEvents, solidEvent] },
+    });
+    recentStrokesRef.current = [];
+    setSketch3dChip(null);
+  }, [sketch3dChip]);
+
+  // Unified Mobile Touch Gesture State Machine (1x tap select, 2x tap radial wheel, long-press drag, 2-finger pinch zoom)
+  const touchEngineRef = useRef<TouchGestureEngine | null>(null);
+  useEffect(() => {
+    const engine = new TouchGestureEngine({
+      onSingleTap: (pt) => {
+        const worldPt = viewportController.toWorld(pt.x, pt.y);
+        const hitId = findHitItem(worldPt, sceneRef.current);
+        const next = hitId ? [hitId] : [];
+        selectedIdsRef.current = next;
+        setSelectedIds(next);
+      },
+      onDoubleTap: (pt) => {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        const worldPt = viewportController.toWorld(pt.x, pt.y);
+        const hitId = findHitItem(worldPt, sceneRef.current);
+        if (hitId) {
+          selectedIdsRef.current = [hitId];
+          setSelectedIds([hitId]);
+        }
+        setContextMenu({ x: rect.left + pt.x, y: rect.top + pt.y });
+      },
+      onLongPressDragStart: (pt) => {
+        const worldPt = viewportController.toWorld(pt.x, pt.y);
+        const hitId = findHitItem(worldPt, sceneRef.current);
+        if (hitId) {
+          if (!selectedIdsRef.current.includes(hitId)) {
+            selectedIdsRef.current = [hitId];
+            setSelectedIds([hitId]);
+          }
+          isDraggingSelection.current = true;
+          dragSelectionStart.current = { x: worldPt.x, y: worldPt.y };
+        }
+      },
+      onLongPressDragMove: (_pt, dx, dy) => {
+        if (!isDraggingSelection.current) return;
+        const sc = Math.max(0.1, viewportController.getState().scale);
+        translateSelectedLive(dx / sc, dy / sc);
+      },
+      onLongPressDragEnd: () => {
+        isDraggingSelection.current = false;
+        dragSelectionStart.current = null;
+      },
+      onPan: (dx, dy) => {
+        const v = viewportController.getState();
+        viewportController.set({ ...v, x: v.x + dx, y: v.y + dy });
+      },
+      onPinchZoom: (midX, midY, scaleFactor, panDx, panDy) => {
+        viewportController.zoomAt(midX, midY, scaleFactor);
+        if (panDx !== 0 || panDy !== 0) {
+          viewportController.panBy(panDx, panDy);
+        }
+        setZoomDisplay(Math.round(viewportController.getState().scale * 100));
+      },
+    });
+    touchEngineRef.current = engine;
+    return () => {
+      engine.dispose();
+      touchEngineRef.current = null;
+    };
+  }, [viewportController, stageRef, translateSelectedLive]);
 
   const handleAcceptSuggestion = useCallback(() => {
     if (!suggestionChip.candidate) return;
@@ -1418,6 +1539,16 @@ export function WhiteboardCanvas({
   const handleStagePointerDown = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       if (readOnly) return;
+      if (e.evt.pointerType === "touch" && (activeToolRef.current === "select" || activeToolRef.current === "hand")) {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        touchEngineRef.current?.handlePointerDown(
+          e.evt.pointerId,
+          e.evt.clientX - rect.left,
+          e.evt.clientY - rect.top,
+        );
+        return;
+      }
       if (e.evt.button !== 0) return;
 
       const pos = getWorldPos();
@@ -1528,6 +1659,16 @@ export function WhiteboardCanvas({
   const handleStagePointerMove = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       const tool = activeToolRef.current;
+      if (e.evt.pointerType === "touch" && (tool === "select" || tool === "hand")) {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        touchEngineRef.current?.handlePointerMove(
+          e.evt.pointerId,
+          e.evt.clientX - rect.left,
+          e.evt.clientY - rect.top,
+        );
+        return;
+      }
       const pos = getWorldPos();
       if (!pos) return;
 
@@ -1653,8 +1794,18 @@ export function WhiteboardCanvas({
   // Pointer up — commit stroke/shape
   // ---------------------------------------------------------------------------
   const handleStagePointerUp = useCallback(
-    (_e: Konva.KonvaEventObject<PointerEvent>) => {
+    (e: Konva.KonvaEventObject<PointerEvent>) => {
       const tool = activeToolRef.current;
+      if (e?.evt?.pointerType === "touch" && (tool === "select" || tool === "hand")) {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        touchEngineRef.current?.handlePointerUp(
+          e.evt.pointerId,
+          e.evt.clientX - rect.left,
+          e.evt.clientY - rect.top,
+        );
+        return;
+      }
       const pos = getWorldPos();
 
       if (activeResizeRef.current) {
@@ -1895,6 +2046,25 @@ export function WhiteboardCanvas({
             tool,
           },
         });
+
+        // Multi-Stroke 3D Sketch & Concave Polygon 3D Detection (non-intrusive chip!)
+        if (tool === "pen") {
+          const timed: TimedStroke = {
+            id,
+            timestamp: Date.now(),
+            points: reducedPts.map(([px, py]) => ({ x: px, y: py })),
+          };
+          recentStrokesRef.current = [...recentStrokesRef.current.slice(-11), timed];
+          const cluster = clusterRecentStrokes(recentStrokesRef.current, 2500);
+          const detected3D = recognizeMultiStroke3D(cluster);
+          if (detected3D) {
+            const screenPos = viewportController.toScreen(
+              detected3D.bbox.x + detected3D.bbox.w / 2,
+              detected3D.bbox.y,
+            );
+            setSketch3dChip({ result: detected3D, screenPos });
+          }
+        }
         return;
       }
 
@@ -2340,8 +2510,8 @@ export function WhiteboardCanvas({
         }}
       />
 
-      {/* Zoom controls (Always-White Theme) */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 px-2 py-1.5 text-xs text-slate-600 shadow-md backdrop-blur-sm select-none">
+      {/* Zoom controls (Desktop/Tablet) */}
+      <div className="hidden md:flex absolute bottom-4 right-4 items-center gap-1 rounded-xl border border-slate-200 bg-white/95 px-2 py-1.5 text-xs text-slate-600 shadow-md backdrop-blur-sm select-none">
         <button
           onClick={() => {
             viewportController.zoomAt(width / 2, height / 2, 1 / ZOOM_STEP);
@@ -2373,8 +2543,8 @@ export function WhiteboardCanvas({
         >↺</button>
       </div>
 
-      {/* Undo/Redo (Always-White Theme) */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 select-none">
+      {/* Undo/Redo (Desktop/Tablet) */}
+      <div className="hidden md:flex absolute bottom-4 left-4 items-center gap-1 select-none">
         <button
           onClick={onUndo}
           disabled={!canUndo}
@@ -2388,6 +2558,50 @@ export function WhiteboardCanvas({
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-sm text-slate-600 shadow-md backdrop-blur-sm transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
         >↪</button>
       </div>
+
+      {/* Multi-Stroke 3D Sketch / Concave Polygon -> 3D Confirmation Chip */}
+      {sketch3dChip && (
+        <div
+          data-testid="sketch3d-confirm-chip"
+          style={{
+            left: Math.max(12, Math.min(width - 260, sketch3dChip.screenPos.x - 110)),
+            top: Math.max(12, sketch3dChip.screenPos.y - 44),
+          }}
+          className="absolute z-40 flex items-center gap-2 rounded-full border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
+        >
+          <span className="font-semibold text-slate-800">
+            🧊 Deteksi: {sketch3dChip.result.label}
+          </span>
+          <button
+            type="button"
+            data-testid="sketch3d-accept-btn"
+            onClick={handleAcceptSketch3D}
+            className="rounded-full bg-indigo-600 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-indigo-700"
+          >
+            Jadikan 3D
+          </button>
+          <button
+            type="button"
+            onClick={() => setSketch3dChip(null)}
+            className="rounded-full px-1 text-slate-400 hover:text-slate-700"
+            aria-label="Tutup saran 3D"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Remote Laser Pointer Overlay (driven by Mobile Remote Controller) */}
+      {remoteLaser && (
+        <div
+          data-testid="remote-laser-dot"
+          style={{
+            left: `${remoteLaser.nx * 100}%`,
+            top: `${remoteLaser.ny * 100}%`,
+          }}
+          className="pointer-events-none absolute z-50 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-500 shadow-[0_0_16px_6px_rgba(244,63,94,0.75)] ring-2 ring-white"
+        />
+      )}
 
       {/* Auto-shape suggestion & revert overlays (P10-T11) */}
       <ShapeSuggestionChip

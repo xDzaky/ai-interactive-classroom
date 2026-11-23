@@ -49,15 +49,19 @@ export const GEOMETRY_CATALOG: CatalogItem[] = [
   { id: '3d-ellipsoid', label: 'Elipsoid', category: '3D', icon: '🥚', action: { kind: 'solid3d', solidType: 'sphere', extendedKind: 'ellipsoid', extraParams: { rx: 3.2, ry: 2, rz: 2 }, label: 'Elipsoid' } },
   { id: '3d-torus', label: 'Torus (Donat)', category: '3D', icon: '🍩', action: { kind: 'solid3d', solidType: 'torus', label: 'Torus' } },
 
-  // Platonic Solids
+  // Platonic Solids (all 5 complete!)
   { id: 'pl-tetra', label: 'Tetrahedron', category: 'Platonic', icon: '▲', action: { kind: 'solid3d', solidType: 'pyramid', extendedKind: 'tetrahedron', extraParams: { s: 3.5 }, label: 'Tetrahedron' } },
   { id: 'pl-octa', label: 'Octahedron', category: 'Platonic', icon: '◆', action: { kind: 'solid3d', solidType: 'pyramid', extendedKind: 'octahedron', extraParams: { s: 3.2 }, label: 'Octahedron' } },
+  { id: 'pl-dodeca', label: 'Dodecahedron', category: 'Platonic', icon: '⬟', action: { kind: 'solid3d', solidType: 'sphere', extendedKind: 'dodecahedron', extraParams: { r: 2.5 }, label: 'Dodecahedron' } },
   { id: 'pl-icosa', label: 'Icosahedron', category: 'Platonic', icon: '⬡', action: { kind: 'solid3d', solidType: 'sphere', extendedKind: 'icosahedron', extraParams: { r: 2.5 }, label: 'Icosahedron' } },
 
-  // Permukaan 3D Kalkulus
+  // Permukaan 3D Kalkulus & Parametrik
   { id: 'sf-wave', label: 'Gelombang sin(x)·cos(y)', category: 'Permukaan 3D', icon: '🌊', action: { kind: 'solid3d', solidType: 'cube', extendedKind: 'surface_3d', extraParams: { formula3d: 'sin(x)*cos(y)' }, label: 'z = sin(x)·cos(y)' } },
   { id: 'sf-saddle', label: 'Pelana (x² − y²)/4', category: 'Permukaan 3D', icon: '〰️', action: { kind: 'solid3d', solidType: 'cube', extendedKind: 'surface_3d', extraParams: { formula3d: '(x^2 - y^2)/4' }, label: 'z = (x²−y²)/4' } },
   { id: 'sf-paraboloid', label: 'Paraboloid (x² + y²)/5', category: 'Permukaan 3D', icon: '🥣', action: { kind: 'solid3d', solidType: 'cube', extendedKind: 'surface_3d', extraParams: { formula3d: '(x^2 + y^2)/5' }, label: 'z = (x²+y²)/5' } },
+  { id: 'sf-mobius', label: 'Pita Möbius S(u,v)', category: 'Permukaan 3D', icon: '♾️', action: { kind: 'solid3d', solidType: 'torus', extendedKind: 'parametric_3d', extraParams: { preset: 'mobius' }, label: 'Pita Möbius' } },
+  { id: 'sf-helicoid', label: 'Helicoid S(u,v)', category: 'Permukaan 3D', icon: '🌀', action: { kind: 'solid3d', solidType: 'torus', extendedKind: 'parametric_3d', extraParams: { preset: 'helicoid' }, label: 'Helicoid' } },
+  { id: 'sf-torusknot', label: 'Torus-Knot 3D', category: 'Permukaan 3D', icon: '🥨', action: { kind: 'solid3d', solidType: 'torus', extendedKind: 'parametric_3d', extraParams: { preset: 'torus_knot' }, label: 'Torus-Knot' } },
 ];
 
 export interface GeometryCatalogPopoverProps {
