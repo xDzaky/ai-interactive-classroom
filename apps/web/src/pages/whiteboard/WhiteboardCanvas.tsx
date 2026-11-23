@@ -60,7 +60,13 @@ import {
 } from "@/features/whiteboard/actionRegistry";
 import { TongchuangRadialWheel } from "@/components/whiteboard/TongchuangRadialWheel";
 import { SelectionToolbar } from "@/components/whiteboard/SelectionToolbar";
-import { ObjectCustomizerPopover } from "@/components/whiteboard/ObjectCustomizerPopover";
+import {
+  getResizeHandles,
+  findHitResizeHandle,
+  computeResizedProps,
+  type ResizeHandleKind,
+  type BBox,
+} from "@/lib/resizeHandles";
 import { ShapeToSolidMenu } from "@/components/whiteboard/ShapeToSolidMenu";
 import {
   createConvertShapeToSolidEvent,
@@ -556,7 +562,7 @@ export function WhiteboardCanvas({
   readOnly = false,
   stageRef: externalStageRef,
   activeTool = "pen",
-  color = "#f8fafc",
+  color = "#0f172a",
   strokeWidth = 3,
   onToolChange,
   onColorChange,
@@ -689,9 +695,14 @@ export function WhiteboardCanvas({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
   const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
-  const [showCustomizer, setShowCustomizer] = useState(false);
   const isHandPanning = useRef(false);
   const handPanLast = useRef<{ x: number; y: number } | null>(null);
+  const activeResizeRef = useRef<{
+    id: string;
+    handle: ResizeHandleKind;
+    origBBox: BBox;
+    origProps: Record<string, unknown>;
+  } | null>(null);
 
   const isMarquee = useRef(false);
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
@@ -964,13 +975,32 @@ export function WhiteboardCanvas({
               y: bbox.y - 4,
               width: bbox.w + 8,
               height: bbox.h + 8,
-              stroke: "#6366f1",
-              strokeWidth: 2,
+              stroke: "#4f46e5",
+              strokeWidth: 1.8,
               dash: [6, 3],
               listening: false,
               cornerRadius: 4,
             })
           );
+
+          // Direct corner/edge resize handles for single selected 2D object
+          if (selectedIds.length === 1 && scene.objects[id]) {
+            for (const h of getResizeHandles(bbox)) {
+              uiLayer.add(
+                new Konva.Rect({
+                  x: h.x - 5,
+                  y: h.y - 5,
+                  width: 10,
+                  height: 10,
+                  fill: "#ffffff",
+                  stroke: "#4f46e5",
+                  strokeWidth: 2,
+                  cornerRadius: 2,
+                  listening: false,
+                })
+              );
+            }
+          }
         }
       }
     }
@@ -1218,6 +1248,25 @@ export function WhiteboardCanvas({
 
       const tool = activeToolRef.current;
 
+      // Direct corner/edge resize handle check (works in Select or Hand mode!)
+      if ((tool === "select" || tool === "hand") && selectedIds.length === 1) {
+        const selId = selectedIds[0];
+        const selObj = scene.objects[selId];
+        const selBBox = selObj ? getItemBBox(selId, scene) : null;
+        if (selObj && selBBox) {
+          const hitHandle = findHitResizeHandle(pos, selBBox, viewportController.getState().scale);
+          if (hitHandle) {
+            activeResizeRef.current = {
+              id: selId,
+              handle: hitHandle,
+              origBBox: selBBox,
+              origProps: { ...(selObj.props as Record<string, unknown>) },
+            };
+            return;
+          }
+        }
+      }
+
       if (tool === "hand") {
         const hitId = findHitItem(pos, scene);
         if (hitId) {
@@ -1226,7 +1275,6 @@ export function WhiteboardCanvas({
           dragSelectionStart.current = { x: pos.x, y: pos.y };
         } else {
           setSelectedIds([]);
-          setShowCustomizer(false);
           isHandPanning.current = true;
           handPanLast.current = { x: e.evt.clientX, y: e.evt.clientY };
         }
@@ -1297,6 +1345,19 @@ export function WhiteboardCanvas({
       const pos = getWorldPos();
       if (!pos) return;
 
+      if (activeResizeRef.current) {
+        const r = activeResizeRef.current;
+        const obj = scene.objects[r.id];
+        if (obj) {
+          const nextProps = computeResizedProps(obj, r.handle, r.origBBox, r.origProps, pos);
+          commitEvent({
+            event_type: "object.updated",
+            payload: { id: r.id, props_patch: nextProps },
+          } as unknown as WhiteboardEvent);
+        }
+        return;
+      }
+
       if (tool === "hand") {
         if (isHandPanning.current && handPanLast.current) {
           const dx = e.evt.clientX - handPanLast.current.x;
@@ -1358,6 +1419,11 @@ export function WhiteboardCanvas({
     (_e: Konva.KonvaEventObject<PointerEvent>) => {
       const tool = activeToolRef.current;
       const pos = getWorldPos();
+
+      if (activeResizeRef.current) {
+        activeResizeRef.current = null;
+        return;
+      }
 
       if (tool === "select" || tool === "hand") {
         isHandPanning.current = false;
@@ -1608,7 +1674,7 @@ export function WhiteboardCanvas({
           payload: {
             id,
             points: reducedPts,
-            color: tool === "eraser" ? "#0f172a" : col,
+            color: tool === "eraser" ? "#ffffff" : col,
             width: sw,
             tool,
           },
@@ -1853,7 +1919,7 @@ export function WhiteboardCanvas({
 
   return (
     <div
-      className="relative overflow-hidden bg-slate-950"
+      className="relative overflow-hidden bg-white"
       onContextMenu={handleContextMenu}
       style={{
         width,
@@ -1935,17 +2001,17 @@ export function WhiteboardCanvas({
         }}
       />
 
-      {/* Zoom controls */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-700/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-400 shadow-lg backdrop-blur-sm select-none">
+      {/* Zoom controls (Always-White Theme) */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 px-2 py-1.5 text-xs text-slate-600 shadow-md backdrop-blur-sm select-none">
         <button
           onClick={() => {
             viewportController.zoomAt(width / 2, height / 2, 1 / ZOOM_STEP);
             setZoomDisplay(Math.round(viewportController.getState().scale * 100));
           }}
-          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
           aria-label="Zoom out"
         >−</button>
-        <span className="w-12 text-center font-mono text-[11px]">
+        <span className="w-12 text-center font-mono text-[11px] font-medium text-slate-700">
           {zoomDisplay}%
         </span>
         <button
@@ -1953,34 +2019,34 @@ export function WhiteboardCanvas({
             viewportController.zoomAt(width / 2, height / 2, ZOOM_STEP);
             setZoomDisplay(Math.round(viewportController.getState().scale * 100));
           }}
-          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
           aria-label="Zoom in"
         >+</button>
-        <div className="mx-1 h-4 w-px bg-slate-700" />
+        <div className="mx-1 h-4 w-px bg-slate-200" />
         <button
           onClick={() => {
             viewportController.set({ scale: 1, x: 0, y: 0 });
             setZoomDisplay(100);
           }}
-          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
           title="Reset view"
           aria-label="Reset zoom"
         >↺</button>
       </div>
 
-      {/* Undo/Redo */}
+      {/* Undo/Redo (Always-White Theme) */}
       <div className="absolute bottom-4 left-4 flex items-center gap-1 select-none">
         <button
           onClick={onUndo}
           disabled={!canUndo}
           title="Undo (Ctrl+Z)"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/90 text-sm text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-sm text-slate-600 shadow-md backdrop-blur-sm transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
         >↩</button>
         <button
           onClick={onRedo}
           disabled={!canRedo}
           title="Redo (Ctrl+Y)"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/90 text-sm text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-sm text-slate-600 shadow-md backdrop-blur-sm transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
         >↪</button>
       </div>
 
@@ -2006,27 +2072,10 @@ export function WhiteboardCanvas({
           y={toolbarScreenPos.y}
           actions={resolvedActions}
           actionContext={actionContext}
-          onOpenCustomize={() => setShowCustomizer((v) => !v)}
           onOpenMoreMenu={(e) => {
             e.stopPropagation();
             setContextMenu({ x: toolbarScreenPos.x, y: toolbarScreenPos.y + 20 });
           }}
-        />
-      )}
-
-      {/* Interactive 2D Object Customizer Popover */}
-      {showCustomizer && selectedIds.length === 1 && scene.objects[selectedIds[0]] && toolbarScreenPos && (
-        <ObjectCustomizerPopover
-          object={scene.objects[selectedIds[0]]}
-          x={toolbarScreenPos.x}
-          y={toolbarScreenPos.y}
-          onPatchProps={(id, patch) => {
-            commitEvent({
-              event_type: "object.updated",
-              payload: { id, props_patch: patch },
-            });
-          }}
-          onClose={() => setShowCustomizer(false)}
         />
       )}
 

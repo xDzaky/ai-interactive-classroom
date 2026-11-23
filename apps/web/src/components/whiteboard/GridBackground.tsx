@@ -63,11 +63,12 @@ export function GridBackground({
       data-testid="grid-background"
       className="absolute inset-0 pointer-events-none"
       style={{
+        backgroundColor: "#ffffff",
         backgroundImage: `
-          linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-          linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
+          linear-gradient(to right, rgba(15, 23, 42, 0.08) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(15, 23, 42, 0.08) 1px, transparent 1px),
+          linear-gradient(to right, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(15, 23, 42, 0.035) 1px, transparent 1px)
         `,
         backgroundSize: `
           var(--major-gs, 100px) var(--major-gs, 100px),

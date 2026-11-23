@@ -49,14 +49,14 @@ export function ShapeSuggestionChip({
   return (
     <div
       data-testid="shape-suggestion-chip"
-      className="absolute z-40 flex items-center gap-1.5 rounded-full border border-indigo-500/40 bg-slate-900/90 px-3 py-1.5 text-xs text-white shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 pointer-events-auto"
+      className="absolute z-40 flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs text-slate-800 shadow-lg backdrop-blur-md animate-in fade-in zoom-in-95 pointer-events-auto"
       style={{
         left: `${position.x}px`,
         top: `${Math.max(position.y - 38, 10)}px`,
       }}
     >
-      <span className="text-indigo-400">✨</span>
-      <span>Jadikan <strong className="font-semibold text-indigo-300">{displayName}</strong>?</span>
+      <span className="text-indigo-500">✨</span>
+      <span>Jadikan <strong className="font-semibold text-indigo-700">{displayName}</strong>?</span>
       <button
         onClick={onAccept}
         aria-label={`Konfirmasi ubah ke ${displayName}`}
@@ -67,7 +67,7 @@ export function ShapeSuggestionChip({
       <button
         onClick={onDismiss}
         aria-label="Tolak saran bentuk"
-        className="ml-0.5 rounded-full p-0.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+        className="ml-0.5 rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
       >
         ✕
       </button>
@@ -101,18 +101,18 @@ export function ShapeRevertToast({
   return (
     <div
       data-testid="shape-revert-toast"
-      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/95 px-3.5 py-2 text-xs text-slate-200 shadow-2xl backdrop-blur-md pointer-events-auto"
+      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 text-xs text-slate-800 shadow-xl backdrop-blur-md pointer-events-auto"
     >
-      <span className="text-emerald-400 font-medium">Bentuk otomatis dikenali</span>
+      <span className="text-emerald-600 font-medium">Bentuk otomatis dikenali</span>
       <button
         onClick={onRevert}
-        className="rounded bg-slate-800 px-2 py-1 font-semibold text-sky-400 transition hover:bg-slate-700 hover:text-sky-300"
+        className="rounded bg-indigo-50 px-2 py-1 font-semibold text-indigo-600 transition hover:bg-indigo-100"
       >
         Kembalikan coretan
       </button>
       <button
         onClick={onDismiss}
-        className="text-slate-400 transition hover:text-white"
+        className="text-slate-400 transition hover:text-slate-700"
         aria-label="Tutup notifikasi"
       >
         ✕

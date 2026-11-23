@@ -35,7 +35,7 @@ import { buildThreeGeometry } from '@/lib/threeGeometry';
 import { toThree } from '@/lib/coords';
 import { useWeakDevice } from '@/lib/useWeakDevice';
 
-export type SolidToolMode = 'orbit' | 'section' | 'unfold' | 'explode' | 'measure' | 'custom';
+export type SolidToolMode = 'orbit' | 'section' | 'unfold' | 'explode' | 'measure';
 export type CameraPreset = 'iso' | 'front' | 'top' | 'side';
 
 export interface TongchuangSolidWidgetProps {
@@ -217,16 +217,40 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [isUnfolding, setIsUnfolding] = useState(false);
   const [explodeT, setExplodeT] = useState(0);
   const [localParams, setLocalParams] = useState<SolidParams>(params);
-  const [wireColor, setWireColor] = useState<number>(0xf8fafc);
+  // Crisp dark slate wireframe for Always-White Whiteboard theme
+  const wireColor = 0x1e293b;
 
   useEffect(() => {
     setLocalParams(params);
   }, [params]);
 
-  const updateParam = (patch: Record<string, number>) => {
-    const next = { ...localParams, ...patch } as SolidParams;
-    setLocalParams(next);
-    onParamsChange?.(next);
+  // Direct corner drag-to-resize 3D dimensions (no Custom icon needed)
+  const handleCornerResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const base = { ...localParams };
+    const onMove = (ev: PointerEvent) => {
+      const delta = ((ev.clientX - startX) + (ev.clientY - startY)) / 80;
+      const factor = Math.max(0.4, Math.min(2.5, 1 + delta));
+      const round1 = (n: number) => Math.max(1, Math.min(12, Math.round(n * factor * 2) / 2));
+      let next: SolidParams = base;
+      if (base.type === 'cube') next = { type: 'cube', s: round1(base.s) };
+      else if (base.type === 'cuboid') next = { type: 'cuboid', l: round1(base.l), w: round1(base.w), h: round1(base.h) };
+      else if (base.type === 'cylinder') next = { type: 'cylinder', r: round1(base.r), h: round1(base.h) };
+      else if (base.type === 'cone') next = { type: 'cone', r: round1(base.r), h: round1(base.h) };
+      else if (base.type === 'sphere') next = { type: 'sphere', r: round1(base.r) };
+      else if (base.type === 'pyramid') next = { type: 'pyramid', b: round1(base.b), h: round1(base.h) };
+      else if (base.type === 'prism') next = { type: 'prism', a: round1(base.a), b: round1(base.b), c: round1(base.c), h: round1(base.h) };
+      setLocalParams(next);
+      onParamsChange?.(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
   };
 
   // Drag-to-move handle for repositioning the 3D solid on the blackboard
@@ -474,9 +498,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       for (const node of interactiveNodes) {
         const tp = toThree(node.pos);
         const mat = new THREE.MeshStandardMaterial({
-          color: node.kind === 'vertex' ? 0xffffff : 0xf472b6,
-          emissive: node.kind === 'vertex' ? 0xe2e8f0 : 0xec4899,
-          emissiveIntensity: 0.4,
+          color: node.kind === 'vertex' ? 0x4f46e5 : 0xec4899,
+          emissive: node.kind === 'vertex' ? 0x3730a3 : 0xbe185d,
+          emissiveIntensity: 0.35,
         });
         const mesh = new THREE.Mesh(sphereGeom, mat);
         mesh.position.set(tp[0] - center[0], tp[1] - center[1], tp[2] - center[2]);
@@ -581,8 +605,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         const isSel = st.selectedNodes.includes(item.node.id);
         item.mesh.scale.setScalar(isSel ? 1.45 : 1);
         const mat = item.mesh.material as THREE.MeshStandardMaterial;
-        mat.color.setHex(isSel ? 0xec4899 : item.node.kind === 'midpoint' ? 0xf472b6 : 0xffffff);
-        mat.emissive.setHex(isSel ? 0xec4899 : 0xe2e8f0);
+        mat.color.setHex(isSel ? 0xec4899 : item.node.kind === 'midpoint' ? 0xf472b6 : 0x4f46e5);
+        mat.emissive.setHex(isSel ? 0xec4899 : 0x3730a3);
       }
 
       controls.autoRotate = st.autoRotate && !isWeakDevice;
@@ -699,44 +723,54 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       onClick={onSelect}
       className="relative flex h-full w-full flex-col items-center justify-center select-none"
     >
-      {/* Drag-to-move 3D Solid handle (Hand gesture) */}
+      {/* Drag-to-move 3D Solid handle (White Theme) */}
       {onMovePosition && (
         <div
           data-testid={`solid-drag-handle-${id}`}
           onPointerDown={handleDragStart}
           title="Seret untuk menggeser bangun 3D"
-          className="absolute top-1 left-1/2 z-30 -translate-x-1/2 flex cursor-grab items-center gap-1 rounded-full border border-white/25 bg-slate-900/75 px-2.5 py-0.5 text-[10px] font-semibold text-slate-200 shadow-md backdrop-blur-sm hover:bg-slate-800 active:cursor-grabbing"
+          className="absolute top-1 left-1/2 z-30 -translate-x-1/2 flex cursor-grab items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-md backdrop-blur-sm hover:bg-slate-50 active:cursor-grabbing"
         >
           <span>✋</span>
           <span>Geser</span>
         </div>
       )}
 
+      {/* Direct Corner Resize Handle for 3D Solid */}
+      <div
+        data-testid={`solid-resize-handle-${id}`}
+        onPointerDown={handleCornerResizeStart}
+        title="Tarik ujung untuk ubah ukuran 3D"
+        className="absolute bottom-14 right-1 z-30 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border border-indigo-400 bg-white text-[10px] font-bold text-indigo-600 shadow-md hover:bg-indigo-50"
+      >
+        ↘
+      </div>
+
       {/* Main Interactive Stage */}
       <div className="relative flex h-full w-full items-center justify-center">
-        {/* Side-by-Side Extracted 2D Cross-Section SVG with Interior Angles (Screenshots 3 & 4) */}
+        {/* Side-by-Side Extracted 2D Cross-Section SVG with Interior Angles (White Theme) */}
         {mode === 'section' && projected2D && projected2D.points2D.length >= 3 && (
           <div
             data-testid="extracted-section-2d"
-            className="pointer-events-none absolute -left-36 top-4 z-20 flex flex-col items-center rounded-2xl border border-blue-400/40 bg-slate-800/90 p-2.5 text-white shadow-2xl backdrop-blur-md"
+            className="pointer-events-none absolute -left-36 top-4 z-20 flex flex-col items-center rounded-2xl border border-blue-200 bg-white/95 p-2.5 text-slate-800 shadow-xl backdrop-blur-md"
           >
-            <div className="mb-1 text-[10px] font-semibold tracking-wide text-blue-300 uppercase">
+            <div className="mb-1 text-[10px] font-bold tracking-wide text-blue-600 uppercase">
               Penampang Irisan
             </div>
             <svg width="120" height="120" viewBox="0 0 120 120" className="overflow-visible">
               <polygon
                 points={projected2D.points2D.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
-                fill="rgba(37, 99, 235, 0.72)"
-                stroke="#93c5fd"
+                fill="rgba(37, 99, 235, 0.25)"
+                stroke="#2563eb"
                 strokeWidth="2"
               />
               {projected2D.points2D.map((p, idx) => (
                 <g key={idx}>
-                  <circle cx={p.x} cy={p.y} r="3" fill="#ffffff" />
+                  <circle cx={p.x} cy={p.y} r="3" fill="#2563eb" />
                   <text
                     x={p.x + (p.x < 60 ? -16 : 8)}
                     y={p.y + (p.y < 60 ? -6 : 12)}
-                    fill="#ffffff"
+                    fill="#1e293b"
                     fontSize="9"
                     fontWeight="bold"
                   >
@@ -745,9 +779,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
                 </g>
               ))}
             </svg>
-            <div className="mt-1 flex gap-2 text-[10px] text-slate-200">
-              <span>L: <strong>{projected2D.area.toFixed(1)}</strong> cm²</span>
-              <span>K: <strong>{projected2D.perimeter.toFixed(1)}</strong> cm</span>
+            <div className="mt-1 flex gap-2 text-[10px] text-slate-600">
+              <span>L: <strong className="text-slate-900">{projected2D.area.toFixed(1)}</strong> cm²</span>
+              <span>K: <strong className="text-slate-900">{projected2D.perimeter.toFixed(1)}</strong> cm</span>
             </div>
           </div>
         )}
@@ -774,18 +808,18 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
               className={`pointer-events-none absolute z-10 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shadow ${
                 v.selected
                   ? 'bg-pink-500 text-white ring-2 ring-white'
-                  : 'bg-slate-900/80 text-white border border-white/30'
+                  : 'bg-white/95 text-slate-800 border border-slate-300'
               }`}
             >
               {v.label}
             </span>
           ))}
 
-        {/* Dihedral Angle Badge in Unfold mode (Screenshot 1: "83°") */}
+        {/* Dihedral Angle Badge in Unfold mode */}
         {mode === 'unfold' && (
           <div
             data-testid="dihedral-angle-badge"
-            className="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-lg border border-orange-400/70 bg-slate-900/85 px-2.5 py-0.5 text-sm font-extrabold text-white shadow-lg"
+            className="pointer-events-none absolute left-1/2 top-8 z-20 -translate-x-1/2 rounded-lg border border-orange-300 bg-white/95 px-2.5 py-0.5 text-sm font-extrabold text-orange-600 shadow-lg"
           >
             {dihedralDeg}°
           </div>
@@ -795,15 +829,15 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         {mode === 'measure' && geoStats && (
           <div
             data-testid="solid-measure-hud"
-            className="absolute right-2 top-2 z-20 rounded-xl border border-emerald-400/40 bg-slate-900/85 px-3 py-2 text-[11px] text-white shadow-xl backdrop-blur-md"
+            className="absolute right-2 top-2 z-20 rounded-xl border border-emerald-200 bg-white/95 px-3 py-2 text-[11px] text-slate-800 shadow-xl backdrop-blur-md"
           >
-            <div className="mb-1 font-bold text-emerald-300">{label ?? params.type.toUpperCase()}</div>
+            <div className="mb-1 font-bold text-emerald-700">{label ?? localParams.type.toUpperCase()}</div>
             <div>Volume: <strong className="font-mono">{geoStats.volume.toFixed(2)} cm³</strong></div>
             <div>Luas Permukaan: <strong className="font-mono">{geoStats.surface_area.toFixed(2)} cm²</strong></div>
-            {params.type === 'cube' && (
+            {localParams.type === 'cube' && (
               <>
-                <div>Diagonal Bidang: <strong className="font-mono">{(params.s * Math.SQRT2).toFixed(2)} cm</strong></div>
-                <div>Diagonal Ruang: <strong className="font-mono">{(params.s * Math.sqrt(3)).toFixed(2)} cm</strong></div>
+                <div>Diagonal Bidang: <strong className="font-mono">{(localParams.s * Math.SQRT2).toFixed(2)} cm</strong></div>
+                <div>Diagonal Ruang: <strong className="font-mono">{(localParams.s * Math.sqrt(3)).toFixed(2)} cm</strong></div>
               </>
             )}
           </div>
@@ -861,86 +895,6 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         </div>
       )}
 
-      {selected && mode === 'custom' && (
-        <div
-          data-testid={`solid-custom-panel-${id}`}
-          className="z-20 mb-1.5 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] text-slate-800 shadow-xl"
-        >
-          {localParams.type === 'cube' && (
-            <label className="flex items-center gap-1.5">
-              <span className="font-semibold">Sisi (s): {localParams.s} cm</span>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={0.5}
-                value={localParams.s}
-                onChange={(e) => updateParam({ s: Number(e.target.value) })}
-                className="w-20 accent-indigo-600"
-              />
-            </label>
-          )}
-          {localParams.type === 'cuboid' && (
-            <>
-              <label className="flex items-center gap-1">
-                <span>P:{localParams.l}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.l} onChange={(e) => updateParam({ l: Number(e.target.value) })} className="w-14 accent-indigo-600" />
-              </label>
-              <label className="flex items-center gap-1">
-                <span>L:{localParams.w}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.w} onChange={(e) => updateParam({ w: Number(e.target.value) })} className="w-14 accent-indigo-600" />
-              </label>
-              <label className="flex items-center gap-1">
-                <span>T:{localParams.h}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.h} onChange={(e) => updateParam({ h: Number(e.target.value) })} className="w-14 accent-indigo-600" />
-              </label>
-            </>
-          )}
-          {(localParams.type === 'cylinder' || localParams.type === 'cone') && (
-            <>
-              <label className="flex items-center gap-1">
-                <span>r:{localParams.r}</span>
-                <input type="range" min={0.5} max={8} step={0.5} value={localParams.r} onChange={(e) => updateParam({ r: Number(e.target.value) })} className="w-16 accent-indigo-600" />
-              </label>
-              <label className="flex items-center gap-1">
-                <span>t:{localParams.h}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.h} onChange={(e) => updateParam({ h: Number(e.target.value) })} className="w-16 accent-indigo-600" />
-              </label>
-            </>
-          )}
-          {localParams.type === 'sphere' && (
-            <label className="flex items-center gap-1">
-              <span>Jari-jari (r): {localParams.r}</span>
-              <input type="range" min={1} max={8} step={0.5} value={localParams.r} onChange={(e) => updateParam({ r: Number(e.target.value) })} className="w-20 accent-indigo-600" />
-            </label>
-          )}
-          {localParams.type === 'pyramid' && (
-            <>
-              <label className="flex items-center gap-1">
-                <span>Alas:{localParams.b}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.b} onChange={(e) => updateParam({ b: Number(e.target.value) })} className="w-16 accent-indigo-600" />
-              </label>
-              <label className="flex items-center gap-1">
-                <span>T:{localParams.h}</span>
-                <input type="range" min={1} max={10} step={0.5} value={localParams.h} onChange={(e) => updateParam({ h: Number(e.target.value) })} className="w-16 accent-indigo-600" />
-              </label>
-            </>
-          )}
-          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-            {[0xf8fafc, 0x38bdf8, 0xfacc15, 0x4ade80, 0xf472b6, 0xfb923c].map((hex) => (
-              <button
-                key={hex}
-                type="button"
-                aria-label={`Warna rusuk #${hex.toString(16)}`}
-                onClick={() => setWireColor(hex)}
-                className={`h-4 w-4 rounded-full border ${wireColor === hex ? 'ring-2 ring-indigo-500 border-white' : 'border-slate-300'}`}
-                style={{ backgroundColor: `#${hex.toString(16).padStart(6, '0')}` }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
       {selected && mode === 'orbit' && !compact && (
         <div className="z-20 mb-1.5 flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-medium text-slate-700 shadow">
           {(['iso', 'front', 'top', 'side'] as CameraPreset[]).map((p) => (
@@ -983,20 +937,6 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           >
             <span className="text-sm leading-none">🔄</span>
             <span className="mt-0.5">Putar</span>
-          </button>
-
-          <button
-            type="button"
-            data-testid={`solid-btn-custom-${id}`}
-            onClick={() => setMode((m) => (m === 'custom' ? 'orbit' : 'custom'))}
-            aria-pressed={mode === 'custom'}
-            title="Custom Ukuran & Warna 3D"
-            className={`flex flex-col items-center rounded-xl px-2 py-1 text-[10px] font-medium transition ${
-              mode === 'custom' ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-300' : 'hover:bg-slate-100'
-            }`}
-          >
-            <span className="text-sm leading-none">🎛️</span>
-            <span className="mt-0.5">Custom</span>
           </button>
 
           {polyhedron && (

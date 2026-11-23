@@ -95,7 +95,7 @@ export default function PersonalRoomPage() {
   historyRef.current = history;
 
   const [activeTool, setActiveTool] = useState<ToolType>("pen");
-  const [color, setColor] = useState("#f8fafc");
+  const [color, setColor] = useState("#0f172a");
   const [strokeWidth, setStrokeWidth] = useState(3);
 
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -283,27 +283,27 @@ export default function PersonalRoomPage() {
   }, []);
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#2d333f] text-white">
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-white text-slate-900">
       <FpsMeter />
 
-      {/* Top Navbar */}
-      <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-700/70 bg-slate-900/95 px-4 backdrop-blur-md">
+      {/* Top Navbar (Always-White Theme) */}
+      <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 shadow-xs backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Link
             to="/login"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 text-xs font-extrabold text-white shadow-md shadow-cyan-500/20"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-xs font-extrabold text-white shadow-sm"
           >
             AI
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-tight">AI Smart Blackboard</span>
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="text-sm font-bold tracking-tight text-slate-900">AI Smart Whiteboard</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                 Mode Tanpa Login
               </span>
             </div>
-            <p className="hidden text-[11px] text-slate-400 sm:block">
-              Gambar 2D → Klik Kanan → Bangun 3D 360°, Irisan 3 Titik, Jaring-Jaring & Roda AI
+            <p className="hidden text-[11px] text-slate-500 sm:block">
+              Klik tengah objek untuk pilih · Tarik ujung untuk ubah bentuk · Klik kanan untuk Roda AI & 3D
             </p>
           </div>
         </div>
@@ -312,7 +312,7 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={() => handleInsertSolidOnBoard("cube")}
-            className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:bg-indigo-600/35 hover:text-white"
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
           >
             <span>🧊</span>
             <span className="hidden sm:inline">Kubus 3D</span>
@@ -320,7 +320,7 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={() => setShowFormulaModal(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-600/20 px-3 py-1.5 text-xs font-medium text-blue-200 transition hover:bg-blue-600/35 hover:text-white"
+            className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             <span>📈</span>
             <span className="hidden sm:inline">Rumus → Grafik</span>
@@ -328,10 +328,10 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={() => setShowVoiceBar((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
               showVoiceBar
-                ? "border-cyan-400 bg-cyan-500/25 text-cyan-200"
-                : "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white"
+                ? "border-cyan-400 bg-cyan-50 text-cyan-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
             }`}
           >
             <span>🎙️</span>
@@ -340,7 +340,7 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             onClick={handleExportPng}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
           >
             <span>💾</span>
             <span className="hidden lg:inline">Export PNG</span>
@@ -349,14 +349,14 @@ export default function PersonalRoomPage() {
             type="button"
             onClick={handleClearBoard}
             title="Bersihkan Papan"
-            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:border-red-500/30 hover:bg-red-950/40 hover:text-red-300"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
             <span>🧹</span>
           </button>
-          <div className="mx-1 h-5 w-px bg-slate-800" />
+          <div className="mx-1 h-5 w-px bg-slate-200" />
           <Link
             to="/login"
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-500 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 active:scale-95"
           >
             👨‍🏫 Masuk Guru
           </Link>
@@ -364,10 +364,10 @@ export default function PersonalRoomPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Toolbar (Select tool at top, scrollable) */}
+        {/* Left Toolbar (Always-White Theme) */}
         <aside
           data-toolbar
-          className="flex shrink-0 items-start justify-center border-r border-slate-700/60 bg-slate-900/90 p-1.5"
+          className="flex shrink-0 items-start justify-center border-r border-slate-200 bg-slate-50 p-1.5"
           aria-label="Toolbar Gambar"
           style={{ zIndex: 10 }}
         >
@@ -385,10 +385,10 @@ export default function PersonalRoomPage() {
           />
         </aside>
 
-        {/* Main Matte Blackboard Canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
+        {/* Main White Canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
         <main
           ref={overlayContainerRef}
-          className="relative flex-1 overflow-hidden bg-[#2d333f]"
+          className="relative flex-1 overflow-hidden bg-white"
           aria-label="Papan tulis pribadi"
         >
           <WhiteboardCanvas
@@ -495,14 +495,14 @@ export default function PersonalRoomPage() {
         onSelectTemplate={handleSelectTemplate}
       />
 
-      {/* Fullscreen 3D Studio Modal */}
+      {/* Fullscreen 3D Studio Modal (Always-White Theme) */}
       {show3dModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="relative flex h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-[#2d333f] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-700 bg-slate-900/90 px-6 py-3.5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
+          <div className="relative flex h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-3.5">
               <div className="flex items-center gap-3">
                 <span className="text-xl">🧊</span>
-                <h3 className="font-bold text-white">Studio 3D Interaktif (Irisan, Jaring-Jaring & Pisah Sisi)</h3>
+                <h3 className="font-bold text-slate-900">Studio 3D Interaktif (Irisan, Jaring-Jaring & Pisah Sisi)</h3>
               </div>
               <div className="flex items-center gap-2">
                 {(["cube", "cuboid", "pyramid", "prism", "cylinder", "cone", "sphere"] as SolidType[]).map((st) => (
@@ -510,10 +510,10 @@ export default function PersonalRoomPage() {
                     key={st}
                     type="button"
                     onClick={() => setSolidParams(DEFAULT_SOLID_PARAMS[st])}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition ${
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize transition ${
                       solidParams.type === st
-                        ? "bg-cyan-500 text-white"
-                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                        ? "bg-indigo-600 text-white"
+                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     {SOLID_LABELS[st].split(" ")[0]}
@@ -522,7 +522,7 @@ export default function PersonalRoomPage() {
                 <button
                   type="button"
                   onClick={() => setShow3dModal(false)}
-                  className="ml-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 hover:text-white"
+                  className="ml-2 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 >
                   Tutup &times;
                 </button>

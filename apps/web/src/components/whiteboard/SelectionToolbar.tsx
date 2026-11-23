@@ -13,7 +13,6 @@ export interface SelectionToolbarProps {
   actions: ActionItem[];
   actionContext: ActionContext;
   onOpenMoreMenu: (e: React.MouseEvent) => void;
-  onOpenCustomize?: () => void;
 }
 
 export function SelectionToolbar({
@@ -22,7 +21,6 @@ export function SelectionToolbar({
   actions,
   actionContext,
   onOpenMoreMenu,
-  onOpenCustomize,
 }: SelectionToolbarProps) {
   if (actionContext.selectedIds.length === 0) return null;
 
@@ -62,20 +60,6 @@ export function SelectionToolbar({
           <span className="mt-0.5 hidden sm:inline leading-tight">{action.label.split(' ')[0]}</span>
         </button>
       ))}
-
-      {onOpenCustomize && (
-        <button
-          type="button"
-          onClick={onOpenCustomize}
-          data-testid="selection-customize-btn"
-          title="Custom Ukuran, Warna & Rotasi"
-          aria-label="Custom Objek"
-          className="flex flex-col items-center justify-center rounded-xl px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 active:scale-95"
-        >
-          <span className="text-sm leading-none">🎛️</span>
-          <span className="mt-0.5 hidden sm:inline leading-tight">Custom</span>
-        </button>
-      )}
 
       <div className="mx-0.5 h-6 w-px bg-slate-200" />
 

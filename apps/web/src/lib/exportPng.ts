@@ -62,7 +62,7 @@ export function exportStageToPng(
         composite.height = Math.max(1, Math.round(stage.height() * pixelRatio));
         const ctx = composite.getContext("2d");
         if (ctx) {
-          ctx.fillStyle = "#2d333f";
+          ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, composite.width, composite.height);
           const stageCanvas = stage.toCanvas({ pixelRatio });
           ctx.drawImage(stageCanvas, 0, 0);

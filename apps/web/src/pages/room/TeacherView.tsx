@@ -287,9 +287,9 @@ export function TeacherView({ roomId, participantToken: _token, participantId, r
           />
         </aside>
 
-        {/* Center: canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
+        {/* Center: canvas (Always-White Theme + Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
         <main
-          className="relative flex-1 overflow-hidden bg-[#2d333f]"
+          className="relative flex-1 overflow-hidden bg-white"
           aria-label="Papan tulis"
           onPointerDown={(e) =>
             handlePointerDown({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, pressure: e.pressure })
