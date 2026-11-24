@@ -336,6 +336,10 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const compoundMeshesRef = useRef<
     Array<{ mesh: THREE.Object3D; basePos: THREE.Vector3; explodeDir: THREE.Vector3 }>
   >([]);
+  const needsSnapshotRef = useRef(true);
+  const rootElRef = useRef<HTMLDivElement | null>(null);
+  const onMovePositionRef = useRef(onMovePosition);
+  onMovePositionRef.current = onMovePosition;
 
   // Sync external params ONLY when values genuinely differ
   const paramsKey = JSON.stringify(params);
@@ -566,7 +570,6 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     ro.observe(container);
 
     // Zero-setState 60fps animation loop!
-    let snapped = false;
     let rafId = 0;
     const projVec = new THREE.Vector3();
 
@@ -574,9 +577,14 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       rafId = requestAnimationFrame(animate);
       const st = stateRef.current;
 
-      // 1. True Hinged Unfold/Fold via unfoldPlan(poly) hierarchical THREE.Group pivots!
+      // 1. True Hinged Unfold/Fold via unfoldPlan(poly) + Auto-Fit Scale so net NEVER clips the box!
       for (const h of hingeNodesRef.current) {
         h.pivot.quaternion.setFromAxisAngle(h.axis, h.angle * st.unfoldT);
+      }
+      if (hingeNodesRef.current.length > 0) {
+        const unfoldShrink = 1 / (1 + st.unfoldT * 1.18);
+        solidGroup.scale.setScalar(baseScaleRef.current * unfoldShrink);
+        solidGroup.position.set(0, -st.unfoldT * 0.2, 0);
       }
       // Hide static wireframe edges once unfolding starts (each hinged face has its own crisp border!)
       for (const se of staticEdgesRef.current) {
@@ -640,8 +648,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       controls.update();
       renderer.render(scene, camera);
 
-      if (!snapped && onSnapshotRef.current) {
-        snapped = true;
+      // Capture crisp PNG snapshot ONLY AFTER solid meshes exist (never blank frame 0!)
+      if (needsSnapshotRef.current && solidGroup.children.length > 1 && onSnapshotRef.current) {
+        needsSnapshotRef.current = false;
         try {
           const url = renderer.domElement.toDataURL('image/png');
           if (url.startsWith('data:image/')) onSnapshotRef.current(url);
@@ -719,6 +728,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     hingeNodesRef.current = [];
     staticEdgesRef.current = [];
     compoundMeshesRef.current = [];
+    needsSnapshotRef.current = true;
 
     if (polyhedron) {
       const threeVerts = polyhedron.vertices.map((v) => toThree(v));
@@ -1151,22 +1161,33 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
   }, [sectionPolygon]);
 
-  // Drag-to-move 3D solid on board
+  // Glitch-free 60fps Drag-to-Move 3D solid: imperative GPU translate3d during drag, single commit on pointerup!
   const handleDragStart = (e: React.PointerEvent) => {
-    if (!onMovePosition) return;
+    if (!onMovePositionRef.current) return;
     e.stopPropagation();
-    let lastX = e.clientX;
-    let lastY = e.clientY;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let totalDx = 0;
+    let totalDy = 0;
+    const el = rootElRef.current?.parentElement ?? rootElRef.current;
+
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - lastX;
-      const dy = ev.clientY - lastY;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-      if (dx !== 0 || dy !== 0) onMovePosition(dx, dy);
+      totalDx = ev.clientX - startX;
+      totalDy = ev.clientY - startY;
+      if (el) {
+        el.style.transform = `translate3d(${totalDx}px, ${totalDy}px, 0)`;
+      }
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      if (el) {
+        el.style.transform = '';
+      }
+      if (Math.abs(totalDx) > 0.5 || Math.abs(totalDy) > 0.5) {
+        onMovePositionRef.current?.(totalDx, totalDy);
+      }
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -1188,6 +1209,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
   return (
     <div
+      ref={rootElRef}
       data-testid={`tongchuang-solid-${id}`}
       onPointerDown={(e) => {
         e.stopPropagation();

@@ -851,6 +851,43 @@ export function WhiteboardCanvas({
     [actionContext]
   );
 
+  // Auto-detect mergeable 2D shape group: either 2+ selected 2D shapes OR 1 selected 2D shape touching/near adjacent 2D shapes (<= 24px)
+  const mergeable2DIds = useMemo(() => {
+    const is2D = (sid: string) => {
+      const o = scene.objects[sid];
+      return Boolean(
+        o &&
+          o.object_type !== "viz_solid" &&
+          o.object_type !== "viz_graph" &&
+          o.object_type !== "math_block" &&
+          o.object_type !== "text" &&
+          o.object_type !== "line" &&
+          o.object_type !== "arrow",
+      );
+    };
+    const sel2D = selectedIds.filter(is2D);
+    if (sel2D.length >= 2) return sel2D;
+    if (sel2D.length === 1) {
+      const baseId = sel2D[0];
+      const baseBBox = getItemBBox(baseId, scene);
+      if (!baseBBox) return [];
+      const pad = 24;
+      const nearby = Object.keys(scene.objects).filter((oid) => {
+        if (oid === baseId || !is2D(oid)) return false;
+        const ob = getItemBBox(oid, scene);
+        if (!ob) return false;
+        return (
+          ob.x <= baseBBox.x + baseBBox.w + pad &&
+          ob.x + ob.w >= baseBBox.x - pad &&
+          ob.y <= baseBBox.y + baseBBox.h + pad &&
+          ob.y + ob.h >= baseBBox.y - pad
+        );
+      });
+      if (nearby.length > 0) return [baseId, ...nearby];
+    }
+    return [];
+  }, [selectedIds, scene]);
+
   const toolbarScreenPos = useMemo(() => {
     if (!selectionBBox) return null;
     const centerWorldX = selectionBBox.x + selectionBBox.w / 2;
@@ -2629,27 +2666,29 @@ export function WhiteboardCanvas({
         >↪</button>
       </div>
 
-      {/* Multi-Shape Merge to 3D Action Bar (when 2+ 2D shapes are selected: e.g. Square + Triangle -> House!) */}
-      {selectedIds.length >= 2 &&
-        selectedIds.every((sid) => {
-          const o = scene.objects[sid];
-          return Boolean(o && o.object_type !== "viz_solid" && o.object_type !== "viz_graph" && o.object_type !== "math_block");
-        }) && (
+      {/* Multi-Shape Merge to 3D Action Bar (works for 2+ selected 2D shapes OR 1 selected shape touching adjacent shapes!) */}
+      {mergeable2DIds.length >= 2 && (
           <div
             data-testid="merge-shapes-bar"
             className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
           >
             <span className="font-semibold text-slate-700">
-              {selectedIds.length} bentuk 2D dipilih
+              {mergeable2DIds.length} bentuk 2D dapat digabung
             </span>
             <button
               type="button"
               data-testid="merge-2d-union-3d-btn"
               onClick={() => {
                 const polys: [number, number][][] = [];
-                for (const sid of selectedIds) {
+                let minX = Infinity, minY = Infinity;
+                for (const sid of mergeable2DIds) {
                   const o = scene.objects[sid];
                   if (!o) continue;
+                  const ob = getItemBBox(sid, scene);
+                  if (ob) {
+                    minX = Math.min(minX, ob.x);
+                    minY = Math.min(minY, ob.y);
+                  }
                   const verts = getShapeVertices(o);
                   if (verts && verts.length >= 6) {
                     const pts: [number, number][] = [];
@@ -2662,8 +2701,7 @@ export function WhiteboardCanvas({
                 if (polys.length < 2) return;
                 const merged = mergeProfiles2DUnion(polys);
                 const prof = normalizeProfile2D(merged, true);
-                const bbox = selectionBBox ?? { x: 200, y: 150, w: 160, h: 160 };
-                const delEvents: WhiteboardEvent[] = selectedIds.map((sid) => ({
+                const delEvents: WhiteboardEvent[] = mergeable2DIds.map((sid) => ({
                   event_type: "object.deleted",
                   payload: { id: sid },
                 }));
@@ -2684,8 +2722,8 @@ export function WhiteboardCanvas({
                             extra_params: { height: 3.5 },
                             params: { type: "prism", a: 4, b: 4, c: 4, h: 3.5 },
                             label: "Bangun Gabungan 3D",
-                            x: Math.max(40, bbox.x),
-                            y: Math.max(40, bbox.y),
+                            x: Math.max(40, isFinite(minX) ? minX : 200),
+                            y: Math.max(40, isFinite(minY) ? minY : 150),
                             w: 320,
                             h: 320,
                           },
@@ -2704,9 +2742,14 @@ export function WhiteboardCanvas({
               type="button"
               data-testid="merge-compound-3d-btn"
               onClick={() => {
-                const bbox = selectionBBox ?? { x: 200, y: 150, w: 160, h: 160 };
-                const parts: CompoundSolidPart[] = selectedIds.map((sid, idx) => {
+                let minX = Infinity, minY = Infinity;
+                const parts: CompoundSolidPart[] = mergeable2DIds.map((sid, idx) => {
                   const o = scene.objects[sid];
+                  const ob = getItemBBox(sid, scene);
+                  if (ob) {
+                    minX = Math.min(minX, ob.x);
+                    minY = Math.min(minY, ob.y);
+                  }
                   const isTri = o?.object_type === "triangle";
                   return {
                     id: `part-${idx}`,
@@ -2715,11 +2758,11 @@ export function WhiteboardCanvas({
                     params: isTri
                       ? { type: "pyramid", b: 4.2, h: 2.8 }
                       : { type: "cube", s: 4 },
-                    offsetCm: [0, idx * 3.4, 0],
-                    colorHex: isTri ? 0xf97316 : 0xbae6fd,
+                    offsetCm: [0, isTri ? 3.4 : 0, 0],
+                    colorHex: 0xe2e8f0,
                   };
                 });
-                const delEvents: WhiteboardEvent[] = selectedIds.map((sid) => ({
+                const delEvents: WhiteboardEvent[] = mergeable2DIds.map((sid) => ({
                   event_type: "object.deleted",
                   payload: { id: sid },
                 }));
@@ -2739,8 +2782,8 @@ export function WhiteboardCanvas({
                             compound_parts: parts,
                             params: { type: "cube", s: 4 },
                             label: "Bangun Ruang Majemuk",
-                            x: Math.max(40, bbox.x),
-                            y: Math.max(40, bbox.y),
+                            x: Math.max(40, isFinite(minX) ? minX : 200),
+                            y: Math.max(40, isFinite(minY) ? minY : 150),
                             w: 320,
                             h: 320,
                           },

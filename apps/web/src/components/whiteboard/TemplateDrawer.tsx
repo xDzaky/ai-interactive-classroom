@@ -182,17 +182,7 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
               }}
               className="group relative flex cursor-grab flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 text-center transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:shadow-md active:cursor-grabbing"
             >
-              <span
-                className={`absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                  item.badge === 'Lipat'
-                    ? 'bg-orange-100 text-orange-700'
-                    : item.badge === 'Majemuk'
-                      ? 'bg-amber-100 text-amber-700'
-                      : item.badge === '3D'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-emerald-100 text-emerald-700'
-                }`}
-              >
+              <span className="absolute right-2 top-2 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-600">
                 {item.badge}
               </span>
               <div className="my-1 transition-transform group-hover:scale-105">

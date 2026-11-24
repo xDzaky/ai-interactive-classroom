@@ -1,74 +1,69 @@
 /**
- * TemplateCardThumb.tsx — Crisp Vector SVG Isometric / 2D Visual Previews
- * Renders clean geometric & real-world illustrations inside TemplateDrawer cards.
+ * TemplateCardThumb.tsx — Clean Monochrome Line-Art Sketch Previews (Zero Lag)
+ * Pure minimalist black-and-white textbook sketches (stroke #0f172a, no heavy colors).
  */
 import React from 'react';
 
-export const TemplateCardThumb: React.FC<{ kind: string; color?: string }> = ({
-  kind,
-  color = '#4f46e5',
-}) => {
+export const TemplateCardThumb: React.FC<{ kind: string; color?: string }> = ({ kind }) => {
+  const stroke = '#0f172a';
+  const muted = '#64748b';
+
   switch (kind) {
     case 'dice':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <rect x="10" y="10" width="44" height="44" rx="10" fill="#ffffff" stroke="#0f172a" strokeWidth="2.5" />
-          <circle cx="22" cy="22" r="3.8" fill="#0f172a" />
-          <circle cx="42" cy="22" r="3.8" fill="#0f172a" />
-          <circle cx="32" cy="32" r="4" fill="#dc2626" />
-          <circle cx="22" cy="42" r="3.8" fill="#0f172a" />
-          <circle cx="42" cy="42" r="3.8" fill="#0f172a" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <rect x="11" y="11" width="42" height="42" rx="8" fill="none" stroke={stroke} strokeWidth="2" />
+          <circle cx="22" cy="22" r="3" fill={stroke} />
+          <circle cx="42" cy="22" r="3" fill={stroke} />
+          <circle cx="32" cy="32" r="3" fill={stroke} />
+          <circle cx="22" cy="42" r="3" fill={stroke} />
+          <circle cx="42" cy="42" r="3" fill={stroke} />
         </svg>
       );
     case 'rubik':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <rect x="10" y="10" width="44" height="44" rx="5" fill="#0f172a" />
-          {['#ef4444', '#facc15', '#3b82f6', '#22c55e', '#ffffff', '#f97316', '#3b82f6', '#ef4444', '#facc15'].map((c, i) => (
-            <rect
-              key={i}
-              x={13 + (i % 3) * 13.5}
-              y={13 + Math.floor(i / 3) * 13.5}
-              width="11"
-              height="11"
-              rx="2"
-              fill={c}
-            />
-          ))}
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <rect x="12" y="12" width="40" height="40" rx="4" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="25.3" y1="12" x2="25.3" y2="52" stroke={stroke} strokeWidth="1.5" />
+          <line x1="38.6" y1="12" x2="38.6" y2="52" stroke={stroke} strokeWidth="1.5" />
+          <line x1="12" y1="25.3" x2="52" y2="25.3" stroke={stroke} strokeWidth="1.5" />
+          <line x1="12" y1="38.6" x2="52" y2="38.6" stroke={stroke} strokeWidth="1.5" />
         </svg>
       );
     case 'gift':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <rect x="12" y="20" width="40" height="34" rx="4" fill="#fce7f3" stroke="#e11d48" strokeWidth="2" />
-          <rect x="28" y="20" width="8" height="34" fill="#e11d48" />
-          <rect x="12" y="33" width="40" height="8" fill="#e11d48" />
-          <path d="M32 20 C22 10, 18 16, 26 20 M32 20 C42 10, 46 16, 38 20" fill="none" stroke="#e11d48" strokeWidth="2.5" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <rect x="12" y="21" width="40" height="32" rx="3" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="32" y1="21" x2="32" y2="53" stroke={stroke} strokeWidth="2" />
+          <line x1="12" y1="37" x2="52" y2="37" stroke={stroke} strokeWidth="2" />
+          <path d="M32 21 C23 11, 19 17, 27 21 M32 21 C41 11, 45 17, 37 21" fill="none" stroke={stroke} strokeWidth="2" />
         </svg>
       );
     case 'milk_box':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="18,22 46,22 46,54 18,54" fill="#eff6ff" stroke="#2563eb" strokeWidth="2" />
-          <polygon points="18,22 32,10 46,22" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="2" />
-          <rect x="23" y="32" width="18" height="10" rx="2" fill="#2563eb" opacity="0.25" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <rect x="18" y="23" width="28" height="30" fill="none" stroke={stroke} strokeWidth="2" />
+          <polygon points="18,23 32,11 46,23" fill="none" stroke={stroke} strokeWidth="2" />
+          <rect x="24" y="33" width="16" height="8" rx="1.5" fill="none" stroke={muted} strokeWidth="1.4" />
         </svg>
       );
     case 'house':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="14,30 50,30 50,54 14,54" fill="#fef3c7" stroke="#92400e" strokeWidth="2" />
-          <polygon points="8,30 32,10 56,30" fill="#f97316" stroke="#9a3412" strokeWidth="2" />
-          <rect x="27" y="40" width="10" height="14" fill="#92400e" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <rect x="15" y="30" width="34" height="23" fill="none" stroke={stroke} strokeWidth="2" />
+          <polygon points="10,30 32,11 54,30" fill="none" stroke={stroke} strokeWidth="2" />
+          <rect x="27" y="40" width="10" height="13" fill="none" stroke={stroke} strokeWidth="1.6" />
         </svg>
       );
     case 'soda_can':
     case 'cylinder':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <path d="M18 16 L18 48 A14 6 0 0 0 46 48 L46 16 Z" fill={color} fillOpacity="0.2" stroke={color} strokeWidth="2" />
-          <ellipse cx="32" cy="16" rx="14" ry="6" fill={color} fillOpacity="0.35" stroke={color} strokeWidth="2" />
-          <ellipse cx="32" cy="48" rx="14" ry="6" fill="none" stroke={color} strokeWidth="1.5" strokeDasharray="3 2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <ellipse cx="32" cy="16" rx="14" ry="5.5" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="18" y1="16" x2="18" y2="48" stroke={stroke} strokeWidth="2" />
+          <line x1="46" y1="16" x2="46" y2="48" stroke={stroke} strokeWidth="2" />
+          <path d="M18 48 A14 5.5 0 0 0 46 48" fill="none" stroke={stroke} strokeWidth="2" />
+          <path d="M18 48 A14 5.5 0 0 1 46 48" fill="none" stroke={muted} strokeWidth="1.4" strokeDasharray="3 2" />
         </svg>
       );
     case 'party_hat':
@@ -76,85 +71,83 @@ export const TemplateCardThumb: React.FC<{ kind: string; color?: string }> = ({
     case 'traffic_cone':
     case 'cone':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <path d="M32 10 L14 48 A18 6 0 0 0 50 48 Z" fill={color} fillOpacity="0.22" stroke={color} strokeWidth="2" />
-          <ellipse cx="32" cy="48" rx="18" ry="6" fill="none" stroke={color} strokeWidth="1.5" strokeDasharray="3 2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <line x1="32" y1="10" x2="14" y2="48" stroke={stroke} strokeWidth="2" />
+          <line x1="32" y1="10" x2="50" y2="48" stroke={stroke} strokeWidth="2" />
+          <path d="M14 48 A18 5.5 0 0 0 50 48" fill="none" stroke={stroke} strokeWidth="2" />
+          <path d="M14 48 A18 5.5 0 0 1 50 48" fill="none" stroke={muted} strokeWidth="1.4" strokeDasharray="3 2" />
         </svg>
       );
     case 'tent':
     case 'prism':
     case 'prism6':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="10,48 24,18 38,48" fill={color} fillOpacity="0.25" stroke={color} strokeWidth="2" />
-          <polygon points="24,18 44,14 54,44 38,48" fill={color} fillOpacity="0.14" stroke={color} strokeWidth="2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <polygon points="10,48 24,18 38,48" fill="none" stroke={stroke} strokeWidth="2" />
+          <polyline points="24,18 44,14 54,44 38,48" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="10" y1="48" x2="30" y2="44" stroke={muted} strokeWidth="1.3" strokeDasharray="3 2" />
         </svg>
       );
     case 'egypt_pyramid':
     case 'pyramid':
     case 'frustum':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="32,10 12,48 36,54 52,42" fill={color} fillOpacity="0.22" stroke={color} strokeWidth="2" />
-          <line x1="32" y1="10" x2="36" y2="54" stroke={color} strokeWidth="2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <polygon points="32,10 12,47 36,53 52,42" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="32" y1="10" x2="36" y2="53" stroke={stroke} strokeWidth="2" />
+          <line x1="12" y1="47" x2="52" y2="42" stroke={muted} strokeWidth="1.3" strokeDasharray="3 2" />
         </svg>
       );
     case 'globe':
     case 'soccer_ball':
     case 'sphere':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <circle cx="32" cy="32" r="21" fill={color} fillOpacity="0.18" stroke={color} strokeWidth="2" />
-          <ellipse cx="32" cy="32" rx="21" ry="7" fill="none" stroke={color} strokeWidth="1.5" strokeDasharray="3 2" />
-          <ellipse cx="32" cy="32" rx="8" ry="21" fill="none" stroke={color} strokeWidth="1.2" opacity="0.6" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <circle cx="32" cy="32" r="20" fill="none" stroke={stroke} strokeWidth="2" />
+          <ellipse cx="32" cy="32" rx="20" ry="7" fill="none" stroke={muted} strokeWidth="1.4" strokeDasharray="3 2" />
         </svg>
       );
     case 'clock':
     case 'circle':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <circle cx="32" cy="32" r="20" fill={color} fillOpacity="0.1" stroke={color} strokeWidth="2.2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <circle cx="32" cy="32" r="20" fill="none" stroke={stroke} strokeWidth="2" />
           {kind === 'clock' && (
             <>
-              <line x1="32" y1="32" x2="32" y2="18" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="32" y1="32" x2="43" y2="32" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+              <line x1="32" y1="32" x2="32" y2="18" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+              <line x1="32" y1="32" x2="43" y2="32" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
             </>
           )}
         </svg>
       );
     case 'triangle':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="32,12 52,50 12,50" fill={color} fillOpacity="0.15" stroke={color} strokeWidth="2.2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <polygon points="32,12 52,50 12,50" fill="none" stroke={stroke} strokeWidth="2" />
         </svg>
       );
     case 'rect':
     case 'rect_wide':
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
           <rect
             x={kind === 'rect_wide' ? 8 : 14}
             y={kind === 'rect_wide' ? 18 : 14}
             width={kind === 'rect_wide' ? 48 : 36}
             height={kind === 'rect_wide' ? 28 : 36}
-            rx="3"
-            fill={color}
-            fillOpacity="0.14"
-            stroke={color}
-            strokeWidth="2.2"
+            rx="2"
+            fill="none"
+            stroke={stroke}
+            strokeWidth="2"
           />
         </svg>
       );
-    case 'cube':
-    case 'cuboid':
-    case 'octa':
-    case 'dodeca':
     default:
       return (
-        <svg viewBox="0 0 64 64" className="h-12 w-12">
-          <polygon points="32,10 52,20 52,44 32,54 12,44 12,20" fill={color} fillOpacity="0.18" stroke={color} strokeWidth="2" />
-          <polyline points="12,20 32,30 52,20" fill="none" stroke={color} strokeWidth="2" />
-          <line x1="32" y1="30" x2="32" y2="54" stroke={color} strokeWidth="2" />
+        <svg viewBox="0 0 64 64" className="h-11 w-11">
+          <polygon points="32,10 52,20 52,44 32,54 12,44 12,20" fill="none" stroke={stroke} strokeWidth="2" />
+          <polyline points="12,20 32,30 52,20" fill="none" stroke={stroke} strokeWidth="2" />
+          <line x1="32" y1="30" x2="32" y2="54" stroke={stroke} strokeWidth="2" />
         </svg>
       );
   }

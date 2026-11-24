@@ -575,15 +575,15 @@ export function WhiteboardOverlay({
     prevSolidCountRef.current = solidIds.length;
 
     setActiveSolidIds((prev) => {
+      const MAX_LIVE_SOLIDS = 8;
       const kept = prev.filter((id) => solidIds.includes(id));
-      if (kept.length >= 3) return kept.slice(0, 3);
       for (const id of solidIds) {
         if (!kept.includes(id)) {
           kept.push(id);
-          if (kept.length === 3) break;
         }
       }
-      return kept;
+      // Always keep the most recently added / selected solids live (up to 8!)
+      return kept.slice(-MAX_LIVE_SOLIDS);
     });
   }, [vizObjects, setSelectedSolid, internalSelectedSolidId]);
 
@@ -591,7 +591,7 @@ export function WhiteboardOverlay({
     setActiveSolidIds((prev) => {
       if (prev.includes(id)) return prev;
       const filtered = prev.filter((item) => item !== id);
-      return [...filtered, id].slice(-3);
+      return [...filtered, id].slice(-8);
     });
   }, []);
 
