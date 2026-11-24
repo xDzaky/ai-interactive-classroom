@@ -807,7 +807,7 @@ export default function PersonalRoomPage() {
               }}
               className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-amber-50"
             >
-              <span>Lab PhET</span>
+              <span>Lab Virtual</span>
             </button>
             <button
               type="button"

@@ -25,7 +25,7 @@ const TOPICS: Record<string, { title: string; nodes: KnowledgeNode[]; edges: [st
       { id: 'f1', label: 'c² = a² + b²', kind: 'formula', x: 95, y: 75, payload: '3^2 + 4^2' },
       { id: 's1', label: 'Kubus 3D (Diagonal)', kind: 'solid', x: 430, y: 75, payload: 'cube' },
       { id: 'sim1', label: 'Transformasi 2D', kind: 'simulation', x: 430, y: 230, payload: 'math.geometry_transform' },
-      { id: 'phet1', label: 'PhET: Area Builder', kind: 'phet', x: 95, y: 230, payload: 'phet-area' },
+      { id: 'phet1', label: 'Lab: Area Builder', kind: 'phet', x: 95, y: 230, payload: 'phet-area' },
     ],
     edges: [
       ['center', 'f1'],
@@ -41,7 +41,7 @@ const TOPICS: Record<string, { title: string; nodes: KnowledgeNode[]; edges: [st
       { id: 'f1', label: 'ax² + bx + c', kind: 'formula', x: 95, y: 75, payload: 'x^2 - 2x - 3' },
       { id: 'sim1', label: 'Simulasi Parabola', kind: 'simulation', x: 430, y: 75, payload: 'math.function_explorer' },
       { id: 'sim2', label: 'Gerak Parabola', kind: 'simulation', x: 430, y: 230, payload: 'physics.projectile_motion' },
-      { id: 'phet1', label: 'PhET: Quadratics', kind: 'phet', x: 95, y: 230, payload: 'phet-quadratics' },
+      { id: 'phet1', label: 'Lab: Fungsi Kuadrat', kind: 'phet', x: 95, y: 230, payload: 'phet-quadratics' },
     ],
     edges: [
       ['center', 'f1'],
@@ -57,7 +57,7 @@ const TOPICS: Record<string, { title: string; nodes: KnowledgeNode[]; edges: [st
       { id: 'f1', label: 'P(A) = n(A)/n(S)', kind: 'formula', x: 95, y: 75, payload: '\\frac{1}{6}' },
       { id: 'sim1', label: 'Histogram Dadu', kind: 'simulation', x: 430, y: 75, payload: 'math.probability_dice' },
       { id: 's1', label: 'Dadu 3D Lipat', kind: 'solid', x: 430, y: 230, payload: 'cube' },
-      { id: 'phet1', label: 'PhET: Plinko', kind: 'phet', x: 95, y: 230, payload: 'phet-plinko' },
+      { id: 'phet1', label: 'Lab: Plinko', kind: 'phet', x: 95, y: 230, payload: 'phet-plinko' },
     ],
     edges: [
       ['center', 'f1'],
@@ -112,7 +112,7 @@ export const KnowledgeExplorerModal: React.FC<KnowledgeExplorerModalProps> = ({
           <div>
             <h2 className="text-base font-bold text-slate-900">AI Knowledge Explorer</h2>
             <p className="text-[11px] text-slate-500">
-              Klik node konsep untuk langsung memasang rumus, bangun 3D, simulasi, atau lab PhET
+              Klik node konsep untuk langsung memasang rumus, bangun 3D, simulasi, atau lab virtual
             </p>
           </div>
           <button
