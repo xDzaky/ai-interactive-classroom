@@ -49,9 +49,11 @@ import { FunActivityModal } from "@/components/whiteboard/FunActivityModal";
 import { PhETSimulationModal } from "@/components/whiteboard/PhETSimulationWidget";
 import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
 import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
+import { LayersPanel } from "@/components/whiteboard/LayersPanel";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 import { RemotePeerBridge, generatePairingCode } from "@/lib/remotePeerBridge";
 import { saveBoardOffline, appendReplayEvent } from "@/lib/offlineSync";
+import { putMediaAsset } from "@/lib/mediaStore";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceCommands";
 import { exportStageToPng } from "@/lib/exportPng";
@@ -126,6 +128,8 @@ export default function PersonalRoomPage() {
   const [phetInitialSimId, setPhetInitialSimId] = useState<string | undefined>(undefined);
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const [aiCaption, setAiCaption] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [showRemoteModal, setShowRemoteModal] = useState(false);
@@ -190,6 +194,73 @@ export default function PersonalRoomPage() {
     void saveBoardOffline(PERSONAL_ROOM_ID, result.state);
     void appendReplayEvent(PERSONAL_ROOM_ID, event);
   }, []);
+
+  // V5: 3-Way Image Ingestion (Upload, Global Ctrl+V Paste, Drag-and-Drop) -> Dexie mediaStore
+  const handleIngestImageBlob = useCallback(
+    async (blob: Blob, dropPos?: { x: number; y: number }, fileName?: string) => {
+      const asset = await putMediaAsset(blob);
+      const maxW = Math.min(asset.naturalWidth, Math.max(320, canvasSize.width * 0.65));
+      const scale = maxW / Math.max(1, asset.naturalWidth);
+      const w = Math.round(asset.naturalWidth * scale);
+      const h = Math.round(asset.naturalHeight * scale);
+      const cx = dropPos ? dropPos.x : Math.round(canvasSize.width / 2);
+      const cy = dropPos ? dropPos.y : Math.round(canvasSize.height / 2);
+      const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      handleEvent({
+        event_type: "object.created",
+        payload: {
+          id,
+          object_type: "image",
+          props: {
+            assetId: asset.assetId,
+            cx,
+            cy,
+            x: cx - w / 2,
+            y: cy - h / 2,
+            width: w,
+            height: h,
+            rotation: 0,
+            opacity: 1,
+            locked: false,
+            zLayer: "normal",
+            aspectLocked: true,
+            label: fileName || "Gambar Sketsa",
+          },
+        },
+      });
+      setActiveTool("select");
+    },
+    [canvasSize.width, canvasSize.height, handleEvent],
+  );
+
+  // Global Ctrl+V / Cmd+V clipboard image paste (ignored in text/math inputs)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active?.tagName?.toLowerCase() === "math-field" ||
+        (active as HTMLElement | null)?.isContentEditable
+      ) {
+        return;
+      }
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void handleIngestImageBlob(file, undefined, file.name || "Tempel Gambar");
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [handleIngestImageBlob]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -605,11 +676,52 @@ export default function PersonalRoomPage() {
           <button
             type="button"
             data-testid="insert-math-block-btn"
-            onClick={() => handleInsertMathBlock("8^2")}
+            onClick={() => handleInsertMathBlock("y = sin(x), 0 <= x <= 2\\pi")}
             className="h-9 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
           >
             Rumus
           </button>
+          <button
+            type="button"
+            data-testid="upload-image-btn"
+            onClick={() => imageFileInputRef.current?.click()}
+            className="h-9 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+            title="Unggah Gambar atau tekan Ctrl+V untuk menempel gambar sketsa"
+          >
+            Gambar
+          </button>
+          <input
+            ref={imageFileInputRef}
+            data-testid="upload-image-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              files.forEach((f) => void handleIngestImageBlob(f, undefined, f.name));
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            data-testid="open-layers-btn"
+            onClick={() => setShowLayersPanel((v) => !v)}
+            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
+              showLayersPanel
+                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Lapisan
+          </button>
+          <Link
+            to="/notes"
+            data-testid="nav-notes-link"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 text-[13px] font-semibold text-sky-700 transition hover:bg-sky-100"
+          >
+            Catatan
+          </Link>
           <button
             type="button"
             data-testid="open-remote-modal-btn"
@@ -706,6 +818,20 @@ export default function PersonalRoomPage() {
           className="relative flex-1 overflow-hidden bg-white select-none"
           style={{ touchAction: "none" }}
           aria-label="Papan tulis pribadi"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("Files")) {
+              e.preventDefault();
+            }
+          }}
+          onDrop={(e) => {
+            const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith("image/"));
+            if (files.length === 0) return;
+            e.preventDefault();
+            const rect = overlayContainerRef.current?.getBoundingClientRect();
+            const x = rect ? e.clientX - rect.left : canvasSize.width / 2;
+            const y = rect ? e.clientY - rect.top : canvasSize.height / 2;
+            files.forEach((f, idx) => void handleIngestImageBlob(f, { x: x + idx * 30, y: y + idx * 30 }, f.name));
+          }}
         >
           <WhiteboardCanvas
             boardState={boardState}
@@ -1009,6 +1135,27 @@ export default function PersonalRoomPage() {
           setPhetInitialSimId(simId);
           setShowPhetModal(true);
         }}
+      />
+
+      {/* V5 Layers Panel (unlock/visibility/opacity management for tracing images & objects) */}
+      <LayersPanel
+        open={showLayersPanel}
+        objects={Object.values(boardState.scenes[boardState.active_scene_id]?.objects ?? {})}
+        selectedIds={[]}
+        onClose={() => setShowLayersPanel(false)}
+        onSelect={() => setActiveTool("select")}
+        onUpdateProps={(id, patch) =>
+          handleEvent({
+            event_type: "object.updated",
+            payload: { id, props_patch: patch },
+          })
+        }
+        onDelete={(id) =>
+          handleEvent({
+            event_type: "object.deleted",
+            payload: { id },
+          })
+        }
       />
 
       {/* AI Fun Teaching Activity Modal */}

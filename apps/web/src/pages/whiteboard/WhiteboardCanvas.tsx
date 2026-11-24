@@ -2515,6 +2515,51 @@ export function WhiteboardCanvas({
             payload: { id, props_patch: propsPatch },
           });
         }}
+        onSynthesizeMathBlock={(mathObj, spec) => {
+          const mp = mathObj.props as Record<string, unknown>;
+          const bx = Number(mp.x ?? 180) + 340;
+          const by = Number(mp.y ?? 100);
+          if (spec.kind === "textbook_function_graph") {
+            const newId = `tbgraph-${uid()}`;
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "textbook_graph",
+                props: { x: bx, y: by, w: 450, h: 310, formula: spec.titleLatex, label: `Grafik: ${spec.titleLatex}` },
+              },
+            });
+          } else if (spec.kind === "trig_identity_proof") {
+            const newId = `trig-${uid()}`;
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "trig_proof",
+                props: { x: bx, y: by, w: 440, h: 400, identityId: spec.identityId, thetaDeg: spec.thetaDeg, label: "Bukti Identitas Trigonometri" },
+              },
+            });
+          } else if (spec.kind === "stat_chart") {
+            const newId = `chart-${uid()}`;
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "stat_chart",
+                props: {
+                  x: bx,
+                  y: by,
+                  w: 420,
+                  h: 290,
+                  title: spec.title,
+                  labels: spec.labels,
+                  values: spec.series[0]?.values ?? [],
+                  label: spec.title,
+                },
+              },
+            });
+          }
+        }}
         onVisualizeMathBlock={(mathObj, intent) => {
           const mp = mathObj.props as Record<string, unknown>;
           const bx = Number(mp.x ?? 180) + 340;
@@ -2899,7 +2944,11 @@ export function WhiteboardCanvas({
         scene.objects[selectedIds[0]] &&
         (scene.objects[selectedIds[0]].object_type === "viz_solid" ||
           scene.objects[selectedIds[0]].object_type === "viz_graph" ||
-          scene.objects[selectedIds[0]].object_type === "math_block")
+          scene.objects[selectedIds[0]].object_type === "math_block" ||
+          scene.objects[selectedIds[0]].object_type === "image" ||
+          scene.objects[selectedIds[0]].object_type === "textbook_graph" ||
+          scene.objects[selectedIds[0]].object_type === "stat_chart" ||
+          scene.objects[selectedIds[0]].object_type === "trig_proof")
       ) && (
         <SelectionToolbar
           x={toolbarScreenPos.x}

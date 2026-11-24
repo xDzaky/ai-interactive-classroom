@@ -60,6 +60,7 @@ import {
 import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { toThree } from '@/lib/coords';
 import { useWeakDevice } from '@/lib/useWeakDevice';
+import { RotationGimbal3D, type GimbalHUDState } from '@/lib/threeRotationGimbal';
 
 export type SolidToolMode = 'orbit' | 'section' | 'unfold' | 'explode' | 'measure' | 'size';
 export type CameraPreset = 'iso' | 'front' | 'top' | 'side';
@@ -313,6 +314,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
   const [mode, setMode] = useState<SolidToolMode>('orbit');
   const [autoRotate, setAutoRotate] = useState(false);
+  const [showGimbal, setShowGimbal] = useState(true);
+  const [snap15Deg, setSnap15Deg] = useState(false);
+  const [gimbalHud, setGimbalHud] = useState<GimbalHUDState>({ activeAxis: null, angleDeg: 0, dragging: false });
   const [showLabels, setShowLabels] = useState(false);
   const [showGuides, setShowGuides] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -432,8 +436,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   );
 
   // Refs for persistent Three.js objects
-  const stateRef = useRef({ mode, autoRotate, unfoldT, explodeT, showLabels, selectedNodes });
-  stateRef.current = { mode, autoRotate, unfoldT, explodeT, showLabels, selectedNodes };
+  const stateRef = useRef({ mode, autoRotate, unfoldT, explodeT, showLabels, selectedNodes, selected, showGimbal, snap15Deg });
+  stateRef.current = { mode, autoRotate, unfoldT, explodeT, showLabels, selectedNodes, selected, showGimbal, snap15Deg };
+  const gimbalRef = useRef<RotationGimbal3D | null>(null);
 
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -522,20 +527,60 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     solidGroupRef.current = solidGroup;
     sectionGroupRef.current = sectionGroup;
 
-    // Raycaster for clicking vertex / midpoint nodes
+    // 3D 360° 3-Axis Quaternion Rotation Gimbal Ring Gizmo (V5)
+    const gimbal = new RotationGimbal3D(1.55);
+    scene.add(gimbal.root);
+    gimbalRef.current = gimbal;
+
+    // Raycaster for gimbal ring drag & clicking vertex / midpoint nodes
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let downPos = { x: 0, y: 0 };
 
-    const onPointerDown = (e: PointerEvent) => {
-      downPos = { x: e.clientX, y: e.clientY };
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+    const getNdc = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
+      return pointer;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      downPos = { x: e.clientX, y: e.clientY };
+      const st = stateRef.current;
+      if (st.selected && st.mode === 'orbit' && st.showGimbal) {
+        const picked = gimbal.beginDrag(getNdc(e), { x: e.clientX, y: e.clientY }, camera, solidGroup);
+        if (picked) {
+          controls.enabled = false;
+          e.stopPropagation();
+          renderer.domElement.setPointerCapture?.(e.pointerId);
+          setGimbalHud({ activeAxis: picked, angleDeg: 0, dragging: true });
+        }
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!gimbal.isDragging()) return;
+      e.stopPropagation();
+      const hud = gimbal.updateDrag(
+        getNdc(e),
+        { x: e.clientX, y: e.clientY },
+        camera,
+        solidGroup,
+        e.shiftKey || stateRef.current.snap15Deg,
+      );
+      if (hud) setGimbalHud(hud);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (gimbal.isDragging()) {
+        const hud = gimbal.endDrag();
+        controls.enabled = true;
+        renderer.domElement.releasePointerCapture?.(e.pointerId);
+        setGimbalHud(hud);
+        return;
+      }
+      if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 6) return;
+      raycaster.setFromCamera(getNdc(e), camera);
 
       const visibleMeshes = nodeMeshesRef.current.filter((n) => n.mesh.visible).map((n) => n.mesh);
       const hits = raycaster.intersectObjects(visibleMeshes, false);
@@ -553,6 +598,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     };
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
 
     const ro = new ResizeObserver(() => {
@@ -646,6 +692,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
       controls.autoRotate = st.autoRotate && !isWeakDevice;
       controls.update();
+      gimbal.setVisible(Boolean(st.selected && st.mode === 'orbit' && st.showGimbal && st.unfoldT < 0.02));
+      gimbal.syncToCamera(camera);
       renderer.render(scene, camera);
 
       // Capture crisp PNG snapshot ONLY AFTER solid meshes exist (never blank frame 0!)
@@ -700,7 +748,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       cancelAnimationFrame(rafId);
       ro.disconnect();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      gimbal.dispose();
       controls.dispose();
       renderer.dispose();
     };
@@ -1272,7 +1322,47 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
             >
               90°
             </button>
+            <button
+              type="button"
+              data-testid={`solid-gimbal-toggle-${id}`}
+              onClick={() => setShowGimbal((v) => !v)}
+              title="Tampilkan / Sembunyikan Cincin Putar 360° (X/Y/Z)"
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold transition ${
+                showGimbal ? 'bg-cyan-500 text-white' : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-700'
+              }`}
+            >
+              360°
+            </button>
+            <button
+              type="button"
+              onClick={() => setSnap15Deg((v) => !v)}
+              title="Snap Sudut 15° (atau tahan Shift)"
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold transition ${
+                snap15Deg ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-amber-50 hover:text-amber-700'
+              }`}
+            >
+              15°
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                solidGroupRef.current?.quaternion.identity();
+                setGimbalHud({ activeAxis: null, angleDeg: 0, dragging: false });
+              }}
+              title="Reset Rotasi 0°"
+              className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              0°
+            </button>
           </div>
+          {gimbalHud.activeAxis && (
+            <div
+              data-testid={`solid-gimbal-hud-${id}`}
+              className="rounded-full bg-slate-900/90 px-2.5 py-0.5 font-mono text-[10px] font-bold text-white shadow"
+            >
+              {gimbalHud.activeAxis.toUpperCase()}: {gimbalHud.angleDeg}°
+            </div>
+          )}
         </div>
       )}
 

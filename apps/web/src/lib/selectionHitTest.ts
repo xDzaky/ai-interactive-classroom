@@ -146,6 +146,22 @@ export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
       const h = Number(p.h ?? p.height ?? DEFAULT_MATH_BLOCK_HEIGHT);
       return { x, y, w, h };
     }
+    case 'image': {
+      const w = Number(p.width ?? p.w ?? 320);
+      const h = Number(p.height ?? p.h ?? 240);
+      const x = typeof p.cx === 'number' ? p.cx - w / 2 : Number(p.x ?? 180);
+      const y = typeof p.cy === 'number' ? p.cy - h / 2 : Number(p.y ?? 120);
+      return { x, y, w, h };
+    }
+    case 'textbook_graph':
+    case 'stat_chart':
+    case 'trig_proof': {
+      const x = Number(p.x ?? 220);
+      const y = Number(p.y ?? 100);
+      const w = Number(p.w ?? p.width ?? 440);
+      const h = Number(p.h ?? p.height ?? 340);
+      return { x, y, w, h };
+    }
     default: {
       const x = Number(p.x ?? 0);
       const y = Number(p.y ?? 0);
@@ -229,11 +245,19 @@ export function doBBoxesIntersect(
  */
 export function findHitItem(
   pt: { x: number; y: number },
-  scene: SceneState
+  scene: SceneState,
+  opts?: { includeLocked?: boolean }
 ): string | null {
   const hitTestId = (id: string): boolean => {
     const obj = scene.objects[id];
     if (obj) {
+      const raw = obj.props as Record<string, unknown>;
+      if (raw.locked && !opts?.includeLocked) {
+        return false;
+      }
+      if (raw.visible === false) {
+        return false;
+      }
       const rot = getObjectRotation(obj);
       if (Math.abs(rot) > 1e-4) {
         return isPointInOBB(pt, getObjectTransform(obj), 8);
@@ -270,7 +294,8 @@ export function findHitItem(
  */
 export function findItemsInMarquee(
   marquee: BoundingBox2D,
-  scene: SceneState
+  scene: SceneState,
+  opts?: { includeLocked?: boolean }
 ): string[] {
   const normalizedMarquee: BoundingBox2D = {
     x: marquee.w < 0 ? marquee.x + marquee.w : marquee.x,
@@ -282,6 +307,12 @@ export function findItemsInMarquee(
   const selectedIds: string[] = [];
 
   for (const id of scene.order) {
+    const obj = scene.objects[id];
+    if (obj) {
+      const raw = obj.props as Record<string, unknown>;
+      if (raw.locked && !opts?.includeLocked) continue;
+      if (raw.visible === false) continue;
+    }
     const bbox = getItemBBox(id, scene);
     if (bbox && doBBoxesIntersect(normalizedMarquee, bbox)) {
       selectedIds.push(id);

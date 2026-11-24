@@ -22,11 +22,16 @@ const TongchuangSolidWidget = lazy(() =>
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
 import { MathTextBlockWidget } from "../../components/math/MathTextBlockWidget.js";
+import { TextbookGraphWidget } from "../../components/math/TextbookGraphWidget.js";
+import { StatChartWidget } from "../../components/math/StatChartWidget.js";
+import { TrigProofWidget } from "../../components/math/TrigProofWidget.js";
 import { SimulationWidget } from "../../components/whiteboard/SimulationWidget.js";
+import { ImageContextToolbar } from "../../components/whiteboard/ImageContextToolbar.js";
+import { getMediaObjectUrl } from "@/lib/mediaStore";
 import type { SimulationTemplateId } from "@ai-classroom/whiteboard-core";
 import type { SolidType, SolidParams, CompoundSolidPart } from "@ai-classroom/geometry-core";
 import type { TexturePreset } from "@/lib/faceTextures";
-import type { MathVisualIntent } from "@ai-classroom/math-core";
+import type { MathVisualIntent, SynthesizedVisualSpec, TrigIdentityId } from "@ai-classroom/math-core";
 import type { ViewportController, ViewportState } from "@/lib/viewport";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,6 +67,7 @@ export interface WhiteboardOverlayProps {
   onUpdateSolidParams?: (id: string, params: SolidParams) => void;
   onUpdateObjectProps?: (id: string, propsPatch: Record<string, unknown>) => void;
   onVisualizeMathBlock?: (mathBlockObj: BoardObject, intent: MathVisualIntent) => void;
+  onSynthesizeMathBlock?: (mathBlockObj: BoardObject, spec: SynthesizedVisualSpec) => void;
   onOpenInspector?: (obj: BoardObject) => void;
 }
 
@@ -421,9 +427,180 @@ interface MathBlockOverlayProps {
   onSelect: () => void;
   onChangeLatex: (next: string) => void;
   onVisualize: (intent: MathVisualIntent) => void;
+  onSynthesize?: (spec: SynthesizedVisualSpec) => void;
   onMove?: (x: number, y: number) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+}
+
+function ImageLayerOverlay({
+  obj,
+  view,
+  viewportController,
+  isSelected,
+  onSelect,
+  onPatchProps,
+  onDuplicate,
+  onDelete,
+}: {
+  obj: BoardObject;
+  view: ViewTransform;
+  viewportController?: ViewportController;
+  isSelected: boolean;
+  onSelect: () => void;
+  onPatchProps: (patch: Record<string, unknown>) => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+}) {
+  const p = obj.props as Record<string, unknown>;
+  const assetId = typeof p.assetId === "string" ? p.assetId : "";
+  const directSrc = typeof p.src === "string" ? p.src : "";
+  const [url, setUrl] = useState<string | null>(directSrc || null);
+
+  useEffect(() => {
+    let active = true;
+    if (directSrc) {
+      setUrl(directSrc);
+      return;
+    }
+    if (!assetId) return;
+    getMediaObjectUrl(assetId).then((u) => {
+      if (active && u) setUrl(u);
+    });
+    return () => {
+      active = false;
+    };
+  }, [assetId, directSrc]);
+
+  if (p.visible === false) return null;
+
+  const w = Number(p.width ?? p.w ?? 320);
+  const h = Number(p.height ?? p.h ?? 240);
+  const wx = typeof p.cx === "number" ? p.cx - w / 2 : Number(p.x ?? 180);
+  const wy = typeof p.cy === "number" ? p.cy - h / 2 : Number(p.y ?? 120);
+  const opacity = typeof p.opacity === "number" ? p.opacity : 1;
+  const locked = Boolean(p.locked);
+  const zLayer = (p.zLayer as "background" | "normal" | "foreground") ?? "normal";
+  const flipX = Boolean(p.flipX);
+  const flipY = Boolean(p.flipY);
+  const grayscale = Boolean(p.grayscale);
+
+  const vState = viewportController ? viewportController.getState() : view;
+  const sx = wx * vState.scale + vState.x;
+  const sy = wy * vState.scale + vState.y;
+
+  const handleDragStart = (e: React.PointerEvent) => {
+    if (locked) return;
+    e.stopPropagation();
+    onSelect();
+    let lx = e.clientX;
+    let ly = e.clientY;
+    let curCx = wx + w / 2;
+    let curCy = wy + h / 2;
+    const onMove = (ev: PointerEvent) => {
+      const s = viewportController ? viewportController.getState().scale : view.scale;
+      curCx += (ev.clientX - lx) / (s || 1);
+      curCy += (ev.clientY - ly) / (s || 1);
+      lx = ev.clientX;
+      ly = ev.clientY;
+      onPatchProps({ cx: curCx, cy: curCy, x: curCx - w / 2, y: curCy - h / 2 });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <div
+      data-testid={`image-layer-${obj.id}`}
+      data-locked={locked ? "true" : "false"}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: w * vState.scale,
+        height: h * vState.scale,
+        transform: `translate3d(${sx}px, ${sy}px, 0)`,
+        pointerEvents: locked ? "none" : "auto",
+        zIndex: zLayer === "background" ? 2 : zLayer === "foreground" ? 22 : 8,
+      }}
+    >
+      {/* Floating Context Toolbar above image when selected & unlocked */}
+      {isSelected && !locked && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 10px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 40,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <ImageContextToolbar
+            opacity={opacity}
+            locked={locked}
+            zLayer={zLayer}
+            flipX={flipX}
+            flipY={flipY}
+            grayscale={grayscale}
+            onPatch={onPatchProps}
+            onDuplicate={onDuplicate}
+            onDelete={onDelete}
+          />
+        </div>
+      )}
+
+      {/* Corner unlock badge when locked so double-click can unlock even while locked */}
+      {locked && (
+        <button
+          type="button"
+          data-testid={`image-unlock-badge-${obj.id}`}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onPatchProps({ locked: false });
+          }}
+          title="Gambar terkunci (Mode Sketsa Tracing) — klik 2x untuk membuka kunci"
+          style={{ pointerEvents: "auto" }}
+          className="absolute top-1.5 right-1.5 z-20 rounded-md bg-amber-500/85 px-1.5 py-0.5 text-[9px] font-bold text-white shadow hover:bg-amber-600"
+        >
+          Terkunci · 2x Klik Buka
+        </button>
+      )}
+
+      <div
+        onPointerDown={handleDragStart}
+        className={`h-full w-full overflow-hidden rounded-xl transition ${
+          isSelected && !locked
+            ? "ring-2 ring-indigo-500 shadow-lg cursor-grab active:cursor-grabbing"
+            : locked
+              ? ""
+              : "hover:ring-1 hover:ring-indigo-300 cursor-grab"
+        }`}
+        style={{ opacity }}
+      >
+        {url ? (
+          <img
+            src={url}
+            alt={String(p.label ?? "Gambar Papan Tulis")}
+            draggable={false}
+            className="h-full w-full select-none object-contain"
+            style={{
+              transform: `scale(${flipX ? -1 : 1}, ${flipY ? -1 : 1})`,
+              filter: grayscale ? "grayscale(100%) contrast(1.1)" : undefined,
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xs text-slate-400">
+            Memuat gambar...
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function MathBlockOverlay({
@@ -434,6 +611,7 @@ function MathBlockOverlay({
   onSelect,
   onChangeLatex,
   onVisualize,
+  onSynthesize,
   onMove,
   onDelete,
   onDuplicate,
@@ -487,6 +665,7 @@ function MathBlockOverlay({
         onSelect={onSelect}
         onChangeLatex={onChangeLatex}
         onVisualize={onVisualize}
+        onSynthesizeVisual={onSynthesize}
         onDelete={onDelete}
         onDuplicate={onDuplicate}
         onMovePosition={
@@ -522,6 +701,7 @@ export function WhiteboardOverlay({
   onUpdateSolidParams,
   onUpdateObjectProps,
   onVisualizeMathBlock,
+  onSynthesizeMathBlock,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -535,7 +715,11 @@ export function WhiteboardOverlay({
             (obj.object_type === "viz_solid" ||
               obj.object_type === "viz_graph" ||
               obj.object_type === "math_block" ||
-              obj.object_type === "simulation")
+              obj.object_type === "simulation" ||
+              obj.object_type === "image" ||
+              obj.object_type === "textbook_graph" ||
+              obj.object_type === "stat_chart" ||
+              obj.object_type === "trig_proof")
         ),
     [scene]
   );
@@ -659,10 +843,120 @@ export function WhiteboardOverlay({
             onVisualize={(intent) => {
               onVisualizeMathBlock?.(obj, intent);
             }}
+            onSynthesize={
+              onSynthesizeMathBlock
+                ? (spec) => onSynthesizeMathBlock(obj, spec)
+                : undefined
+            }
             onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
           />
+        ) : obj.object_type === "image" ? (
+          <ImageLayerOverlay
+            key={obj.id}
+            obj={obj}
+            view={view}
+            viewportController={viewportController}
+            isSelected={Boolean(selectedIds?.includes(obj.id))}
+            onSelect={() => setSelectedSolid(obj.id)}
+            onPatchProps={(patch) => {
+              onUpdateObjectProps?.(obj.id, patch);
+              if (patch.locked === true) {
+                setSelectedSolid(null);
+              }
+            }}
+            onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
+            onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+          />
+        ) : obj.object_type === "textbook_graph" ? (
+          <div
+            key={obj.id}
+            style={{
+              position: "absolute",
+              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
+              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
+              width: Number((obj.props as Record<string, unknown>).w ?? 450),
+              height: Number((obj.props as Record<string, unknown>).h ?? 310),
+              pointerEvents: "auto",
+              zIndex: 19,
+            }}
+          >
+            <TextbookGraphWidget
+              id={obj.id}
+              formula={String((obj.props as Record<string, unknown>).formula ?? "y = sin(x), 0 <= x <= 2\\pi")}
+              onChangeFormula={(next) => onUpdateObjectProps?.(obj.id, { formula: next })}
+              onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+              onMovePosition={
+                onMoveObject
+                  ? (dx, dy) => {
+                      const p = obj.props as Record<string, unknown>;
+                      const s = viewportController?.getState().scale ?? view.scale;
+                      onMoveObject(obj.id, Number(p.x ?? 220) + dx / (s || 1), Number(p.y ?? 90) + dy / (s || 1));
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        ) : obj.object_type === "stat_chart" ? (
+          <div
+            key={obj.id}
+            style={{
+              position: "absolute",
+              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
+              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
+              width: Number((obj.props as Record<string, unknown>).w ?? 420),
+              height: Number((obj.props as Record<string, unknown>).h ?? 290),
+              pointerEvents: "auto",
+              zIndex: 19,
+            }}
+          >
+            <StatChartWidget
+              id={obj.id}
+              title={String((obj.props as Record<string, unknown>).title ?? "Diagram Statistik")}
+              labels={((obj.props as Record<string, unknown>).labels as string[]) ?? ["A", "B", "C"]}
+              values={((obj.props as Record<string, unknown>).values as number[]) ?? [10, 20, 15]}
+              onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+              onMovePosition={
+                onMoveObject
+                  ? (dx, dy) => {
+                      const p = obj.props as Record<string, unknown>;
+                      const s = viewportController?.getState().scale ?? view.scale;
+                      onMoveObject(obj.id, Number(p.x ?? 220) + dx / (s || 1), Number(p.y ?? 90) + dy / (s || 1));
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        ) : obj.object_type === "trig_proof" ? (
+          <div
+            key={obj.id}
+            style={{
+              position: "absolute",
+              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
+              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
+              width: Number((obj.props as Record<string, unknown>).w ?? 440),
+              height: Number((obj.props as Record<string, unknown>).h ?? 400),
+              pointerEvents: "auto",
+              zIndex: 19,
+            }}
+          >
+            <TrigProofWidget
+              id={obj.id}
+              identityId={String((obj.props as Record<string, unknown>).identityId ?? "double_angle") as TrigIdentityId}
+              initialThetaDeg={Number((obj.props as Record<string, unknown>).thetaDeg ?? 28)}
+              onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+              onMovePosition={
+                onMoveObject
+                  ? (dx, dy) => {
+                      const p = obj.props as Record<string, unknown>;
+                      const s = viewportController?.getState().scale ?? view.scale;
+                      onMoveObject(obj.id, Number(p.x ?? 220) + dx / (s || 1), Number(p.y ?? 90) + dy / (s || 1));
+                    }
+                  : undefined
+              }
+            />
+          </div>
         ) : obj.object_type === "simulation" ? (
           <div
             key={obj.id}

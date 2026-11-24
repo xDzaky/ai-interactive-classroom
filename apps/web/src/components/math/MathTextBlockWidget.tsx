@@ -6,7 +6,12 @@
  * Provides 1-click `= Hitung`, `Langkah`, and `Visualisasikan` (bidirectional link to 2D/3D objects).
  */
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { classifyMathIntent, type MathVisualIntent } from '@ai-classroom/math-core';
+import {
+  classifyMathIntent,
+  synthesizeVisualFromFormula,
+  type MathVisualIntent,
+  type SynthesizedVisualSpec,
+} from '@ai-classroom/math-core';
 
 export interface MathTextBlockWidgetProps {
   id: string;
@@ -15,6 +20,7 @@ export interface MathTextBlockWidgetProps {
   onSelect?: () => void;
   onChangeLatex: (nextLatex: string) => void;
   onVisualize: (intent: MathVisualIntent) => void;
+  onSynthesizeVisual?: (spec: SynthesizedVisualSpec) => void;
   onMovePosition?: (dx: number, dy: number) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
@@ -36,6 +42,7 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
   onSelect,
   onChangeLatex,
   onVisualize,
+  onSynthesizeVisual,
   onMovePosition,
   onDelete,
   onDuplicate,
@@ -94,6 +101,7 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
   }, [mathLiveReady, latex, onChangeLatex]);
 
   const intent = useMemo(() => classifyMathIntent(latex), [latex]);
+  const synthesized = useMemo(() => synthesizeVisualFromFormula(latex), [latex]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     if (!onMovePosition) return;
@@ -252,7 +260,10 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
       )}
 
       {/* Contextual Action Bar */}
-      <div className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2">
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2"
+      >
         <button
           type="button"
           onClick={() => setShowResult((v) => !v)}
@@ -267,15 +278,31 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
         >
           Langkah
         </button>
-        {intent && intent.kind !== 'arithmetic' && (
+        {synthesized && onSynthesizeVisual ? (
           <button
             type="button"
-            data-testid={`math-visualize-btn-${id}`}
-            onClick={() => onVisualize(intent)}
+            data-testid={`math-synthesize-btn-${id}`}
+            onClick={() => onSynthesizeVisual(synthesized)}
             className="ml-auto rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-indigo-700"
           >
-            ✨ {visualButtonLabel}
+            {synthesized.kind === 'trig_identity_proof'
+              ? 'Diagram Bukti Trig'
+              : synthesized.kind === 'stat_chart'
+                ? 'Jadikan Chart'
+                : 'Grafik Buku Teks'}
           </button>
+        ) : (
+          intent &&
+          intent.kind !== 'arithmetic' && (
+            <button
+              type="button"
+              data-testid={`math-visualize-btn-${id}`}
+              onClick={() => onVisualize(intent)}
+              className="ml-auto rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-indigo-700"
+            >
+              ✨ {visualButtonLabel}
+            </button>
+          )
         )}
       </div>
     </div>

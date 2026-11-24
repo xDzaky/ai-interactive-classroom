@@ -44,6 +44,13 @@ export const BoardObjectSchema = z.object({
     "math_block",
     "simulation",
     "annotation",
+    // --- V5 Textbook Geometry & Visual Synthesizer ---
+    "angle_arc",
+    "right_angle_marker",
+    "edge_label",
+    "textbook_graph",
+    "stat_chart",
+    "trig_proof",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)
@@ -285,3 +292,4 @@ export function createScene(id: string, name?: string): SceneState {
 export * from "./reducer.js";
 export * from "./transform.js";
 export * from "./aiCommands.js";
+export * from "./notesTypes.js";
