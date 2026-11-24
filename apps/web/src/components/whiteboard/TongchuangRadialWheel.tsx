@@ -37,6 +37,7 @@ export interface TongchuangRadialWheelProps {
   onStrokeWidthChange?: (width: number) => void;
   onUndo?: () => void;
   onInsertSolid?: (solidType: SolidType) => void;
+  onInsertFormula?: () => void;
   onOpenFormulaGraph?: () => void;
   onToggleVoice?: () => void;
   onOpenSummary?: () => void;
@@ -99,6 +100,7 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
   onStrokeWidthChange,
   onUndo,
   onInsertSolid,
+  onInsertFormula,
   onOpenFormulaGraph,
   onToggleVoice,
   onOpenSummary,
@@ -231,14 +233,14 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
             },
           },
           {
-            id: 'front',
-            label: 'Bawa ke Depan',
-            icon: '⬆️',
+            id: 'formula_calc',
+            label: 'Hitung Rumus (∑)',
+            icon: '∑',
             angleDeg: -150,
             active: false,
             disabled: false,
             onClick: () => {
-              onBringToFront?.();
+              onInsertFormula?.();
               onClose?.();
             },
           },
@@ -302,14 +304,14 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
             },
           },
           {
-            id: 'voice',
-            label: isListeningVoice ? 'Matikan Suara' : 'Perintah Suara AI',
-            icon: isListeningVoice ? '🔴' : '🎙️',
+            id: 'formula_calc',
+            label: 'Hitung Rumus (∑)',
+            icon: '∑',
             angleDeg: -150,
-            active: isListeningVoice,
+            active: false,
             disabled: false,
             onClick: () => {
-              onToggleVoice?.();
+              onInsertFormula?.();
               onClose?.();
             },
           },

@@ -2936,6 +2936,49 @@ export function WhiteboardCanvas({
               onStrokeWidthChange={onStrokeWidthChange}
               onUndo={onUndo}
               onInsertSolid={onInsertSolid}
+              onInsertFormula={() => {
+                // Spawn a live Math Calculation Card right at the right-click location!
+                // Auto-fill smart formula if right-clicked on a shape (e.g. rect area, circle area, cube volume)
+                let initialLatex = "8^2";
+                if (primaryObj) {
+                  const pr = primaryObj.props as Record<string, unknown>;
+                  if (primaryObj.object_type === "rect") {
+                    const wCm = Math.max(1, Math.round(Number(pr.w ?? 100) / WORLD_UNITS_PER_CM));
+                    const hCm = Math.max(1, Math.round(Number(pr.h ?? 100) / WORLD_UNITS_PER_CM));
+                    initialLatex = `${wCm} \\times ${hCm}`;
+                  } else if (primaryObj.object_type === "circle") {
+                    const rCm = Math.max(1, Math.round(Number(pr.r ?? 50) / WORLD_UNITS_PER_CM));
+                    initialLatex = `3.14 \\times ${rCm}^2`;
+                  } else if (primaryObj.object_type === "viz_solid") {
+                    const sp = (pr.params ?? {}) as Record<string, number>;
+                    if (pr.solid_type === "cube" && sp.s) initialLatex = `${sp.s}^3`;
+                    else if (pr.solid_type === "cuboid" && sp.l && sp.w && sp.h) initialLatex = `${sp.l} \\times ${sp.w} \\times ${sp.h}`;
+                    else if (pr.solid_type === "cylinder" && sp.r && sp.h) initialLatex = `3.14 \\times ${sp.r}^2 \\times ${sp.h}`;
+                  }
+                }
+                const stage = stageRef.current;
+                const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+                const worldPt = viewportController.toWorld(
+                  (contextMenu?.x ?? 300) - rect.left,
+                  (contextMenu?.y ?? 200) - rect.top
+                );
+                const mathId = `math-${uid()}`;
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id: mathId,
+                    object_type: "math_block",
+                    props: {
+                      x: Math.max(40, Math.round(worldPt.x - 40)),
+                      y: Math.max(40, Math.round(worldPt.y - 40)),
+                      w: 320,
+                      h: 120,
+                      latex: initialLatex,
+                    },
+                  },
+                });
+                setSelectedIds([mathId]);
+              }}
               onOpenFormulaGraph={onOpenFormulaGraph}
               onToggleVoice={onToggleVoice}
               onOpenSummary={onOpenSummary}

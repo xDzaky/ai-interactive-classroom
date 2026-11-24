@@ -804,11 +804,15 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
 
         const tex = texturePreset ? createFaceTexture(texturePreset, fIdx, faceCustom) : null;
         const mat = tex
-          ? new THREE.MeshStandardMaterial({
+          ? new THREE.MeshPhysicalMaterial({
               map: tex,
-              roughness: 0.35,
+              transparent: true,
+              opacity: 1,
+              roughness: 0.25,
               metalness: 0.04,
+              clearcoat: 0.35,
               side: THREE.DoubleSide,
+              depthWrite: false,
               polygonOffset: true,
               polygonOffsetFactor: 2,
               polygonOffsetUnits: 2,
@@ -929,8 +933,16 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           ? createFaceTexture(part.texturePreset as TexturePreset, idx, faceCustom)
           : null;
         const partMat = partTex
-          ? new THREE.MeshStandardMaterial({ map: partTex, roughness: 0.4, side: THREE.DoubleSide })
-          : createGlassFaceMaterial(part.colorHex ?? SOLID_THEMES[theme].faceHex, 0.55, THREE.DoubleSide);
+          ? new THREE.MeshPhysicalMaterial({
+              map: partTex,
+              transparent: true,
+              opacity: 1,
+              roughness: 0.25,
+              clearcoat: 0.35,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+            })
+          : createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.24, THREE.DoubleSide);
 
         const group = new THREE.Group();
         const mesh = new THREE.Mesh(geometry, partMat);
@@ -987,7 +999,15 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           solidGroup.add(
             new THREE.Mesh(
               geometry,
-              new THREE.MeshStandardMaterial({ map: curvedTex, roughness: 0.35, metalness: 0.05 })
+              new THREE.MeshPhysicalMaterial({
+                map: curvedTex,
+                transparent: true,
+                opacity: 1,
+                roughness: 0.25,
+                clearcoat: 0.35,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+              })
             )
           );
         } else {
