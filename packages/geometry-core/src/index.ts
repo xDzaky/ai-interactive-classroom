@@ -316,5 +316,6 @@ export * from "./unfold.js";
 export * from "./profile2d.js";
 export * from "./operators3d.js";
 export * from "./folding2d.js";
+export * from "./composite.js";
 
 

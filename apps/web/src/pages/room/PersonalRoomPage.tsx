@@ -40,7 +40,8 @@ import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { FormulaToGraphModal } from "@/components/whiteboard/FormulaToGraphModal";
 import { VoiceCommandBar } from "@/components/whiteboard/VoiceCommandBar";
 import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
-import { GeometryCatalogPopover, type CatalogItem } from "@/components/whiteboard/GeometryCatalogPopover";
+import { TemplateDrawer } from "@/components/whiteboard/TemplateDrawer";
+import type { VisualTemplateItem } from "@/lib/realWorldTemplates";
 import { AITeachingDrawer } from "@/components/whiteboard/AITeachingDrawer";
 import { FunActivityModal } from "@/components/whiteboard/FunActivityModal";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
@@ -284,11 +285,27 @@ export default function PersonalRoomPage() {
     [canvasSize, handleEvent]
   );
 
-  const handleSelectCatalogItem = useCallback(
-    (item: CatalogItem) => {
-      const cx = Math.max(220, Math.round(canvasSize.width / 2));
-      const cy = Math.max(180, Math.round(canvasSize.height / 2));
-      const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const handleInsertVisualTemplate = useCallback(
+    (item: VisualTemplateItem, dropClientPos?: { x: number; y: number }) => {
+      let cx = Math.max(220, Math.round(canvasSize.width / 2));
+      let cy = Math.max(180, Math.round(canvasSize.height / 2));
+      const existingCount = Object.keys(
+        boardStateRef.current.scenes[boardStateRef.current.active_scene_id]?.objects ?? {}
+      ).length;
+
+      if (dropClientPos && stageRef.current) {
+        const stage = stageRef.current;
+        const rect = stage.container().getBoundingClientRect();
+        const scale = stage.scaleX() || 1;
+        cx = (dropClientPos.x - rect.left - stage.x()) / scale;
+        cy = (dropClientPos.y - rect.top - stage.y()) / scale;
+      } else {
+        const cascade = (existingCount % 5) * 28;
+        cx += cascade;
+        cy += cascade;
+      }
+
+      const id = `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
       if (item.action.kind === "shape2d") {
         const t = item.action.objectType;
@@ -324,9 +341,6 @@ export default function PersonalRoomPage() {
         setActiveTool("select");
       } else {
         const sType = item.action.solidType;
-        const existingCount = Object.keys(boardStateRef.current.scenes[boardStateRef.current.active_scene_id]?.objects ?? {}).length;
-        const offsetX = existingCount === 0 ? 0 : ((existingCount % 3) - 1) * 210;
-        const offsetY = ((existingCount % 2) * 30);
         handleEvent({
           event_type: "object.created",
           payload: {
@@ -335,11 +349,13 @@ export default function PersonalRoomPage() {
             props: {
               solid_type: sType,
               extended_kind: item.action.extendedKind,
+              texture_preset: item.action.texturePreset,
+              compound_parts: item.action.compoundParts,
               extra_params: item.action.extraParams,
-              params: DEFAULT_SOLID_PARAMS[sType],
+              params: DEFAULT_SOLID_PARAMS[sType] ?? { type: "cube", s: 4 },
               label: item.action.label,
-              x: Math.max(80, cx - 160 + offsetX),
-              y: Math.max(60, cy - 160 + offsetY),
+              x: Math.max(24, Math.round(cx - 160)),
+              y: Math.max(24, Math.round(cy - 160)),
               w: 320,
               h: 320,
             },
@@ -478,100 +494,91 @@ export default function PersonalRoomPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             data-testid="open-catalog-btn"
             onClick={() => setShowCatalogPopover((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+            className={`h-9 whitespace-nowrap rounded-lg border px-3.5 text-[13px] font-medium transition ${
               showCatalogPopover
-                ? "border-indigo-500 bg-indigo-600 text-white"
-                : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100"
             }`}
           >
-            <span>🧊</span>
-            <span className="hidden sm:inline">Katalog 2D/3D</span>
+            Template
           </button>
           <button
             type="button"
             data-testid="insert-math-block-btn"
             onClick={() => handleInsertMathBlock("8^2")}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+            className="h-9 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
           >
-            <span>∑</span>
-            <span className="hidden sm:inline">Blok Rumus</span>
+            Rumus
           </button>
           <button
             type="button"
             data-testid="open-remote-modal-btn"
             onClick={() => setShowRemoteModal(true)}
-            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
               remoteConnected
                 ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
             title="Hubungkan Remote HP (QR / Kode 6 Digit / Link)"
           >
-            <span>📱</span>
-            <span className="hidden md:inline">{remoteConnected ? "HP Aktif" : "Remote HP"}</span>
+            {remoteConnected ? "HP Aktif" : "Remote HP"}
           </button>
           <button
             type="button"
             data-testid="open-ai-drawer-btn"
             onClick={() => setShowAiDrawer((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition ${
+            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
               showAiDrawer
-                ? "border-violet-500 bg-violet-600 text-white"
-                : "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                ? "border-violet-600 bg-violet-600 text-white"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-violet-50 hover:text-violet-700"
             }`}
           >
-            <span>✨</span>
-            <span className="hidden md:inline">Asisten AI</span>
+            Asisten AI
           </button>
           <button
             type="button"
             onClick={() => setShowVoiceBar((v) => !v)}
-            className={`hidden sm:flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+            className={`hidden lg:inline-flex h-9 items-center whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
               showVoiceBar
-                ? "border-cyan-400 bg-cyan-50 text-cyan-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                ? "border-cyan-500 bg-cyan-50 text-cyan-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <span>🎙️</span>
-            <span className="hidden lg:inline">Suara AI</span>
+            Suara AI
           </button>
           <button
             type="button"
             data-testid="open-fun-activity-btn"
             onClick={() => setShowFunModal(true)}
-            className="hidden md:flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
-            title="Aktivitas Seru & Kuis Geometri"
+            className="hidden xl:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-amber-50 hover:text-amber-700"
           >
-            <span>🎯</span>
-            <span className="hidden xl:inline">Aktivitas</span>
+            Aktivitas
           </button>
           <button
             type="button"
             onClick={handleExportPng}
-            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-            title="Export PNG"
+            className="hidden lg:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
           >
-            <span>💾</span>
+            Simpan PNG
           </button>
           <button
             type="button"
             onClick={handleClearBoard}
-            title="Bersihkan Papan"
-            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            className="hidden xl:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
-            <span>🧹</span>
+            Bersihkan
           </button>
-          <div className="hidden sm:block mx-1 h-5 w-px bg-slate-200" />
+          <div className="hidden sm:block mx-0.5 h-5 w-px bg-slate-200" />
           <Link
             to="/login"
-            className="hidden sm:flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 active:scale-95"
+            className="hidden sm:inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-indigo-500 active:scale-95"
           >
-            👨‍🏫 Masuk Guru
+            Masuk Guru
           </Link>
         </div>
       </header>
@@ -692,26 +699,16 @@ export default function PersonalRoomPage() {
             <button
               type="button"
               onClick={() => setShowGraphModal(true)}
-              className="flex h-11 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-xl transition hover:-translate-y-0.5 hover:bg-blue-50"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
             >
-              <span>📈</span>
-              <span className="hidden sm:inline">Grafik</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowTemplatesModal(true)}
-              className="flex h-11 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-xl transition hover:-translate-y-0.5 hover:bg-amber-50"
-            >
-              <span>📚</span>
-              <span className="hidden sm:inline">Template</span>
+              <span>Grafik</span>
             </button>
             <button
               type="button"
               onClick={() => setShowSummaryModal(true)}
-              className="flex h-11 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-xl transition hover:-translate-y-0.5 hover:bg-emerald-50"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-50"
             >
-              <span>📝</span>
-              <span className="hidden sm:inline">Ringkasan</span>
+              <span>Ringkasan</span>
             </button>
           </div>
         </main>
@@ -839,11 +836,11 @@ export default function PersonalRoomPage() {
           </div>
         </div>
       )}
-      {/* Searchable 2D / 3D / Platonic / 3D Surface Geometry Catalog */}
-      <GeometryCatalogPopover
+      {/* Right Slide-Out Visual Card Template Drawer (Drag-and-Drop + 1-Click Insert) */}
+      <TemplateDrawer
         open={showCatalogPopover}
         onClose={() => setShowCatalogPopover(false)}
-        onSelect={handleSelectCatalogItem}
+        onInsertTemplate={handleInsertVisualTemplate}
       />
 
       {/* AI Teaching Assistant Slide-Over Drawer (Problem-Chain, Socratic, RPP) */}

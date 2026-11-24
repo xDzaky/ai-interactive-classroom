@@ -14,13 +14,15 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { SolidParams, Polyhedron, Vec3, SectionPolygon } from '@ai-classroom/geometry-core';
+import type { SolidParams, Polyhedron, Vec3, SectionPolygon, CompoundSolidPart } from '@ai-classroom/geometry-core';
 import {
   buildPolyhedron,
   computeGeometry,
+  computeCompoundStats,
   planeFrom3Points,
   intersectPolyhedronPlane,
   computeFaceNormal,
+  unfoldPlan,
   vecSub,
   vecCross,
   vecDot,
@@ -37,6 +39,13 @@ import {
   verifyEulerCharacteristic,
 } from '@ai-classroom/geometry-core';
 import { buildThreeGeometry } from '@/lib/threeGeometry';
+import {
+  createFaceTexture,
+  DICE_FACE_VALUES,
+  type TexturePreset,
+  type FaceCustomConfig,
+} from '@/lib/faceTextures';
+import { FaceCustomizerPopover } from './FaceCustomizerPopover';
 import {
   setupStudioLighting,
   createGlassFaceMaterial,
@@ -61,6 +70,8 @@ export interface TongchuangSolidWidgetProps {
   extendedKind?: string;
   profilePointsCm?: [number, number][];
   extraParams?: Record<string, unknown>;
+  texturePreset?: TexturePreset;
+  compoundParts?: CompoundSolidPart[];
   theme?: SolidThemeKey;
   label?: string;
   selected?: boolean;
@@ -68,6 +79,7 @@ export interface TongchuangSolidWidgetProps {
   onDelete?: () => void;
   onExplainAi?: () => void;
   onDuplicate?: () => void;
+  onEdit2D?: () => void;
   onSnapshot?: (dataUrl: string) => void;
   onCloseToolbar?: () => void;
   onMovePosition?: (dx: number, dy: number) => void;
@@ -207,7 +219,8 @@ function buildPolyhedronFromParams(
     extendedKind === 'ellipsoid' ||
     extendedKind === 'hemisphere' ||
     extendedKind === 'surface_3d' ||
-    extendedKind === 'parametric_3d'
+    extendedKind === 'parametric_3d' ||
+    extendedKind === 'compound'
   ) {
     return null;
   }
@@ -277,6 +290,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   extendedKind,
   profilePointsCm,
   extraParams,
+  texturePreset,
+  compoundParts,
   theme = 'ice',
   label,
   selected = true,
@@ -284,6 +299,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   onDelete,
   onExplainAi,
   onDuplicate,
+  onEdit2D,
   onSnapshot,
   onCloseToolbar,
   onMovePosition,
@@ -307,9 +323,19 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
   const [isUnfolding, setIsUnfolding] = useState(false);
   const [explodeT, setExplodeT] = useState(0);
   const [localParams, setLocalParams] = useState<SolidParams>(params);
+  const [faceCustom, setFaceCustom] = useState<FaceCustomConfig>({});
+  const [showFaceCustomizer, setShowFaceCustomizer] = useState(false);
+  const [rolledDiceVal, setRolledDiceVal] = useState<number | null>(null);
   const targetCamPosRef = useRef<THREE.Vector3 | null>(null);
   const lineMaterialsRef = useRef<LineMaterial[]>([]);
   const rendererSizeRef = useRef<[number, number]>([320, 260]);
+  const hingeNodesRef = useRef<
+    Array<{ pivot: THREE.Group; axis: THREE.Vector3; angle: number }>
+  >([]);
+  const staticEdgesRef = useRef<THREE.Object3D[]>([]);
+  const compoundMeshesRef = useRef<
+    Array<{ mesh: THREE.Object3D; basePos: THREE.Vector3; explodeDir: THREE.Vector3 }>
+  >([]);
 
   // Sync external params ONLY when values genuinely differ
   const paramsKey = JSON.stringify(params);
@@ -337,12 +363,23 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     [polyhedron]
   );
   const geoStats = useMemo(() => {
+    if (extendedKind === 'compound' && compoundParts && compoundParts.length > 0) {
+      const cs = computeCompoundStats(compoundParts);
+      return {
+        volume: cs.totalVolume,
+        surface_area: cs.totalSurfaceArea,
+        formula_volume: 'V = \\sum V_i',
+        formula_surface_area: 'SA = \\sum SA_i',
+        label_volume: `V = ${cs.totalVolume}`,
+        label_surface_area: `SA = ${cs.totalSurfaceArea}`,
+      };
+    }
     try {
       return computeGeometry(localParams);
     } catch {
       return null;
     }
-  }, [localParams]);
+  }, [localParams, extendedKind, compoundParts]);
 
   const interactiveNodes = useMemo(
     () => (polyhedron ? getInteractiveNodes(polyhedron) : []),
@@ -537,26 +574,46 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       rafId = requestAnimationFrame(animate);
       const st = stateRef.current;
 
-      // Update Explode / Unfold face offsets smoothly with harmonious pastel distinction
+      // 1. True Hinged Unfold/Fold via unfoldPlan(poly) hierarchical THREE.Group pivots!
+      for (const h of hingeNodesRef.current) {
+        h.pivot.quaternion.setFromAxisAngle(h.axis, h.angle * st.unfoldT);
+      }
+      // Hide static wireframe edges once unfolding starts (each hinged face has its own crisp border!)
+      for (const se of staticEdgesRef.current) {
+        se.visible = st.unfoldT < 0.02;
+      }
+
+      // 2. Compound 3D multi-part Explode offsets
+      for (const cp of compoundMeshesRef.current) {
+        cp.mesh.position.set(
+          cp.basePos.x + cp.explodeDir.x * st.explodeT * 1.4,
+          cp.basePos.y + cp.explodeDir.y * st.explodeT * 1.4,
+          cp.basePos.z + cp.explodeDir.z * st.explodeT * 1.4
+        );
+      }
+
+      // 3. Explode face offsets (active when not hinged-unfolded) + pastel/textured face shading
       const themeColors = SOLID_THEMES[theme];
       for (const entry of faceEntriesRef.current) {
-        const dist = st.explodeT * 1.15 + (entry.fIdx > 0 ? st.unfoldT * 0.85 : 0);
+        const dist = st.unfoldT < 0.02 ? st.explodeT * 1.15 : 0;
         entry.mesh.position.set(
           entry.normal[0] * dist,
           entry.normal[1] * dist,
           entry.normal[2] * dist
         );
-        const isFoldFace = st.mode === 'unfold' && entry.fIdx === 1;
-        const isExploded = st.explodeT > 0.04 || st.unfoldT > 0.04;
-        if (isFoldFace) {
-          entry.mat.color.setHex(0xf97316);
-          entry.mat.opacity = 0.58;
-        } else if (isExploded) {
-          entry.mat.color.setHex(FACE_EXPLODE_PALETTE[entry.fIdx % FACE_EXPLODE_PALETTE.length]);
-          entry.mat.opacity = 0.42;
-        } else {
-          entry.mat.color.setHex(themeColors.faceHex);
-          entry.mat.opacity = 0.22;
+        if (!entry.mat.map) {
+          const isFoldFace = st.mode === 'unfold' && entry.fIdx === 1;
+          const isExploded = st.explodeT > 0.04 || st.unfoldT > 0.04;
+          if (isFoldFace) {
+            entry.mat.color.setHex(0xf97316);
+            entry.mat.opacity = 0.58;
+          } else if (isExploded) {
+            entry.mat.color.setHex(FACE_EXPLODE_PALETTE[entry.fIdx % FACE_EXPLODE_PALETTE.length]);
+            entry.mat.opacity = 0.42;
+          } else {
+            entry.mat.color.setHex(themeColors.faceHex);
+            entry.mat.opacity = 0.22;
+          }
         }
       }
 
@@ -659,6 +716,9 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     faceEntriesRef.current = [];
     nodeMeshesRef.current = [];
     lineMaterialsRef.current = [];
+    hingeNodesRef.current = [];
+    staticEdgesRef.current = [];
+    compoundMeshesRef.current = [];
 
     if (polyhedron) {
       const threeVerts = polyhedron.vertices.map((v) => toThree(v));
@@ -686,37 +746,121 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       baseScaleRef.current = normScale;
       solidGroup.scale.setScalar(normScale);
 
-      // Faces via Ear-Clipping triangulation (supports concave crowns/stars/L-shapes with ZERO bleeding cap!)
-      polyhedron.faces.forEach((faceIndices, fIdx) => {
+      // Build centered vertex array in Three.js space
+      const localVerts = threeVerts.map(
+        (v) => new THREE.Vector3(v[0] - center[0], v[1] - center[1], v[2] - center[2])
+      );
+
+      // Helper: build UV-mapped face mesh + border outline relative to a given origin (for hinge pivots!)
+      const buildFaceObject = (faceIndices: number[], fIdx: number, origin: THREE.Vector3) => {
         const geom = new THREE.BufferGeometry();
         const positions: number[] = [];
+        const uvs: number[] = [];
+
+        // Compute planar orthonormal (uAxis, vAxis) on this face for crisp [0,1]x[0,1] UV mapping
+        const p0 = localVerts[faceIndices[0]];
+        const p1 = localVerts[faceIndices[1]];
+        const normalVec = new THREE.Vector3(...toThree(computeFaceNormal(faceIndices, polyhedron.vertices))).normalize();
+        const uAxis = new THREE.Vector3().subVectors(p1, p0).normalize();
+        const vAxis = new THREE.Vector3().crossVectors(normalVec, uAxis).normalize();
+
+        let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+        const projMap = new Map<number, [number, number]>();
+        for (const vi of faceIndices) {
+          const d = new THREE.Vector3().subVectors(localVerts[vi], p0);
+          const pu = d.dot(uAxis);
+          const pv = d.dot(vAxis);
+          projMap.set(vi, [pu, pv]);
+          if (pu < minU) minU = pu;
+          if (pu > maxU) maxU = pu;
+          if (pv < minV) minV = pv;
+          if (pv > maxV) maxV = pv;
+        }
+        const spanU = Math.max(0.001, maxU - minU);
+        const spanV = Math.max(0.001, maxV - minV);
+
         const tris = triangulateFace3D(polyhedron.vertices, faceIndices);
         for (const [ia, ib, ic] of tris) {
-          const v0 = threeVerts[ia];
-          const v1 = threeVerts[ib];
-          const v2 = threeVerts[ic];
-          positions.push(
-            v0[0] - center[0], v0[1] - center[1], v0[2] - center[2],
-            v1[0] - center[0], v1[1] - center[1], v1[2] - center[2],
-            v2[0] - center[0], v2[1] - center[1], v2[2] - center[2]
-          );
+          for (const vi of [ia, ib, ic]) {
+            const lv = localVerts[vi];
+            positions.push(lv.x - origin.x, lv.y - origin.y, lv.z - origin.z);
+            const [pu, pv] = projMap.get(vi) ?? [0, 0];
+            uvs.push((pu - minU) / spanU, (pv - minV) / spanV);
+          }
         }
         geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geom.computeVertexNormals();
 
-        const normalThree = toThree(computeFaceNormal(faceIndices, polyhedron.vertices));
-        const nLen = Math.hypot(normalThree[0], normalThree[1], normalThree[2]) || 1;
-        const unitNormal: [number, number, number] = [
-          normalThree[0] / nLen,
-          normalThree[1] / nLen,
-          normalThree[2] / nLen,
-        ];
+        const tex = texturePreset ? createFaceTexture(texturePreset, fIdx, faceCustom) : null;
+        const mat = tex
+          ? new THREE.MeshStandardMaterial({
+              map: tex,
+              roughness: 0.35,
+              metalness: 0.04,
+              side: THREE.DoubleSide,
+              polygonOffset: true,
+              polygonOffsetFactor: 2,
+              polygonOffsetUnits: 2,
+            })
+          : createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.22, THREE.DoubleSide);
 
-        const mat = createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.22, THREE.DoubleSide);
         const mesh = new THREE.Mesh(geom, mat);
-        solidGroup.add(mesh);
-        faceEntriesRef.current.push({ mesh, mat, normal: unitNormal, fIdx });
-      });
+        // Attach crisp face border so hinged faces stay sharply outlined while unfolding!
+        const loopPts: THREE.Vector3[] = faceIndices.map(
+          (vi) => new THREE.Vector3().subVectors(localVerts[vi], origin)
+        );
+        loopPts.push(loopPts[0].clone());
+        const borderLine = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(loopPts),
+          new THREE.LineBasicMaterial({ color: SOLID_THEMES[theme].edgeHex })
+        );
+        mesh.add(borderLine);
+
+        faceEntriesRef.current.push({
+          mesh,
+          mat,
+          normal: [normalVec.x, normalVec.y, normalVec.z],
+          fIdx,
+        });
+        return mesh;
+      };
+
+      // Build True Hierarchical Hinge Tree from unfoldPlan(polyhedron)
+      const plan = unfoldPlan(polyhedron);
+      const faceContainerMap = new Map<number, { group: THREE.Group; worldOrigin: THREE.Vector3 }>();
+
+      const rootGroup = new THREE.Group();
+      const rootOrigin = new THREE.Vector3(0, 0, 0);
+      rootGroup.add(buildFaceObject(polyhedron.faces[plan.rootFace], plan.rootFace, rootOrigin));
+      solidGroup.add(rootGroup);
+      faceContainerMap.set(plan.rootFace, { group: rootGroup, worldOrigin: rootOrigin });
+
+      for (const step of plan.steps) {
+        const parentEntry = faceContainerMap.get(step.parent);
+        if (!parentEntry) continue;
+
+        const [uIdx, vIdx] = step.hinge;
+        const uPos = localVerts[uIdx];
+        const vPos = localVerts[vIdx];
+
+        const hingeAxis = new THREE.Vector3().subVectors(vPos, uPos).normalize();
+        const nParent = new THREE.Vector3(...toThree(computeFaceNormal(polyhedron.faces[step.parent], polyhedron.vertices))).normalize();
+        const nChild = new THREE.Vector3(...toThree(computeFaceNormal(polyhedron.faces[step.face], polyhedron.vertices))).normalize();
+
+        // Pick sign (+1 or -1) that rotates nChild ONTO nParent (flat outward net!)
+        const testPlus = nChild.clone().applyAxisAngle(hingeAxis, step.foldAngle);
+        const testMinus = nChild.clone().applyAxisAngle(hingeAxis, -step.foldAngle);
+        const signedAngle = testPlus.dot(nParent) >= testMinus.dot(nParent) ? step.foldAngle : -step.foldAngle;
+
+        const pivot = new THREE.Group();
+        pivot.position.subVectors(uPos, parentEntry.worldOrigin);
+        pivot.add(buildFaceObject(polyhedron.faces[step.face], step.face, uPos));
+        parentEntry.group.add(pivot);
+
+        hingeNodesRef.current.push({ pivot, axis: hingeAxis, angle: signedAngle });
+        faceContainerMap.set(step.face, { group: pivot, worldOrigin: uPos });
+      }
 
       // Anti-aliased FAT textbook solid front (2.2px) + dashed hidden back edges (1.5px)
       const edgeGeom = new THREE.BufferGeometry();
@@ -738,6 +882,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         rendererSizeRef.current
       );
       lineMaterialsRef.current.push(...materials);
+      staticEdgesRef.current.push(hiddenEdges, frontEdges);
       solidGroup.add(hiddenEdges);
       solidGroup.add(frontEdges);
 
@@ -760,6 +905,47 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         solidGroup.add(mesh);
         nodeMeshesRef.current.push({ mesh, node });
       }
+    } else if (extendedKind === 'compound' && compoundParts && compoundParts.length > 0) {
+      // Compound 3D Multi-Part Assembly (e.g. House = Cube body + Pyramid roof!)
+      centerRef.current = [0, 0, 0];
+      const normScale = 0.48;
+      baseScaleRef.current = normScale;
+      solidGroup.scale.setScalar(normScale);
+
+      const avgY = compoundParts.reduce((s, p) => s + p.offsetCm[1], 0) / compoundParts.length;
+      compoundParts.forEach((part, idx) => {
+        const { geometry } = buildThreeGeometry(part.params, part.extendedKind);
+        const partTex = part.texturePreset
+          ? createFaceTexture(part.texturePreset as TexturePreset, idx, faceCustom)
+          : null;
+        const partMat = partTex
+          ? new THREE.MeshStandardMaterial({ map: partTex, roughness: 0.4, side: THREE.DoubleSide })
+          : createGlassFaceMaterial(part.colorHex ?? SOLID_THEMES[theme].faceHex, 0.55, THREE.DoubleSide);
+
+        const group = new THREE.Group();
+        const mesh = new THREE.Mesh(geometry, partMat);
+        group.add(mesh);
+
+        const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
+        const { hiddenEdges, frontEdges, materials } = createTextbookEdges(
+          edgesGeom,
+          normScale,
+          theme,
+          rendererSizeRef.current
+        );
+        lineMaterialsRef.current.push(...materials);
+        group.add(hiddenEdges);
+        group.add(frontEdges);
+
+        const basePos = new THREE.Vector3(part.offsetCm[0], part.offsetCm[1] - avgY, part.offsetCm[2]);
+        group.position.copy(basePos);
+        solidGroup.add(group);
+        compoundMeshesRef.current.push({
+          mesh: group,
+          basePos,
+          explodeDir: new THREE.Vector3(0, idx === 0 ? -1.2 : 1.5, 0),
+        });
+      });
     } else {
       centerRef.current = [0, 0, 0];
       const { geometry, dimensions } = buildThreeGeometry(localParams, extendedKind, extraParams);
@@ -786,9 +972,19 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           )
         );
       } else {
-        // Dual-pass glassmorphic translucency (BackSide then FrontSide) — zero Z-fighting!
-        solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.14, THREE.BackSide)));
-        solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.24, THREE.FrontSide)));
+        const curvedTex = texturePreset ? createFaceTexture(texturePreset, 0, faceCustom) : null;
+        if (curvedTex) {
+          solidGroup.add(
+            new THREE.Mesh(
+              geometry,
+              new THREE.MeshStandardMaterial({ map: curvedTex, roughness: 0.35, metalness: 0.05 })
+            )
+          );
+        } else {
+          // Dual-pass glassmorphic translucency (BackSide then FrontSide) — zero Z-fighting!
+          solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.14, THREE.BackSide)));
+          solidGroup.add(new THREE.Mesh(geometry, createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.24, THREE.FrontSide)));
+        }
 
         const edgesGeom = new THREE.EdgesGeometry(geometry, 24);
         const { hiddenEdges, frontEdges, materials } = createTextbookEdges(
@@ -842,7 +1038,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         }
       }
     }
-  }, [polyhedron, interactiveNodes, localParams, extendedKind, extraParams, theme, showGuides]);
+  }, [polyhedron, interactiveNodes, localParams, extendedKind, extraParams, theme, showGuides, texturePreset, faceCustom, compoundParts]);
 
   // ── Remote Mobile Controller 3D Orbit & Action Listener ───────────────────
   useEffect(() => {
@@ -895,6 +1091,23 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
       side: new THREE.Vector3(8.6, 0.4, 0),
     };
     targetCamPosRef.current = map[preset];
+  };
+
+  const handleRollDice = () => {
+    setUnfoldT(0);
+    setMode('orbit');
+    const faceIdx = Math.floor(Math.random() * 6);
+    const val = DICE_FACE_VALUES[faceIdx];
+    setRolledDiceVal(val);
+    const camTargets = [
+      new THREE.Vector3(0.5, -8.5, 0.8),
+      new THREE.Vector3(0.5, 8.5, 0.8),
+      new THREE.Vector3(0.4, 0.8, 8.5),
+      new THREE.Vector3(8.5, 0.8, 0.4),
+      new THREE.Vector3(-0.4, 0.8, -8.5),
+      new THREE.Vector3(-8.5, 0.8, -0.4),
+    ];
+    targetCamPosRef.current = camTargets[faceIdx];
   };
 
   // ── 3. IN-PLACE CROSS-SECTION REBUILD (Electric Blue Plane + Glowing Pins) ─
@@ -1100,6 +1313,25 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           </div>
         )}
 
+        {/* Rolled Dice Result Badge */}
+        {rolledDiceVal !== null && texturePreset === 'dice' && (
+          <div
+            data-testid="dice-roll-result"
+            className="pointer-events-none absolute left-2 top-9 z-20 rounded-xl border border-red-200 bg-white/95 px-2.5 py-1 text-xs font-extrabold text-red-600 shadow-lg"
+          >
+            Hasil Dadu: {rolledDiceVal}
+          </div>
+        )}
+
+        {/* Per-Face Customizer Popover */}
+        {selected && showFaceCustomizer && (
+          <FaceCustomizerPopover
+            config={faceCustom}
+            onChange={setFaceCustom}
+            onClose={() => setShowFaceCustomizer(false)}
+          />
+        )}
+
         {/* Measurement HUD */}
         {mode === 'measure' && geoStats && (
           <div
@@ -1299,7 +1531,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
             <span className="mt-0.5">Jaring</span>
           </button>
 
-          {polyhedron && (
+          {(polyhedron || extendedKind === 'compound') && (
             <button
               type="button"
               data-testid={`solid-btn-explode-${id}`}
@@ -1312,13 +1544,55 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
                 });
               }}
               aria-pressed={mode === 'explode'}
-              title="Pisah Sisi"
+              title="Pisah Sisi / Bagian"
               className={`flex flex-col items-center rounded-xl px-2 py-1 text-[10px] font-medium transition ${
                 mode === 'explode' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300' : 'hover:bg-slate-100'
               }`}
             >
               <span className="text-sm leading-none">🧩</span>
               <span className="mt-0.5">Pisah</span>
+            </button>
+          )}
+
+          {texturePreset === 'dice' && (
+            <button
+              type="button"
+              data-testid={`solid-btn-roll-${id}`}
+              onClick={handleRollDice}
+              title="Lempar Dadu Acak"
+              className="flex flex-col items-center rounded-xl px-2 py-1 text-[10px] font-medium text-red-600 hover:bg-red-50 transition"
+            >
+              <span className="text-sm leading-none">🎲</span>
+              <span className="mt-0.5">Lempar</span>
+            </button>
+          )}
+
+          {texturePreset && (
+            <button
+              type="button"
+              data-testid={`solid-btn-customface-${id}`}
+              onClick={() => setShowFaceCustomizer((v) => !v)}
+              aria-pressed={showFaceCustomizer}
+              title="Kustom Warna & Isi Sisi"
+              className={`flex flex-col items-center rounded-xl px-2 py-1 text-[10px] font-medium transition ${
+                showFaceCustomizer ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-300' : 'hover:bg-slate-100'
+              }`}
+            >
+              <span className="text-sm leading-none">🎨</span>
+              <span className="mt-0.5">Kustom</span>
+            </button>
+          )}
+
+          {onEdit2D && (
+            <button
+              type="button"
+              data-testid={`solid-btn-edit2d-${id}`}
+              onClick={onEdit2D}
+              title="Kembali ke 2D (Edit atau Gabung Bentuk Baru)"
+              className="flex flex-col items-center rounded-xl px-2 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-50 transition"
+            >
+              <span className="text-sm leading-none">✏️</span>
+              <span className="mt-0.5">Edit 2D</span>
             </button>
           )}
 

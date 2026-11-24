@@ -22,7 +22,8 @@ const TongchuangSolidWidget = lazy(() =>
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
 import { MathTextBlockWidget } from "../../components/math/MathTextBlockWidget.js";
-import type { SolidType, SolidParams } from "@ai-classroom/geometry-core";
+import type { SolidType, SolidParams, CompoundSolidPart } from "@ai-classroom/geometry-core";
+import type { TexturePreset } from "@/lib/faceTextures";
 import type { MathVisualIntent } from "@ai-classroom/math-core";
 import type { ViewportController, ViewportState } from "@/lib/viewport";
 
@@ -54,6 +55,7 @@ export interface WhiteboardOverlayProps {
   onDeleteObject?: (id: string) => void;
   onExplainObject?: (obj: BoardObject) => void;
   onDuplicateObject?: (obj: BoardObject) => void;
+  onEdit2DSolid?: (obj: BoardObject) => void;
   onMoveObject?: (id: string, x: number, y: number) => void;
   onUpdateSolidParams?: (id: string, params: SolidParams) => void;
   onUpdateObjectProps?: (id: string, propsPatch: Record<string, unknown>) => void;
@@ -91,6 +93,7 @@ interface VizSolidOverlayProps {
   onDelete?: () => void;
   onExplain?: () => void;
   onDuplicate?: () => void;
+  onEdit2D?: () => void;
   onMove?: (x: number, y: number) => void;
   onUpdateParams?: (params: SolidParams) => void;
 }
@@ -113,6 +116,7 @@ function VizSolidOverlay({
   onDelete,
   onExplain,
   onDuplicate,
+  onEdit2D,
   onMove,
   onUpdateParams,
 }: VizSolidOverlayProps) {
@@ -219,6 +223,8 @@ function VizSolidOverlay({
               extendedKind={typeof props.extended_kind === "string" ? props.extended_kind : undefined}
               profilePointsCm={Array.isArray(props.profile_points_cm) ? (props.profile_points_cm as [number, number][]) : undefined}
               extraParams={typeof props.extra_params === "object" && props.extra_params !== null ? (props.extra_params as Record<string, unknown>) : undefined}
+              texturePreset={typeof props.texture_preset === "string" ? (props.texture_preset as TexturePreset) : undefined}
+              compoundParts={Array.isArray(props.compound_parts) ? (props.compound_parts as CompoundSolidPart[]) : undefined}
               label={typeof props.label === "string" ? props.label : undefined}
               selected={isSelected}
               compact={true}
@@ -228,6 +234,7 @@ function VizSolidOverlay({
               onDelete={onDelete}
               onExplainAi={onExplain}
               onDuplicate={onDuplicate}
+              onEdit2D={onEdit2D}
               onMovePosition={
                 onMove
                   ? (dx, dy) => {
@@ -508,6 +515,7 @@ export function WhiteboardOverlay({
   onDeleteObject,
   onExplainObject,
   onDuplicateObject,
+  onEdit2DSolid,
   onMoveObject,
   onUpdateSolidParams,
   onUpdateObjectProps,
@@ -630,6 +638,7 @@ export function WhiteboardOverlay({
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onExplain={onExplainObject ? () => onExplainObject(obj) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
+            onEdit2D={onEdit2DSolid ? () => onEdit2DSolid(obj) : undefined}
             onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
             onUpdateParams={onUpdateSolidParams ? (np) => onUpdateSolidParams(obj.id, np) : undefined}
           />

@@ -81,7 +81,15 @@ import {
   type Input2DShape,
 } from "@/lib/shapeToSolid";
 import { AiExplainModal } from "@/components/whiteboard/AiExplainModal";
-import type { SolidType } from "@ai-classroom/geometry-core";
+import {
+  extractBaseProfile2D,
+  mergeProfiles2DUnion,
+  normalizeProfile2D,
+  type SolidType,
+  type SolidParams,
+  type CompoundSolidPart,
+} from "@ai-classroom/geometry-core";
+import { WORLD_UNITS_PER_CM } from "@/lib/shapeToSolid";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2390,6 +2398,68 @@ export function WhiteboardCanvas({
             },
           });
         }}
+        onEdit2DSolid={(obj) => {
+          const p = obj.props as Record<string, unknown>;
+          const solidParams = (p.params ?? { type: p.solid_type ?? "cube", s: 4 }) as SolidParams;
+          const profCm = Array.isArray(p.profile_points_cm)
+            ? (p.profile_points_cm as [number, number][])
+            : undefined;
+          const base = extractBaseProfile2D(solidParams, profCm);
+          const cx = Number(p.x ?? 200) + Number(p.w ?? 320) / 2;
+          const cy = Number(p.y ?? 120) + Number(p.h ?? 320) / 2;
+
+          let createdEvent: WhiteboardEvent;
+          const newId = `edit2d-${uid()}`;
+          if (base.objectType === "circle") {
+            const r = Math.max(30, Math.hypot(base.verticesCm[0][0], base.verticesCm[0][1]) * WORLD_UNITS_PER_CM);
+            createdEvent = {
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "circle",
+                props: { x: cx, y: cy, r, stroke: "#0f172a", strokeWidth: 3, fill: "transparent" },
+              },
+            };
+          } else if (base.objectType === "rect") {
+            const xs = base.verticesCm.map((v) => v[0]);
+            const ys = base.verticesCm.map((v) => v[1]);
+            const w = Math.max(40, (Math.max(...xs) - Math.min(...xs)) * WORLD_UNITS_PER_CM);
+            const h = Math.max(40, (Math.max(...ys) - Math.min(...ys)) * WORLD_UNITS_PER_CM);
+            createdEvent = {
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "rect",
+                props: { x: cx - w / 2, y: cy - h / 2, w, h, stroke: "#0f172a", strokeWidth: 3, fill: "transparent" },
+              },
+            };
+          } else {
+            const flatPts = base.verticesCm.flatMap(([vx, vy]) => [
+              cx + vx * WORLD_UNITS_PER_CM,
+              cy + vy * WORLD_UNITS_PER_CM,
+            ]);
+            createdEvent = {
+              event_type: "object.created",
+              payload: {
+                id: newId,
+                object_type: "polygon",
+                props: { customPoints: flatPts, stroke: "#0f172a", strokeWidth: 3, fill: "transparent" },
+              },
+            };
+          }
+
+          commitEvent({
+            event_type: "batch",
+            payload: {
+              events: [
+                { event_type: "object.deleted", payload: { id: obj.id } },
+                createdEvent,
+              ],
+            },
+          });
+          setSelectedIds([newId]);
+          onToolChange?.("select");
+        }}
         onMoveObject={(id, nx, ny) => {
           commitEvent({
             event_type: "object.updated",
@@ -2558,6 +2628,135 @@ export function WhiteboardCanvas({
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/95 text-sm text-slate-600 shadow-md backdrop-blur-sm transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-35 disabled:cursor-not-allowed"
         >↪</button>
       </div>
+
+      {/* Multi-Shape Merge to 3D Action Bar (when 2+ 2D shapes are selected: e.g. Square + Triangle -> House!) */}
+      {selectedIds.length >= 2 &&
+        selectedIds.every((sid) => {
+          const o = scene.objects[sid];
+          return Boolean(o && o.object_type !== "viz_solid" && o.object_type !== "viz_graph" && o.object_type !== "math_block");
+        }) && (
+          <div
+            data-testid="merge-shapes-bar"
+            className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
+          >
+            <span className="font-semibold text-slate-700">
+              {selectedIds.length} bentuk 2D dipilih
+            </span>
+            <button
+              type="button"
+              data-testid="merge-2d-union-3d-btn"
+              onClick={() => {
+                const polys: [number, number][][] = [];
+                for (const sid of selectedIds) {
+                  const o = scene.objects[sid];
+                  if (!o) continue;
+                  const verts = getShapeVertices(o);
+                  if (verts && verts.length >= 6) {
+                    const pts: [number, number][] = [];
+                    for (let i = 0; i < verts.length; i += 2) {
+                      pts.push([verts[i] / WORLD_UNITS_PER_CM, verts[i + 1] / WORLD_UNITS_PER_CM]);
+                    }
+                    polys.push(pts);
+                  }
+                }
+                if (polys.length < 2) return;
+                const merged = mergeProfiles2DUnion(polys);
+                const prof = normalizeProfile2D(merged, true);
+                const bbox = selectionBBox ?? { x: 200, y: 150, w: 160, h: 160 };
+                const delEvents: WhiteboardEvent[] = selectedIds.map((sid) => ({
+                  event_type: "object.deleted",
+                  payload: { id: sid },
+                }));
+                commitEvent({
+                  event_type: "batch",
+                  payload: {
+                    events: [
+                      ...delEvents,
+                      {
+                        event_type: "object.created",
+                        payload: {
+                          id: `merged3d-${uid()}`,
+                          object_type: "viz_solid",
+                          props: {
+                            solid_type: "prism",
+                            extended_kind: "custom_prism",
+                            profile_points_cm: prof.points,
+                            extra_params: { height: 3.5 },
+                            params: { type: "prism", a: 4, b: 4, c: 4, h: 3.5 },
+                            label: "Bangun Gabungan 3D",
+                            x: Math.max(40, bbox.x),
+                            y: Math.max(40, bbox.y),
+                            w: 320,
+                            h: 320,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                });
+                setSelectedIds([]);
+              }}
+              className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700"
+            >
+              Gabung Profil → 3D
+            </button>
+            <button
+              type="button"
+              data-testid="merge-compound-3d-btn"
+              onClick={() => {
+                const bbox = selectionBBox ?? { x: 200, y: 150, w: 160, h: 160 };
+                const parts: CompoundSolidPart[] = selectedIds.map((sid, idx) => {
+                  const o = scene.objects[sid];
+                  const isTri = o?.object_type === "triangle";
+                  return {
+                    id: `part-${idx}`,
+                    label: isTri ? "Bagian Atap" : `Bagian ${idx + 1}`,
+                    solidType: isTri ? "pyramid" : "cube",
+                    params: isTri
+                      ? { type: "pyramid", b: 4.2, h: 2.8 }
+                      : { type: "cube", s: 4 },
+                    offsetCm: [0, idx * 3.4, 0],
+                    colorHex: isTri ? 0xf97316 : 0xbae6fd,
+                  };
+                });
+                const delEvents: WhiteboardEvent[] = selectedIds.map((sid) => ({
+                  event_type: "object.deleted",
+                  payload: { id: sid },
+                }));
+                commitEvent({
+                  event_type: "batch",
+                  payload: {
+                    events: [
+                      ...delEvents,
+                      {
+                        event_type: "object.created",
+                        payload: {
+                          id: `compound3d-${uid()}`,
+                          object_type: "viz_solid",
+                          props: {
+                            solid_type: "cube",
+                            extended_kind: "compound",
+                            compound_parts: parts,
+                            params: { type: "cube", s: 4 },
+                            label: "Bangun Ruang Majemuk",
+                            x: Math.max(40, bbox.x),
+                            y: Math.max(40, bbox.y),
+                            w: 320,
+                            h: 320,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                });
+                setSelectedIds([]);
+              }}
+              className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+            >
+              Gabung 3D Majemuk
+            </button>
+          </div>
+        )}
 
       {/* Multi-Stroke 3D Sketch / Concave Polygon -> 3D Confirmation Chip */}
       {sketch3dChip && (
