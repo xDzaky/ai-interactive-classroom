@@ -30,6 +30,8 @@ import type {
   BoardState,
   WhiteboardEvent,
   WhiteboardHistory,
+  AIWhiteboardStep,
+  SimulationTemplateId,
 } from "@ai-classroom/whiteboard-core";
 import type { SolidParams, SolidType } from "@ai-classroom/geometry-core";
 import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
@@ -44,8 +46,12 @@ import { TemplateDrawer } from "@/components/whiteboard/TemplateDrawer";
 import type { VisualTemplateItem } from "@/lib/realWorldTemplates";
 import { AITeachingDrawer } from "@/components/whiteboard/AITeachingDrawer";
 import { FunActivityModal } from "@/components/whiteboard/FunActivityModal";
+import { PhETSimulationModal } from "@/components/whiteboard/PhETSimulationWidget";
+import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
+import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 import { RemotePeerBridge, generatePairingCode } from "@/lib/remotePeerBridge";
+import { saveBoardOffline, appendReplayEvent } from "@/lib/offlineSync";
 import { TemplatePickerModal } from "@/features/templates/TemplatePickerModal";
 import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceCommands";
 import { exportStageToPng } from "@/lib/exportPng";
@@ -116,6 +122,12 @@ export default function PersonalRoomPage() {
   const [showCatalogPopover, setShowCatalogPopover] = useState(false);
   const [showAiDrawer, setShowAiDrawer] = useState(false);
   const [showFunModal, setShowFunModal] = useState(false);
+  const [showPhetModal, setShowPhetModal] = useState(false);
+  const [phetInitialSimId, setPhetInitialSimId] = useState<string | undefined>(undefined);
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
+  const [aiCaption, setAiCaption] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [remoteCode] = useState(() => generatePairingCode());
   const [remoteConnected, setRemoteConnected] = useState(false);
@@ -174,7 +186,95 @@ export default function PersonalRoomPage() {
     historyRef.current = result.history;
     setBoardState(result.state);
     setHistory(result.history);
+    // Offline-First PWA persistence (Dexie IndexedDB)
+    void saveBoardOffline(PERSONAL_ROOM_ID, result.state);
+    void appendReplayEvent(PERSONAL_ROOM_ID, event);
   }, []);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  const handleInsertSimulation = useCallback(
+    (templateId: SimulationTemplateId, config: Record<string, unknown> = {}, pos?: [number, number]) => {
+      const id = `sim-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      handleEvent({
+        event_type: "object.created",
+        payload: {
+          id,
+          object_type: "simulation",
+          props: {
+            template_id: templateId,
+            config,
+            x: pos ? pos[0] : Math.max(120, Math.round(canvasSize.width / 2 - 180)),
+            y: pos ? pos[1] : Math.max(80, Math.round(canvasSize.height / 2 - 155)),
+            w: 360,
+            h: 310,
+          },
+        },
+      });
+    },
+    [canvasSize, handleEvent]
+  );
+
+  const handleExecuteAIStep = useCallback(
+    (step: AIWhiteboardStep) => {
+      if (step.type === "speak_caption") {
+        setAiCaption(step.text);
+        setTimeout(() => setAiCaption((cur) => (cur === step.text ? null : cur)), 6500);
+      } else if (step.type === "spawn_math_block") {
+        handleEvent({
+          event_type: "object.created",
+          payload: {
+            id: `${step.id}-${Date.now()}`,
+            object_type: "math_block",
+            props: { x: step.pos[0], y: step.pos[1], w: 320, h: 120, latex: step.latex },
+          },
+        });
+      } else if (step.type === "spawn_simulation") {
+        handleInsertSimulation(step.templateId, step.config, step.pos);
+      } else if (step.type === "spawn_solid3d") {
+        handleEvent({
+          event_type: "object.created",
+          payload: {
+            id: `${step.id}-${Date.now()}`,
+            object_type: "viz_solid",
+            props: {
+              solid_type: step.solidType,
+              params: { ...DEFAULT_SOLID_PARAMS[step.solidType], ...step.params, type: step.solidType },
+              label: step.label ?? SOLID_LABELS[step.solidType],
+              x: step.pos[0],
+              y: step.pos[1],
+              w: 320,
+              h: 320,
+            },
+          },
+        });
+      } else if (step.type === "spawn_shape2d") {
+        const [cx, cy] = step.pos;
+        const w = Number(step.params.w ?? 120);
+        const h = Number(step.params.h ?? 100);
+        const props =
+          step.shapeType === "triangle"
+            ? { x1: cx, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2, x3: cx - w / 2, y3: cy + h / 2, stroke: "#0f172a", strokeWidth: 3, fill: "transparent" }
+            : step.shapeType === "circle"
+              ? { x: cx, y: cy, r: Number(step.params.r ?? 54), stroke: "#0f172a", strokeWidth: 3, fill: "transparent" }
+              : { x: cx - w / 2, y: cy - h / 2, w, h, stroke: "#0f172a", strokeWidth: 3, fill: "transparent" };
+        handleEvent({
+          event_type: "object.created",
+          payload: { id: `${step.id}-${Date.now()}`, object_type: step.shapeType, props },
+        });
+      }
+    },
+    [handleEvent, handleInsertSimulation]
+  );
 
   const handleUndo = useCallback(() => {
     const result = historyUndo(boardStateRef.current, historyRef.current);
@@ -484,7 +584,7 @@ export default function PersonalRoomPage() {
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 whitespace-nowrap">AI Smart Whiteboard</span>
             <span className="hidden sm:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
-              Mode Tanpa Login
+              {isOnline ? "Mode Tanpa Login · PWA Siap" : "Mode Offline (Lokal)"}
             </span>
           </div>
         </div>
@@ -700,6 +800,33 @@ export default function PersonalRoomPage() {
             </button>
             <button
               type="button"
+              data-testid="open-phet-btn"
+              onClick={() => {
+                setPhetInitialSimId(undefined);
+                setShowPhetModal(true);
+              }}
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-amber-50"
+            >
+              <span>Lab PhET</span>
+            </button>
+            <button
+              type="button"
+              data-testid="open-quiz-btn"
+              onClick={() => setShowQuizModal(true)}
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-50"
+            >
+              <span>Kuis</span>
+            </button>
+            <button
+              type="button"
+              data-testid="open-knowledge-btn"
+              onClick={() => setShowKnowledgeModal(true)}
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-50"
+            >
+              <span>Peta Konsep</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSummaryModal(true)}
               className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 px-3.5 text-xs font-semibold text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-50"
             >
@@ -838,12 +965,50 @@ export default function PersonalRoomPage() {
         onInsertTemplate={handleInsertVisualTemplate}
       />
 
-      {/* AI Teaching Assistant Slide-Over Drawer (Problem-Chain, Socratic, RPP) */}
+      {/* AI Teaching Assistant Slide-Over Drawer (OpenMAIC Drawing, Problem-Chain, Socratic, RPP) */}
       <AITeachingDrawer
         open={showAiDrawer}
         onClose={() => setShowAiDrawer(false)}
         onInsertSolid={handleInsertSolidOnBoard}
         onInsertMathBlock={handleInsertMathBlock}
+        onExecuteAIStep={handleExecuteAIStep}
+      />
+
+      {/* OpenMAIC Live AI Narration Caption Pill */}
+      {aiCaption && (
+        <div
+          data-testid="ai-narration-caption"
+          className="fixed top-16 left-1/2 z-40 max-w-xl -translate-x-1/2 rounded-2xl border border-indigo-200 bg-indigo-950/92 px-4 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur-md"
+        >
+          {aiCaption}
+        </div>
+      )}
+
+      {/* Official PhET Interactive Simulations & POE Experiment Mode */}
+      <PhETSimulationModal
+        open={showPhetModal}
+        initialSimId={phetInitialSimId}
+        onClose={() => setShowPhetModal(false)}
+      />
+
+      {/* AI Classroom Quiz & Live Poll */}
+      <QuizLauncherModal
+        open={showQuizModal}
+        onClose={() => setShowQuizModal(false)}
+        onShowExplanationOnBoard={(latex) => handleInsertMathBlock(latex)}
+      />
+
+      {/* AI Knowledge Explorer Concept Graph */}
+      <KnowledgeExplorerModal
+        open={showKnowledgeModal}
+        onClose={() => setShowKnowledgeModal(false)}
+        onInsertFormula={(latex) => handleInsertMathBlock(latex)}
+        onInsertSolid={(st) => handleInsertSolidOnBoard(st)}
+        onInsertSimulation={(tid) => handleInsertSimulation(tid)}
+        onOpenPhET={(simId) => {
+          setPhetInitialSimId(simId);
+          setShowPhetModal(true);
+        }}
       />
 
       {/* AI Fun Teaching Activity Modal */}

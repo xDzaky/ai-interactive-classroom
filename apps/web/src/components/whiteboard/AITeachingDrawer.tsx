@@ -5,14 +5,20 @@
  */
 import React, { useState } from 'react';
 import type { SolidType } from '@ai-classroom/geometry-core';
+import {
+  generateLocalAIPlan,
+  type AIWhiteboardPlan,
+  type AIWhiteboardStep,
+} from '@ai-classroom/whiteboard-core';
 
-type DrawerTab = 'chain' | 'socratic' | 'prep';
+type DrawerTab = 'draw' | 'chain' | 'socratic' | 'prep';
 
 export interface AITeachingDrawerProps {
   open: boolean;
   onClose: () => void;
   onInsertSolid: (solidType: SolidType) => void;
   onInsertMathBlock: (latex: string) => void;
+  onExecuteAIStep?: (step: AIWhiteboardStep) => void;
 }
 
 const PROBLEM_CHAIN_PRESETS = [
@@ -43,12 +49,36 @@ export const AITeachingDrawer: React.FC<AITeachingDrawerProps> = ({
   onClose,
   onInsertSolid,
   onInsertMathBlock,
+  onExecuteAIStep,
 }) => {
-  const [tab, setTab] = useState<DrawerTab>('chain');
+  const [tab, setTab] = useState<DrawerTab>('draw');
   const [revealedHints, setRevealedHints] = useState<Record<number, boolean>>({});
   const [topic, setTopic] = useState('Bangun Ruang & Irisan Bidang');
+  const [aiPrompt, setAiPrompt] = useState('Buat simulasi fungsi kuadrat dengan parameter a, b, dan c');
+  const [activePlan, setActivePlan] = useState<AIWhiteboardPlan | null>(null);
+  const [stepCursor, setStepCursor] = useState(0);
 
   if (!open) return null;
+
+  const handleGeneratePlan = () => {
+    const plan = generateLocalAIPlan(aiPrompt);
+    setActivePlan(plan);
+    setStepCursor(0);
+  };
+
+  const handleRunNextStep = () => {
+    if (!activePlan || stepCursor >= activePlan.steps.length) return;
+    onExecuteAIStep?.(activePlan.steps[stepCursor]);
+    setStepCursor((c) => c + 1);
+  };
+
+  const handleRunAllSteps = () => {
+    if (!activePlan) return;
+    for (let i = stepCursor; i < activePlan.steps.length; i++) {
+      onExecuteAIStep?.(activePlan.steps[i]);
+    }
+    setStepCursor(activePlan.steps.length);
+  };
 
   return (
     <div
@@ -78,9 +108,10 @@ export const AITeachingDrawer: React.FC<AITeachingDrawerProps> = ({
       <div className="flex gap-1 border-b border-slate-100 px-3 py-2">
         {(
           [
+            { id: 'draw', label: 'Gambar AI' },
             { id: 'chain', label: 'Problem-Chain' },
             { id: 'socratic', label: 'Socratic' },
-            { id: 'prep', label: 'RPP & Visual' },
+            { id: 'prep', label: 'RPP' },
           ] as const
         ).map((t) => (
           <button
@@ -98,6 +129,89 @@ export const AITeachingDrawer: React.FC<AITeachingDrawerProps> = ({
 
       {/* Body */}
       <div className="flex-1 space-y-2.5 overflow-y-auto p-3 text-xs">
+        {tab === 'draw' && (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-2.5 text-[11px] text-indigo-900">
+              <strong>OpenMAIC AI Drawing & Simulasi Tervalidasi</strong> — AI menyusun langkah visual (Zod schema, tanpa eval) lalu menggambar langsung di papan tulis.
+            </div>
+            <textarea
+              rows={2}
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Contoh: Buat simulasi fungsi kuadrat / gerak parabola / peluang dadu / pythagoras..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:bg-white"
+            />
+            <div className="flex flex-wrap gap-1">
+              {[
+                'Fungsi kuadrat a, b, c',
+                'Simulasi gerak parabola',
+                'Peluang dadu',
+                'Teorema Pythagoras',
+                'Gelombang sinus',
+              ].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setAiPrompt(preset)}
+                  className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              data-testid="ai-generate-plan-btn"
+              onClick={handleGeneratePlan}
+              className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+            >
+              Susun Langkah Visual AI
+            </button>
+
+            {activePlan && (
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-2.5">
+                <div className="text-xs font-bold text-slate-900">{activePlan.title}</div>
+                <div className="space-y-1">
+                  {activePlan.steps.map((st, idx) => (
+                    <div
+                      key={idx}
+                      className={`rounded-lg px-2 py-1 text-[11px] ${
+                        idx < stepCursor
+                          ? 'bg-emerald-50 text-emerald-800 line-through'
+                          : idx === stepCursor
+                            ? 'bg-indigo-50 font-semibold text-indigo-800 border border-indigo-200'
+                            : 'bg-slate-50 text-slate-500'
+                      }`}
+                    >
+                      {idx + 1}. {st.type === 'speak_caption' ? st.text : `${st.type} (${'templateId' in st ? st.templateId : 'latex' in st ? st.latex : 'solidType' in st ? st.solidType : st.type})`}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    data-testid="ai-run-next-step-btn"
+                    disabled={stepCursor >= activePlan.steps.length}
+                    onClick={handleRunNextStep}
+                    className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-[11px] font-bold text-white hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    Langkah Berikutnya
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="ai-run-all-steps-btn"
+                    disabled={stepCursor >= activePlan.steps.length}
+                    onClick={handleRunAllSteps}
+                    className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-40"
+                  >
+                    Jalankan Semua
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'chain' && (
           <>
             <p className="text-[11px] text-slate-500">

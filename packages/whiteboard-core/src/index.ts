@@ -42,6 +42,7 @@ export const BoardObjectSchema = z.object({
     "viz_solid",
     "viz_graph",
     "math_block",
+    "simulation",
     "annotation",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
@@ -240,6 +241,8 @@ export type WhiteboardEventType =
   | "annotation.deleted"
   | "device.pointer.moved"
   | "device.action"
+  | "simulation.parameter_changed"
+  | "phet.experiment_step"
   | "batch";
 
 /** A whiteboard event as sent to POST /api/v1/rooms/{roomId}/events */
@@ -281,3 +284,4 @@ export function createScene(id: string, name?: string): SceneState {
 
 export * from "./reducer.js";
 export * from "./transform.js";
+export * from "./aiCommands.js";

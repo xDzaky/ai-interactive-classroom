@@ -22,6 +22,8 @@ const TongchuangSolidWidget = lazy(() =>
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
 import { MathTextBlockWidget } from "../../components/math/MathTextBlockWidget.js";
+import { SimulationWidget } from "../../components/whiteboard/SimulationWidget.js";
+import type { SimulationTemplateId } from "@ai-classroom/whiteboard-core";
 import type { SolidType, SolidParams, CompoundSolidPart } from "@ai-classroom/geometry-core";
 import type { TexturePreset } from "@/lib/faceTextures";
 import type { MathVisualIntent } from "@ai-classroom/math-core";
@@ -532,7 +534,8 @@ export function WhiteboardOverlay({
             obj !== undefined &&
             (obj.object_type === "viz_solid" ||
               obj.object_type === "viz_graph" ||
-              obj.object_type === "math_block")
+              obj.object_type === "math_block" ||
+              obj.object_type === "simulation")
         ),
     [scene]
   );
@@ -660,6 +663,36 @@ export function WhiteboardOverlay({
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
           />
+        ) : obj.object_type === "simulation" ? (
+          <div
+            key={obj.id}
+            data-testid={`viz-simulation-${obj.id}`}
+            style={{
+              position: "absolute",
+              left: Number((obj.props as Record<string, unknown>).x ?? 240) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
+              top: Number((obj.props as Record<string, unknown>).y ?? 100) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
+              width: Number((obj.props as Record<string, unknown>).w ?? 360),
+              height: Number((obj.props as Record<string, unknown>).h ?? 310),
+              pointerEvents: "auto",
+              zIndex: 18,
+            }}
+          >
+            <SimulationWidget
+              id={obj.id}
+              templateId={String((obj.props as Record<string, unknown>).template_id ?? "math.function_explorer") as SimulationTemplateId}
+              initialConfig={((obj.props as Record<string, unknown>).config as Record<string, unknown>) ?? {}}
+              onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+              onMovePosition={
+                onMoveObject
+                  ? (dx, dy) => {
+                      const p = obj.props as Record<string, unknown>;
+                      const s = viewportController?.getState().scale ?? view.scale;
+                      onMoveObject(obj.id, Number(p.x ?? 240) + dx / (s || 1), Number(p.y ?? 100) + dy / (s || 1));
+                    }
+                  : undefined
+              }
+            />
+          </div>
         ) : (
           <VizGraphOverlay
             key={obj.id}
