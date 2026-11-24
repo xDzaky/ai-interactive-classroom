@@ -38,7 +38,6 @@ import type { LessonTemplate } from "@ai-classroom/curriculum-schema";
 import type Konva from "konva";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
-import { ToolBar } from "@/components/whiteboard/ToolBar";
 import { FormulaToGraphModal } from "@/components/whiteboard/FormulaToGraphModal";
 import { VoiceCommandBar } from "@/components/whiteboard/VoiceCommandBar";
 import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
@@ -50,6 +49,24 @@ import { PhETSimulationModal } from "@/components/whiteboard/PhETSimulationWidge
 import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
 import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
 import { LayersPanel } from "@/components/whiteboard/LayersPanel";
+import { ExcalidrawToolbar } from "@/components/whiteboard/ExcalidrawToolbar";
+import { ExcalidrawPropertiesPanel } from "@/components/whiteboard/ExcalidrawPropertiesPanel";
+import {
+  ExcalidrawCommandPalette,
+  MermaidToDiagramModal,
+  type CommandPaletteAction,
+} from "@/components/whiteboard/ExcalidrawCommandPalette";
+import {
+  DEFAULT_EXCALIDRAW_STYLE,
+  computeAlignedDeltas,
+  computeDistributedDeltas,
+  exportBasicSceneToSvg,
+  type AlignAction,
+  type DistributeAction,
+  type ExcalidrawStyleState,
+  type MermaidDiagramResult,
+} from "@/lib/excalidrawEngine";
+import { getItemBBox } from "@/lib/selectionHitTest";
 import { ConnectDeviceModal } from "@/components/room/ConnectDeviceModal";
 import { RemotePeerBridge, generatePairingCode } from "@/lib/remotePeerBridge";
 import { saveBoardOffline, appendReplayEvent } from "@/lib/offlineSync";
@@ -130,6 +147,19 @@ export default function PersonalRoomPage() {
   const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
   const [showLayersPanel, setShowLayersPanel] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  // V6 Excalidraw Full Feature Set State (Toolbar Lock, Style Inspector, Zen, Dark Canvas, Grid Snap, Command Palette, Mermaid)
+  const [excalidrawStyle, setExcalidrawStyle] = useState<ExcalidrawStyleState>(DEFAULT_EXCALIDRAW_STYLE);
+  const [copiedStyle, setCopiedStyle] = useState<ExcalidrawStyleState | null>(null);
+  const [toolLocked, setToolLocked] = useState(false);
+  const [gridSnap, setGridSnap] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
+  const [darkCanvas, setDarkCanvas] = useState(false);
+  const [showPropsPanel, setShowPropsPanel] = useState(true);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showMermaidModal, setShowMermaidModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiCaption, setAiCaption] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [showRemoteModal, setShowRemoteModal] = useState(false);
@@ -142,34 +172,63 @@ export default function PersonalRoomPage() {
 
   useEffect(() => {
     function update() {
-      const isMobile = window.innerWidth < 768;
       setCanvasSize({
-        width: Math.max(320, isMobile ? window.innerWidth : window.innerWidth - 56),
-        height: Math.max(300, window.innerHeight - 56),
+        width: Math.max(320, window.innerWidth),
+        height: Math.max(300, window.innerHeight - (zenMode ? 0 : 52)),
       });
     }
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
+  }, [zenMode]);
 
-  // Global shortcut V for Select tool (P10-T02)
+  // Global Excalidraw-style Keyboard Shortcuts (1-9, 0, Q, H, V, R, D, O, A, L, P, T, E, F, K, Ctrl+K, Alt+Z, Alt+Shift+D)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.ctrlKey ||
-        e.metaKey ||
-        e.altKey
-      ) {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.tagName?.toLowerCase() === "math-field" ||
+        Boolean(target?.isContentEditable);
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
         return;
       }
-      if (e.key.toLowerCase() === "v") {
-        setActiveTool("select");
-      } else if (e.key.toLowerCase() === "h") {
-        setActiveTool("hand");
+      if (e.altKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        setZenMode((v) => !v);
+        return;
       }
+      if (e.altKey && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        setDarkCanvas((v) => !v);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "'") {
+        e.preventDefault();
+        setGridSnap((v) => !v);
+        return;
+      }
+      if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const k = e.key.toLowerCase();
+      if (k === "q") setToolLocked((v) => !v);
+      else if (k === "h") setActiveTool("hand");
+      else if (k === "1" || k === "v") setActiveTool("select");
+      else if (k === "2" || k === "r") setActiveTool("rect");
+      else if (k === "3" || k === "d") setActiveTool("rhombus");
+      else if (k === "4" || k === "o") setActiveTool("ellipse");
+      else if (k === "5" || k === "a") setActiveTool("arrow");
+      else if (k === "6" || k === "l") setActiveTool("line");
+      else if (k === "7" || k === "p") setActiveTool("pen");
+      else if (k === "8" || k === "t") setActiveTool("text");
+      else if (k === "9") imageFileInputRef.current?.click();
+      else if (k === "0" || k === "e") setActiveTool("eraser");
+      else if (k === "f") setActiveTool("frame");
+      else if (k === "k") setActiveTool("laser");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -632,6 +691,251 @@ export default function PersonalRoomPage() {
     });
   }
 
+  function handleExportSvg() {
+    const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+    const items = [
+      ...Object.values(scene?.objects ?? {}).map((o) => {
+        const p = o.props as Record<string, unknown>;
+        return {
+          type: o.object_type,
+          x: Number(p.x ?? 0),
+          y: Number(p.y ?? 0),
+          w: Number(p.w ?? 100),
+          h: Number(p.h ?? 60),
+          x1: Number(p.x1 ?? 0),
+          y1: Number(p.y1 ?? 0),
+          x2: Number(p.x2 ?? 100),
+          y2: Number(p.y2 ?? 100),
+          r: Number(p.r ?? 40),
+          cx: Number(p.cx ?? 0),
+          cy: Number(p.cy ?? 0),
+          rx: Number(p.rx ?? 50),
+          ry: Number(p.ry ?? 35),
+          stroke: String(p.stroke ?? "#1e1e1e"),
+          fill: String(p.fill ?? "none"),
+          strokeWidth: Number(p.strokeWidth ?? 2),
+          text: String(p.text ?? p.label ?? ""),
+        };
+      }),
+      ...Object.values(scene?.strokes ?? {}).map((s) => ({
+        type: "stroke",
+        points: s.points,
+        stroke: s.color,
+        strokeWidth: s.width,
+      })),
+    ];
+    const svg = exportBasicSceneToSvg(items, canvasSize.width, canvasSize.height, darkCanvas ? "#020617" : "#ffffff");
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.svg`;
+    a.click();
+  }
+
+  function handleExportJson() {
+    const blob = new Blob([JSON.stringify(boardStateRef.current, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.excalidraw.json`;
+    a.click();
+  }
+
+  const handleChangeExcalidrawStyle = useCallback(
+    (patch: Partial<ExcalidrawStyleState>) => {
+      setExcalidrawStyle((prev) => {
+        const next = { ...prev, ...patch };
+        if (patch.strokeColor) setColor(patch.strokeColor);
+        if (patch.strokeWidth) setStrokeWidth(patch.strokeWidth);
+        return next;
+      });
+      if (selectedIds.length > 0) {
+        const propsPatch: Record<string, unknown> = {};
+        if (patch.strokeColor !== undefined) propsPatch.stroke = patch.strokeColor;
+        if (patch.backgroundColor !== undefined) propsPatch.fill = patch.backgroundColor;
+        if (patch.fillStyle !== undefined) propsPatch.fillStyle = patch.fillStyle;
+        if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
+        if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
+        if (patch.roughness !== undefined) propsPatch.roughness = patch.roughness;
+        if (patch.roundness !== undefined) propsPatch.roundness = patch.roundness;
+        if (patch.opacity !== undefined) propsPatch.opacity = patch.opacity;
+        if (patch.fontFamily !== undefined) propsPatch.fontFamily = patch.fontFamily;
+        if (Object.keys(propsPatch).length > 0) {
+          handleEvent({
+            event_type: "batch",
+            payload: {
+              events: selectedIds.map((id) => ({
+                event_type: "object.updated",
+                payload: { id, props_patch: propsPatch },
+              })),
+            },
+          });
+        }
+      }
+    },
+    [selectedIds, handleEvent],
+  );
+
+  const handleAlignSelected = useCallback(
+    (action: AlignAction) => {
+      const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+      const boxes = selectedIds
+        .map((id) => {
+          const b = getItemBBox(id, scene);
+          return b ? { id, ...b } : null;
+        })
+        .filter((x): x is { id: string; x: number; y: number; w: number; h: number } => x !== null);
+      const deltas = computeAlignedDeltas(boxes, action);
+      const events: WhiteboardEvent[] = [];
+      for (const [id, d] of Object.entries(deltas)) {
+        const obj = scene.objects[id];
+        if (!obj || (d.dx === 0 && d.dy === 0)) continue;
+        const p = { ...(obj.props as Record<string, unknown>) };
+        if (typeof p.x === "number") p.x += d.dx;
+        if (typeof p.y === "number") p.y += d.dy;
+        if (typeof p.cx === "number") p.cx += d.dx;
+        if (typeof p.cy === "number") p.cy += d.dy;
+        events.push({ event_type: "object.updated", payload: { id, props_patch: p } });
+      }
+      if (events.length > 0) handleEvent({ event_type: "batch", payload: { events } });
+    },
+    [selectedIds, handleEvent],
+  );
+
+  const handleDistributeSelected = useCallback(
+    (axis: DistributeAction) => {
+      const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+      const boxes = selectedIds
+        .map((id) => {
+          const b = getItemBBox(id, scene);
+          return b ? { id, ...b } : null;
+        })
+        .filter((x): x is { id: string; x: number; y: number; w: number; h: number } => x !== null);
+      const deltas = computeDistributedDeltas(boxes, axis);
+      const events: WhiteboardEvent[] = [];
+      for (const [id, d] of Object.entries(deltas)) {
+        const obj = scene.objects[id];
+        if (!obj || (d.dx === 0 && d.dy === 0)) continue;
+        const p = { ...(obj.props as Record<string, unknown>) };
+        if (typeof p.x === "number") p.x += d.dx;
+        if (typeof p.y === "number") p.y += d.dy;
+        if (typeof p.cx === "number") p.cx += d.dx;
+        if (typeof p.cy === "number") p.cy += d.dy;
+        events.push({ event_type: "object.updated", payload: { id, props_patch: p } });
+      }
+      if (events.length > 0) handleEvent({ event_type: "batch", payload: { events } });
+    },
+    [selectedIds, handleEvent],
+  );
+
+  const handleInsertMermaidDiagram = useCallback(
+    (diagram: MermaidDiagramResult) => {
+      const events: WhiteboardEvent[] = [];
+      const ts = Date.now();
+      for (const n of diagram.nodes) {
+        if (n.shape === "rect") {
+          events.push({
+            event_type: "object.created",
+            payload: {
+              id: `mm-${ts}-${n.id}`,
+              object_type: "rect",
+              props: {
+                x: n.x,
+                y: n.y,
+                w: n.w,
+                h: n.h,
+                stroke: "#1e1e1e",
+                strokeWidth: 2,
+                fill: n.bgColor,
+                fillStyle: "hachure",
+                roughness: 1,
+                roundness: "round",
+                label: n.label,
+              },
+            },
+          });
+        } else if (n.shape === "rhombus") {
+          events.push({
+            event_type: "object.created",
+            payload: {
+              id: `mm-${ts}-${n.id}`,
+              object_type: "rhombus",
+              props: {
+                cx: n.x + n.w / 2,
+                cy: n.y + n.h / 2,
+                rx: n.w / 2,
+                ry: n.h / 2,
+                stroke: "#1e1e1e",
+                strokeWidth: 2,
+                fill: n.bgColor,
+                roughness: 1,
+                label: n.label,
+              },
+            },
+          });
+        } else {
+          events.push({
+            event_type: "object.created",
+            payload: {
+              id: `mm-${ts}-${n.id}`,
+              object_type: "ellipse",
+              props: {
+                cx: n.x + n.w / 2,
+                cy: n.y + n.h / 2,
+                rx: n.w / 2,
+                ry: n.h / 2,
+                stroke: "#1e1e1e",
+                strokeWidth: 2,
+                fill: n.bgColor,
+                roughness: 1,
+                label: n.label,
+              },
+            },
+          });
+        }
+      }
+      for (let i = 0; i < diagram.edges.length; i++) {
+        const e = diagram.edges[i];
+        events.push({
+          event_type: "object.created",
+          payload: {
+            id: `mme-${ts}-${i}`,
+            object_type: "arrow",
+            props: {
+              x1: e.x1,
+              y1: e.y1,
+              x2: e.x2,
+              y2: e.y2,
+              stroke: "#1e1e1e",
+              strokeWidth: 2,
+              label: e.label,
+            },
+          },
+        });
+      }
+      if (events.length > 0) {
+        handleEvent({ event_type: "batch", payload: { events } });
+        setActiveTool("select");
+      }
+    },
+    [handleEvent],
+  );
+
+  const commandActions: CommandPaletteAction[] = [
+    { id: "mermaid", label: "Mermaid → Diagram Flowchart", category: "Excalidraw", run: () => setShowMermaidModal(true) },
+    { id: "zen", label: zenMode ? "Keluar Zen Mode" : "Aktifkan Zen Mode (Tanpa Gangguan)", category: "Tampilan", shortcut: "Alt+Z", run: () => setZenMode((v) => !v) },
+    { id: "dark", label: darkCanvas ? "Tema Kanvas Terang" : "Tema Kanvas Gelap (Dark Mode)", category: "Tampilan", shortcut: "Alt+Shift+D", run: () => setDarkCanvas((v) => !v) },
+    { id: "snap", label: gridSnap ? "Matikan Snap ke Grid (20px)" : "Aktifkan Snap ke Grid (20px)", category: "Kanvas", shortcut: "Ctrl+'", run: () => setGridSnap((v) => !v) },
+    { id: "props", label: showPropsPanel ? "Sembunyikan Panel Properti" : "Tampilkan Panel Properti Gaya", category: "Tampilan", run: () => setShowPropsPanel((v) => !v) },
+    { id: "svg", label: "Ekspor Kanvas ke SVG Vektor", category: "Ekspor", run: handleExportSvg },
+    { id: "png", label: "Ekspor Kanvas ke PNG", category: "Ekspor", run: handleExportPng },
+    { id: "json-exp", label: "Simpan Scene (.excalidraw.json)", category: "Ekspor", run: handleExportJson },
+    { id: "json-imp", label: "Buka / Impor Scene JSON", category: "Impor", run: () => jsonImportInputRef.current?.click() },
+    { id: "remote", label: "Hubungkan Remote HP", category: "Alat", run: () => setShowRemoteModal(true) },
+    { id: "voice", label: "Toggle Perintah Suara AI", category: "AI", run: () => setShowVoiceBar((v) => !v) },
+    { id: "fun", label: "Aktivitas Mengajar Interaktif", category: "Kelas", run: () => setShowFunModal(true) },
+    { id: "clear", label: "Bersihkan Seluruh Papan", category: "Kanvas", run: handleClearBoard },
+  ];
+
   const handleSelectTemplate = useCallback((template: LessonTemplate) => {
     if (template.boardState) {
       setBoardState(template.boardState as unknown as BoardState);
@@ -643,19 +947,20 @@ export default function PersonalRoomPage() {
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-white text-slate-900">
       <FpsMeter />
 
-      {/* Top Navbar (Always-White Theme) */}
-      <header className="z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 shadow-xs backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      {/* Top Navbar (Streamlined — Zero Clipping on 1280px+, hidden in Zen Mode) */}
+      {!zenMode && (
+      <header className={`z-20 flex h-13 shrink-0 items-center justify-between border-b px-3 shadow-xs backdrop-blur-md transition-colors ${darkCanvas ? "border-slate-800 bg-slate-900/95 text-slate-100" : "border-slate-200 bg-white/95 text-slate-900"}`}>
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             to="/login"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-xs font-extrabold text-white shadow-sm"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-xs font-extrabold text-white shadow-sm"
           >
             AI
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 whitespace-nowrap">AI Smart Whiteboard</span>
-            <span className="hidden sm:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
-              {isOnline ? "Mode Tanpa Login · PWA Siap" : "Mode Offline (Lokal)"}
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-xs sm:text-sm font-bold tracking-tight whitespace-nowrap">AI Smart Whiteboard</span>
+            <span className="hidden lg:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
+              {isOnline ? "PWA Siap" : "Offline"}
             </span>
           </div>
         </div>
@@ -665,7 +970,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="open-catalog-btn"
             onClick={() => setShowCatalogPopover((v) => !v)}
-            className={`h-9 whitespace-nowrap rounded-lg border px-3.5 text-[13px] font-medium transition ${
+            className={`h-8 whitespace-nowrap rounded-lg border px-3 text-xs font-semibold transition ${
               showCatalogPopover
                 ? "border-indigo-600 bg-indigo-600 text-white"
                 : "border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100"
@@ -677,7 +982,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="insert-math-block-btn"
             onClick={() => handleInsertMathBlock("y = sin(x), 0 <= x <= 2\\pi")}
-            className="h-9 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+            className="h-8 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           >
             Rumus
           </button>
@@ -685,29 +990,16 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="upload-image-btn"
             onClick={() => imageFileInputRef.current?.click()}
-            className="h-9 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
-            title="Unggah Gambar atau tekan Ctrl+V untuk menempel gambar sketsa"
+            className="hidden sm:inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+            title="Unggah Gambar atau tekan Ctrl+V"
           >
             Gambar
           </button>
-          <input
-            ref={imageFileInputRef}
-            data-testid="upload-image-input"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              files.forEach((f) => void handleIngestImageBlob(f, undefined, f.name));
-              e.target.value = "";
-            }}
-          />
           <button
             type="button"
             data-testid="open-layers-btn"
             onClick={() => setShowLayersPanel((v) => !v)}
-            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
+            className={`h-8 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
               showLayersPanel
                 ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -718,28 +1010,15 @@ export default function PersonalRoomPage() {
           <Link
             to="/notes"
             data-testid="nav-notes-link"
-            className="inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 text-[13px] font-semibold text-sky-700 transition hover:bg-sky-100"
+            className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-2.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
           >
             Catatan
           </Link>
           <button
             type="button"
-            data-testid="open-remote-modal-btn"
-            onClick={() => setShowRemoteModal(true)}
-            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
-              remoteConnected
-                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-            title="Hubungkan Remote HP (QR / Kode 6 Digit / Link)"
-          >
-            {remoteConnected ? "HP Aktif" : "Remote HP"}
-          </button>
-          <button
-            type="button"
             data-testid="open-ai-drawer-btn"
             onClick={() => setShowAiDrawer((v) => !v)}
-            className={`h-9 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
+            className={`h-8 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
               showAiDrawer
                 ? "border-violet-600 bg-violet-600 text-white"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-violet-50 hover:text-violet-700"
@@ -749,70 +1028,62 @@ export default function PersonalRoomPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowVoiceBar((v) => !v)}
-            className={`hidden lg:inline-flex h-9 items-center whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium transition ${
-              showVoiceBar
-                ? "border-cyan-500 bg-cyan-50 text-cyan-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
+            data-testid="open-command-palette-btn"
+            onClick={() => setShowCommandPalette(true)}
+            title="Command Palette & Menu Excalidraw (Ctrl+K)"
+            className="h-8 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
           >
-            Suara AI
+            ⌘ Menu
           </button>
-          <button
-            type="button"
-            data-testid="open-fun-activity-btn"
-            onClick={() => setShowFunModal(true)}
-            className="hidden xl:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 transition hover:bg-amber-50 hover:text-amber-700"
-          >
-            Aktivitas
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPng}
-            className="hidden lg:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-          >
-            Simpan PNG
-          </button>
-          <button
-            type="button"
-            onClick={handleClearBoard}
-            className="hidden xl:inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-          >
-            Bersihkan
-          </button>
-          <div className="hidden sm:block mx-0.5 h-5 w-px bg-slate-200" />
           <Link
             to="/login"
-            className="hidden sm:inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-xs transition hover:bg-indigo-500 active:scale-95"
+            className="hidden sm:inline-flex h-8 items-center whitespace-nowrap rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-500"
           >
             Masuk Guru
           </Link>
         </div>
       </header>
+      )}
+
+      {/* Hidden inputs for Image Upload & Excalidraw JSON Import */}
+      <input
+        ref={imageFileInputRef}
+        data-testid="upload-image-input"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          files.forEach((f) => void handleIngestImageBlob(f, undefined, f.name));
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={jsonImportInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          file.text().then((txt) => {
+            try {
+              const parsed = JSON.parse(txt) as BoardState;
+              if (parsed && parsed.scenes && parsed.active_scene_id) {
+                setBoardState(parsed);
+                boardStateRef.current = parsed;
+              }
+            } catch {
+              // ignore invalid JSON
+            }
+          });
+          e.target.value = "";
+        }}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Toolbar — Desktop & Tablet only (hidden on <768px mobile where Bottom Thumb Dock takes over) */}
-        <aside
-          data-toolbar
-          className="hidden md:flex shrink-0 items-start justify-center border-r border-slate-200 bg-slate-50 p-1.5"
-          aria-label="Toolbar Gambar"
-          style={{ zIndex: 10 }}
-        >
-          <ToolBar
-            activeTool={activeTool}
-            color={color}
-            strokeWidth={strokeWidth}
-            onToolChange={setActiveTool}
-            onColorChange={setColor}
-            onStrokeWidthChange={setStrokeWidth}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={history.past.length > 0}
-            canRedo={history.future.length > 0}
-          />
-        </aside>
-
-        {/* Main White Canvas (includes single Tongchuang 3D/Graph Overlay & Right-Click AI Radial Wheel) */}
+        {/* Main White/Dark Canvas (Excalidraw Top-Center Dock + Left Properties Panel + 3D/Math Overlay) */}
         <main
           ref={overlayContainerRef}
           className="relative flex-1 overflow-hidden bg-white select-none"
@@ -858,7 +1129,88 @@ export default function PersonalRoomPage() {
             onOpenTemplates={() => setShowTemplatesModal(true)}
             remoteLaser={remoteLaser}
             stageRef={stageRef}
+            excalidrawStyle={excalidrawStyle}
+            toolLocked={toolLocked}
+            gridSnap={gridSnap}
+            darkCanvas={darkCanvas}
+            onSelectionChange={setSelectedIds}
           />
+
+          {/* Excalidraw Top-Center Floating Tool Dock (Desktop/Tablet) */}
+          <div className="pointer-events-none absolute top-3 left-1/2 z-30 hidden md:flex -translate-x-1/2 items-center gap-2">
+            <ExcalidrawToolbar
+              activeTool={activeTool}
+              toolLocked={toolLocked}
+              darkCanvas={darkCanvas}
+              onSelectTool={setActiveTool}
+              onToggleLock={() => setToolLocked((v) => !v)}
+              onInsertImage={() => imageFileInputRef.current?.click()}
+              onOpenMermaid={() => setShowMermaidModal(true)}
+              onOpenCommandPalette={() => setShowCommandPalette(true)}
+            />
+          </div>
+
+          {/* Zen Mode Floating Exit Pill */}
+          {zenMode && (
+            <button
+              type="button"
+              onClick={() => setZenMode(false)}
+              className="fixed top-3 right-3 z-40 rounded-full bg-slate-900/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg"
+            >
+              Keluar Zen Mode (Alt+Z)
+            </button>
+          )}
+
+          {/* Excalidraw Left Floating Properties Panel */}
+          {!zenMode && (
+            <ExcalidrawPropertiesPanel
+              open={showPropsPanel && (selectedIds.length > 0 || (activeTool !== "select" && activeTool !== "hand" && activeTool !== "eraser" && activeTool !== "laser"))}
+              style={excalidrawStyle}
+              selectedCount={selectedIds.length}
+              hasCopiedStyle={Boolean(copiedStyle)}
+              darkCanvas={darkCanvas}
+              onChangeStyle={handleChangeExcalidrawStyle}
+              onAlign={handleAlignSelected}
+              onDistribute={handleDistributeSelected}
+              onCopyStyle={() => setCopiedStyle({ ...excalidrawStyle })}
+              onPasteStyle={() => copiedStyle && handleChangeExcalidrawStyle(copiedStyle)}
+              onDuplicate={() => {
+                const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+                const events: WhiteboardEvent[] = [];
+                selectedIds.forEach((id) => {
+                  const o = scene.objects[id];
+                  if (!o) return;
+                  const p = o.props as Record<string, unknown>;
+                  events.push({
+                    event_type: "object.created",
+                    payload: {
+                      id: `${id}-dup-${Date.now()}`,
+                      object_type: o.object_type,
+                      props: {
+                        ...p,
+                        ...(typeof p.x === "number" ? { x: p.x + 28 } : {}),
+                        ...(typeof p.y === "number" ? { y: p.y + 28 } : {}),
+                        ...(typeof p.cx === "number" ? { cx: p.cx + 28 } : {}),
+                        ...(typeof p.cy === "number" ? { cy: p.cy + 28 } : {}),
+                      },
+                    },
+                  });
+                });
+                if (events.length > 0) handleEvent({ event_type: "batch", payload: { events } });
+              }}
+              onDelete={() => {
+                if (selectedIds.length === 0) return;
+                handleEvent({
+                  event_type: "batch",
+                  payload: {
+                    events: selectedIds.map((id) => ({ event_type: "object.deleted", payload: { id } })),
+                  },
+                });
+                setSelectedIds([]);
+              }}
+              onClose={() => setShowPropsPanel(false)}
+            />
+          )}
 
           {/* Mobile Bottom Thumb Dock (< 768px) — thumb-reachable core tools */}
           <div
@@ -1156,6 +1508,18 @@ export default function PersonalRoomPage() {
             payload: { id },
           })
         }
+      />
+
+      {/* Excalidraw Command Palette (Ctrl+K) & Mermaid-to-Diagram Modal */}
+      <ExcalidrawCommandPalette
+        open={showCommandPalette}
+        actions={commandActions}
+        onClose={() => setShowCommandPalette(false)}
+      />
+      <MermaidToDiagramModal
+        open={showMermaidModal}
+        onInsert={handleInsertMermaidDiagram}
+        onClose={() => setShowMermaidModal(false)}
       />
 
       {/* AI Fun Teaching Activity Modal */}

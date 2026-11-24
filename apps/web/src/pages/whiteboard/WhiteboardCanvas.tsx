@@ -57,6 +57,13 @@ import {
   getItemBBox,
 } from "@/lib/selectionHitTest";
 import {
+  DEFAULT_EXCALIDRAW_STYLE,
+  findNearestBindTarget,
+  snapToGrid,
+  type ExcalidrawStyleState,
+} from "@/lib/excalidrawEngine";
+import { LaserPointerEngine } from "@/lib/laserPointerEngine";
+import {
   resolveActions,
   WHITEBOARD_ACTIONS,
   is2DConvertible,
@@ -126,6 +133,11 @@ export interface WhiteboardCanvasProps {
   onOpenSummary?: () => void;
   onOpenTemplates?: () => void;
   remoteLaser?: { nx: number; ny: number } | null;
+  excalidrawStyle?: ExcalidrawStyleState;
+  toolLocked?: boolean;
+  gridSnap?: boolean;
+  darkCanvas?: boolean;
+  onSelectionChange?: (ids: string[]) => void;
 }
 
 interface ViewTransform {
@@ -596,7 +608,27 @@ export function WhiteboardCanvas({
   onOpenSummary,
   onOpenTemplates,
   remoteLaser = null,
+  excalidrawStyle = DEFAULT_EXCALIDRAW_STYLE,
+  toolLocked = false,
+  gridSnap = false,
+  darkCanvas = false,
+  onSelectionChange,
 }: WhiteboardCanvasProps) {
+  const exStyleRef = useRef(excalidrawStyle);
+  exStyleRef.current = excalidrawStyle;
+  const toolLockedRef = useRef(toolLocked);
+  toolLockedRef.current = toolLocked;
+  const gridSnapRef = useRef(gridSnap);
+  gridSnapRef.current = gridSnap;
+  const laserCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const laserEngineRef = useRef<LaserPointerEngine | null>(null);
+
+  useEffect(() => {
+    const eng = new LaserPointerEngine({ mode: "trail", thickness: 1.1, durationSec: 1.1, color: "#ef4444" });
+    laserEngineRef.current = eng;
+    eng.attach(laserCanvasRef.current);
+    return () => eng.destroy();
+  }, []);
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
   const previewLayerRef = useRef<Konva.Layer | null>(null);
@@ -709,6 +741,9 @@ export function WhiteboardCanvas({
 
   // ── Interactive Selection & Context Menu state (P10-T02, P11-T02) ─────────
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  useEffect(() => {
+    onSelectionChange?.(selectedIds);
+  }, [selectedIds, onSelectionChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
   const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
@@ -2113,121 +2148,175 @@ export function WhiteboardCanvas({
         return;
       }
 
-      // Shape tools
+      // Shape tools (Excalidraw style + grid snap + arrow binding + auto-return to Select unless Tool Lock ON)
       if (!start) return;
+      const ex = exStyleRef.current;
+      const snap = (v: number) => (gridSnapRef.current ? snapToGrid(v, 20) : v);
+      const sx0 = snap(start.x);
+      const sy0 = snap(start.y);
+      const sx1 = snap(pos.x);
+      const sy1 = snap(pos.y);
+      const styleMeta = {
+        stroke: ex.strokeColor || col,
+        strokeWidth: ex.strokeWidth || sw,
+        fill: ex.backgroundColor,
+        fillStyle: ex.fillStyle,
+        strokeStyle: ex.strokeStyle,
+        roughness: ex.roughness,
+        roundness: ex.roundness,
+        opacity: ex.opacity,
+        fontFamily: ex.fontFamily,
+      };
+      let createdShape = false;
 
       if (tool === "line" || tool === "arrow") {
+        let ax1 = sx0, ay1 = sy0, ax2 = sx1, ay2 = sy1;
+        if (tool === "arrow") {
+          const candidates = Object.values(sceneRef.current.objects)
+            .filter((o) => o.object_type === "rect" || o.object_type === "rhombus" || o.object_type === "ellipse" || o.object_type === "circle")
+            .map((o) => {
+              const b = getItemBBox(o.id, sceneRef.current);
+              return b ? { id: o.id, ...b } : null;
+            })
+            .filter((x): x is { id: string; x: number; y: number; w: number; h: number } => x !== null);
+          const bindStart = findNearestBindTarget({ x: ax1, y: ay1 }, candidates, 28);
+          const bindEnd = findNearestBindTarget({ x: ax2, y: ay2 }, candidates, 28);
+          if (bindStart) { ax1 = bindStart.anchorX; ay1 = bindStart.anchorY; }
+          if (bindEnd) { ax2 = bindEnd.anchorX; ay2 = bindEnd.anchorY; }
+        }
         commitEvent({
           event_type: "object.created",
           payload: {
             id,
             object_type: tool,
-            props: { x1: start.x, y1: start.y, x2: pos.x, y2: pos.y, stroke: col, strokeWidth: sw },
+            props: { x1: ax1, y1: ay1, x2: ax2, y2: ay2, ...styleMeta },
           },
         });
-      } else if (tool === "rect") {
-        const x = Math.min(start.x, pos.x);
-        const y = Math.min(start.y, pos.y);
-        commitEvent({
-          event_type: "object.created",
-          payload: {
-            id,
-            object_type: "rect",
-            props: { x, y, w: Math.abs(pos.x - start.x), h: Math.abs(pos.y - start.y), stroke: col, strokeWidth: sw, fill: "transparent" },
-          },
-        });
+        createdShape = true;
+      } else if (tool === "rect" || tool === "frame") {
+        const x = Math.min(sx0, sx1);
+        const y = Math.min(sy0, sy1);
+        const w = Math.abs(sx1 - sx0);
+        const h = Math.abs(sy1 - sy0);
+        if (w > 4 || h > 4) {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: tool,
+              props: {
+                x,
+                y,
+                w,
+                h,
+                ...styleMeta,
+                ...(tool === "frame" ? { label: "Frame" } : {}),
+              },
+            },
+          });
+          createdShape = true;
+        }
       } else if (tool === "circle") {
         const r =
-          Math.sqrt(Math.pow(pos.x - start.x, 2) + Math.pow(pos.y - start.y, 2)) / 2;
+          Math.sqrt(Math.pow(sx1 - sx0, 2) + Math.pow(sy1 - sy0, 2)) / 2;
         commitEvent({
           event_type: "object.created",
           payload: {
             id,
             object_type: "circle",
-            props: { x: (start.x + pos.x) / 2, y: (start.y + pos.y) / 2, r: Math.max(r, 2), stroke: col, strokeWidth: sw, fill: "transparent" },
+            props: { x: (sx0 + sx1) / 2, y: (sy0 + sy1) / 2, r: Math.max(r, 2), ...styleMeta },
           },
         });
+        createdShape = true;
       } else if (tool === "triangle") {
-        const h = Math.abs(pos.y - start.y);
-        const side = h > 0 ? h / (Math.sqrt(3) / 2) : Math.abs(pos.x - start.x);
-        const mx = (start.x + pos.x) / 2;
-        const baseY = pos.y > start.y ? start.y + h : start.y - h;
-        if (h > 5 || Math.abs(pos.x - start.x) > 5) {
+        const h = Math.abs(sy1 - sy0);
+        const side = h > 0 ? h / (Math.sqrt(3) / 2) : Math.abs(sx1 - sx0);
+        const mx = (sx0 + sx1) / 2;
+        const baseY = sy1 > sy0 ? sy0 + h : sy0 - h;
+        if (h > 5 || Math.abs(sx1 - sx0) > 5) {
           commitEvent({
             event_type: "object.created",
             payload: {
               id,
               object_type: "triangle",
               props: {
-                x1: mx, y1: start.y,
+                x1: mx, y1: sy0,
                 x2: mx - side / 2, y2: baseY,
                 x3: mx + side / 2, y3: baseY,
-                stroke: col, strokeWidth: sw, fill: "transparent",
+                ...styleMeta,
               },
             },
           });
+          createdShape = true;
         }
       } else if (tool === "ellipse") {
-        const cx = (start.x + pos.x) / 2;
-        const cy = (start.y + pos.y) / 2;
-        const rx = Math.max(Math.abs(pos.x - start.x) / 2, 2);
-        const ry = Math.max(Math.abs(pos.y - start.y) / 2, 2);
+        const cx = (sx0 + sx1) / 2;
+        const cy = (sy0 + sy1) / 2;
+        const rx = Math.max(Math.abs(sx1 - sx0) / 2, 2);
+        const ry = Math.max(Math.abs(sy1 - sy0) / 2, 2);
         if (rx > 3 || ry > 3) {
           commitEvent({
             event_type: "object.created",
             payload: {
               id,
               object_type: "ellipse",
-              props: { cx, cy, rx, ry, stroke: col, strokeWidth: sw, fill: "transparent" },
+              props: { cx, cy, rx, ry, ...styleMeta },
             },
           });
+          createdShape = true;
         }
       } else if (tool === "rhombus") {
-        const cx = (start.x + pos.x) / 2;
-        const cy = (start.y + pos.y) / 2;
-        const rx = Math.max(Math.abs(pos.x - start.x) / 2, 2);
-        const ry = Math.max(Math.abs(pos.y - start.y) / 2, 2);
+        const cx = (sx0 + sx1) / 2;
+        const cy = (sy0 + sy1) / 2;
+        const rx = Math.max(Math.abs(sx1 - sx0) / 2, 2);
+        const ry = Math.max(Math.abs(sy1 - sy0) / 2, 2);
         if (rx > 3 || ry > 3) {
           commitEvent({
             event_type: "object.created",
             payload: {
               id,
               object_type: "rhombus",
-              props: { cx, cy, rx, ry, stroke: col, strokeWidth: sw, fill: "transparent" },
+              props: { cx, cy, rx, ry, ...styleMeta },
             },
           });
+          createdShape = true;
         }
       } else if (tool === "pentagon" || tool === "hexagon") {
-        const cx = (start.x + pos.x) / 2;
-        const cy = (start.y + pos.y) / 2;
-        const r = Math.max(Math.max(Math.abs(pos.x - start.x), Math.abs(pos.y - start.y)) / 2, 2);
+        const cx = (sx0 + sx1) / 2;
+        const cy = (sy0 + sy1) / 2;
+        const r = Math.max(Math.max(Math.abs(sx1 - sx0), Math.abs(sy1 - sy0)) / 2, 2);
         if (r > 3) {
           commitEvent({
             event_type: "object.created",
             payload: {
               id,
               object_type: tool,
-              props: { cx, cy, r, stroke: col, strokeWidth: sw, fill: "transparent" },
+              props: { cx, cy, r, ...styleMeta },
             },
           });
+          createdShape = true;
         }
       } else if (tool === "star") {
-        const cx = (start.x + pos.x) / 2;
-        const cy = (start.y + pos.y) / 2;
-        const outerR = Math.max(Math.max(Math.abs(pos.x - start.x), Math.abs(pos.y - start.y)) / 2, 4);
+        const cx = (sx0 + sx1) / 2;
+        const cy = (sy0 + sy1) / 2;
+        const outerR = Math.max(Math.max(Math.abs(sx1 - sx0), Math.abs(sy1 - sy0)) / 2, 4);
         if (outerR > 5) {
           commitEvent({
             event_type: "object.created",
             payload: {
               id,
               object_type: "star",
-              props: { cx, cy, outerR, innerR: outerR / 2.2, stroke: col, strokeWidth: sw, fill: "transparent" },
+              props: { cx, cy, outerR, innerR: outerR / 2.2, ...styleMeta },
             },
           });
+          createdShape = true;
         }
       }
+      if (createdShape && !toolLockedRef.current && onToolChange) {
+        onToolChange("select");
+      }
     },
-    [readOnly, getWorldPos, clearLivePreview, commitEvent],
+    [readOnly, getWorldPos, clearLivePreview, commitEvent, onToolChange],
   );
 
   // ---------------------------------------------------------------------------
@@ -2343,6 +2432,8 @@ export function WhiteboardCanvas({
     hexagon: "crosshair",
     star: "crosshair",
     text: "text",
+    frame: "crosshair",
+    laser: "crosshair",
   };
 
   // Stage dragging is handled exclusively by Hand tool (isHandPanning), NEVER by Select tool!
@@ -2350,8 +2441,25 @@ export function WhiteboardCanvas({
 
   return (
     <div
-      className="relative overflow-hidden bg-white"
+      className={`relative overflow-hidden transition-colors ${darkCanvas ? "bg-slate-950" : "bg-white"}`}
       onContextMenu={handleContextMenu}
+      onPointerDown={(e) => {
+        if (activeTool === "laser") {
+          const rect = e.currentTarget.getBoundingClientRect();
+          laserEngineRef.current?.pushPoint(e.clientX - rect.left, e.clientY - rect.top);
+        }
+      }}
+      onPointerMove={(e) => {
+        if (activeTool === "laser" && e.buttons > 0) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          laserEngineRef.current?.pushPoint(e.clientX - rect.left, e.clientY - rect.top);
+        }
+      }}
+      onPointerUp={() => {
+        if (activeTool === "laser") {
+          laserEngineRef.current?.endStroke();
+        }
+      }}
       style={{
         width,
         height,
@@ -2359,6 +2467,13 @@ export function WhiteboardCanvas({
         cursor: dynamicCursor ?? cursorMap[activeTool] ?? "crosshair",
       }}
     >
+      {/* Dedicated Transparent RAF Laser Pointer Canvas (Excalidraw Laser K) */}
+      <canvas
+        ref={laserCanvasRef}
+        width={width}
+        height={height}
+        className="pointer-events-none absolute inset-0 z-30 h-full w-full"
+      />
       <GridBackground
         viewportController={viewportController}
         visible={showGrid}

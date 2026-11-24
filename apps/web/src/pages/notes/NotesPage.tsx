@@ -25,6 +25,18 @@ import {
 } from '@/lib/notesStore';
 import { putMediaAsset } from '@/lib/mediaStore';
 import type { LaserConfig } from '@/lib/laserPointerEngine';
+import { ExcalidrawPropertiesPanel } from '@/components/whiteboard/ExcalidrawPropertiesPanel';
+import {
+  ExcalidrawCommandPalette,
+  MermaidToDiagramModal,
+  type CommandPaletteAction,
+} from '@/components/whiteboard/ExcalidrawCommandPalette';
+import {
+  DEFAULT_EXCALIDRAW_STYLE,
+  exportBasicSceneToSvg,
+  type ExcalidrawStyleState,
+  type MermaidDiagramResult,
+} from '@/lib/excalidrawEngine';
 import {
   NotesToolbarPills,
   type EraserSettings,
@@ -80,6 +92,11 @@ export default function NotesPage() {
   });
 
   // Panels & utilities
+  const [excalidrawStyle, setExcalidrawStyle] = useState<ExcalidrawStyleState>(DEFAULT_EXCALIDRAW_STYLE);
+  const [toolLocked, setToolLocked] = useState(false);
+  const [showExProps, setShowExProps] = useState(true);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showMermaidModal, setShowMermaidModal] = useState(false);
   const [showRuler, setShowRuler] = useState(false);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
@@ -246,6 +263,97 @@ export default function NotesPage() {
     a.click();
     showToast('Halaman diekspor ke PNG');
   };
+
+  const handleExportSvg = () => {
+    if (!activePage) return;
+    const items = [
+      ...activePage.objects.map((o) => {
+        const p = o.props as Record<string, unknown>;
+        return {
+          type: o.object_type,
+          x: Number(p.x ?? 0), y: Number(p.y ?? 0), w: Number(p.w ?? 100), h: Number(p.h ?? 60),
+          x1: Number(p.x1 ?? 0), y1: Number(p.y1 ?? 0), x2: Number(p.x2 ?? 100), y2: Number(p.y2 ?? 100),
+          cx: Number(p.cx ?? 0), cy: Number(p.cy ?? 0), rx: Number(p.rx ?? 50), ry: Number(p.ry ?? 35),
+          stroke: String(p.stroke ?? '#1e1e1e'), fill: String(p.fill ?? 'none'),
+          strokeWidth: Number(p.strokeWidth ?? 2), text: String(p.label ?? ''),
+        };
+      }),
+      ...activePage.strokes.map((s) => ({
+        type: 'stroke', points: s.points, stroke: s.color, strokeWidth: s.width,
+      })),
+    ];
+    const svg = exportBasicSceneToSvg(items, activePage.pageSize?.widthPx ?? 820, activePage.pageSize?.heightPx ?? 1120);
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${activeNotebook?.title ?? 'catatan'}-hal-${activePageIdx + 1}.svg`;
+    a.click();
+    showToast('Halaman diekspor ke SVG vektor');
+  };
+
+  const handleInsertMermaidInNotes = (diagram: MermaidDiagramResult) => {
+    const now = Date.now();
+    const newObjs = [
+      ...diagram.nodes.map((n) => ({
+        id: `nmm-${now}-${n.id}`,
+        object_type: n.shape as 'rect' | 'rhombus' | 'ellipse',
+        props:
+          n.shape === 'rect'
+            ? { x: n.x, y: n.y, w: n.w, h: n.h, stroke: '#1e1e1e', fill: n.bgColor, fillStyle: 'hachure', roughness: 1, strokeWidth: 2, label: n.label }
+            : { cx: n.x + n.w / 2, cy: n.y + n.h / 2, rx: n.w / 2, ry: n.h / 2, stroke: '#1e1e1e', fill: n.bgColor, roughness: 1, strokeWidth: 2, label: n.label },
+        created_at: now,
+        updated_at: now,
+      })),
+      ...diagram.edges.map((e, i) => ({
+        id: `nmme-${now}-${i}`,
+        object_type: 'arrow' as const,
+        props: { x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, stroke: '#1e1e1e', strokeWidth: 2, label: e.label },
+        created_at: now,
+        updated_at: now,
+      })),
+    ];
+    handleUpdatePage((p) => ({ ...p, objects: [...p.objects, ...newObjs] }));
+    showToast(`Diagram Mermaid (${diagram.nodes.length} node) ditambahkan`);
+  };
+
+  // Excalidraw keyboard shortcuts in /notes (1-9, Q, F, K, Ctrl+K)
+  useEffect(() => {
+    if (viewMode !== 'editor') return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+        return;
+      }
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'q') setToolLocked((v) => !v);
+      else if (k === '1' || k === 'v') setActiveTool('select');
+      else if (k === '2' || k === 'r') setActiveTool('rect');
+      else if (k === '3' || k === 'd') setActiveTool('rhombus');
+      else if (k === '4' || k === 'o') setActiveTool('ellipse');
+      else if (k === '5' || k === 'a') setActiveTool('arrow');
+      else if (k === '6' || k === 'l') setActiveTool('line');
+      else if (k === '7' || k === 'p') setActiveTool('fountain');
+      else if (k === '8' || k === 't') setActiveTool('text');
+      else if (k === '0' || k === 'e') setActiveTool('eraser');
+      else if (k === 'f') setActiveTool('frame');
+      else if (k === 'k') setActiveTool('laser');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewMode]);
+
+  const notesCommandActions: CommandPaletteAction[] = [
+    { id: 'n-mermaid', label: 'Mermaid → Diagram Flowchart', category: 'Excalidraw', run: () => setShowMermaidModal(true) },
+    { id: 'n-svg', label: 'Ekspor Halaman ke SVG Vektor', category: 'Ekspor', run: handleExportSvg },
+    { id: 'n-png', label: 'Ekspor Halaman ke PNG', category: 'Ekspor', run: handleExportPng },
+    { id: 'n-ruler', label: showRuler ? 'Sembunyikan Penggaris Virtual' : 'Tampilkan Penggaris Virtual', category: 'Alat', run: () => setShowRuler((v) => !v) },
+    { id: 'n-props', label: showExProps ? 'Sembunyikan Panel Gaya Excalidraw' : 'Tampilkan Panel Gaya Excalidraw', category: 'Tampilan', run: () => setShowExProps((v) => !v) },
+    { id: 'n-timer', label: 'Buka Timer Belajar', category: 'Utilitas', run: () => setShowTimer((v) => !v) },
+    { id: 'n-feynman', label: 'Buka Feynman AI', category: 'AI', run: () => setShowFeynman((v) => !v) },
+  ];
 
   const handleToggleSpeechRecord = () => {
     const SpeechRec = (window as unknown as { SpeechRecognition?: new () => unknown; webkitSpeechRecognition?: new () => unknown }).SpeechRecognition
@@ -494,6 +602,11 @@ export default function NotesPage() {
         onOpenFeynmanAI={() => setShowFeynman((v) => !v)}
         onCapturePhoto={() => imgInputRef.current?.click()}
         onSnipCanvas={handleExportPng}
+        toolLocked={toolLocked}
+        onToggleToolLock={() => setToolLocked((v) => !v)}
+        onOpenMermaid={() => setShowMermaidModal(true)}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
+        onExportSvg={handleExportSvg}
       />
 
       {/* Hidden File Inputs for Images & PDF */}
@@ -541,8 +654,28 @@ export default function NotesPage() {
           laserConfig={laserConfig}
           showRuler={showRuler}
           canvasExportRef={canvasExportRef}
+          excalidrawStyle={excalidrawStyle}
+          toolLocked={toolLocked}
+          onSelectTool={setActiveTool}
           onUpdatePage={handleUpdatePage}
           onDropImageBlob={(blob, pos, name) => void handleInsertImageBlob(blob, pos, name)}
+        />
+
+        {/* Shared Excalidraw Left Style Properties Panel in /notes (when diagramming tool is active) */}
+        <ExcalidrawPropertiesPanel
+          open={
+            showExProps &&
+            (activeTool === 'rect' ||
+              activeTool === 'rhombus' ||
+              activeTool === 'ellipse' ||
+              activeTool === 'arrow' ||
+              activeTool === 'line' ||
+              activeTool === 'frame')
+          }
+          style={excalidrawStyle}
+          selectedCount={0}
+          onChangeStyle={(patch) => setExcalidrawStyle((prev) => ({ ...prev, ...patch }))}
+          onClose={() => setShowExProps(false)}
         />
 
         {/* Right Thumbnail Sidebar (Matches Screenshot_20261124-235043.jpg.jpeg!) */}
@@ -784,6 +917,17 @@ export default function NotesPage() {
           {feynmanAnswer && <p className="mt-2 rounded-xl bg-indigo-50 p-2.5 text-[11px] text-indigo-900">{feynmanAnswer}</p>}
         </div>
       )}
+
+      <ExcalidrawCommandPalette
+        open={showCommandPalette}
+        actions={notesCommandActions}
+        onClose={() => setShowCommandPalette(false)}
+      />
+      <MermaidToDiagramModal
+        open={showMermaidModal}
+        onInsert={handleInsertMermaidInNotes}
+        onClose={() => setShowMermaidModal(false)}
+      />
 
       {statusToast && (
         <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xl">

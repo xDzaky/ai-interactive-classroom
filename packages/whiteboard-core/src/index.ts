@@ -51,6 +51,7 @@ export const BoardObjectSchema = z.object({
     "textbook_graph",
     "stat_chart",
     "trig_proof",
+    "frame",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)

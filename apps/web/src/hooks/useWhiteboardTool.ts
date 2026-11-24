@@ -30,7 +30,9 @@ export type ToolType =
   | "pentagon"
   | "hexagon"
   | "rhombus"
-  | "star";
+  | "star"
+  | "frame"
+  | "laser";
 
 export interface ToolState {
   activeTool: ToolType;

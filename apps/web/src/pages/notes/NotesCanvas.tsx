@@ -20,6 +20,21 @@ import type {
 import { LaserPointerEngine, type LaserConfig } from '@/lib/laserPointerEngine';
 import { InputRouter } from '@/lib/inputRouter';
 import { getMediaObjectUrl } from '@/lib/mediaStore';
+import {
+  DEFAULT_EXCALIDRAW_STYLE,
+  generateHachureSegments,
+  generateSketchyDiamondPaths,
+  generateSketchyEllipsePaths,
+  generateSketchyRectPaths,
+  getStrokeDashArray,
+  resolveFontFamilyCss,
+  type ExcalidrawStyleState,
+  type FillStyleKind,
+  type FontFamilyKind,
+  type RoughnessLevel,
+  type StrokeStyleKind,
+} from '@/lib/excalidrawEngine';
+import type { BoardObject } from '@ai-classroom/whiteboard-core';
 import type {
   EraserSettings,
   LassoSettings,
@@ -37,6 +52,9 @@ export interface NotesCanvasProps {
   laserConfig: LaserConfig;
   showRuler: boolean;
   canvasExportRef: React.MutableRefObject<HTMLCanvasElement | null>;
+  excalidrawStyle?: ExcalidrawStyleState;
+  toolLocked?: boolean;
+  onSelectTool?: (t: NotesToolId) => void;
   onUpdatePage: (updater: (prev: NotePage) => NotePage, pushUndo?: boolean) => void;
   onDropImageBlob: (blob: Blob, pos: { x: number; y: number }, name?: string) => void;
 }
@@ -147,6 +165,9 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   laserConfig,
   showRuler,
   canvasExportRef,
+  excalidrawStyle = DEFAULT_EXCALIDRAW_STYLE,
+  toolLocked = false,
+  onSelectTool,
   onUpdatePage,
   onDropImageBlob,
 }) => {
@@ -162,6 +183,8 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const liveStrokeRef = useRef<Array<[number, number, number]>>([]);
+  const shapeStartRef = useRef<[number, number] | null>(null);
+  const shapeEndRef = useRef<[number, number] | null>(null);
   const isDrawingRef = useRef(false);
   const lassoPtsRef = useRef<Array<[number, number]>>([]);
 
@@ -261,7 +284,195 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
       ctx.restore();
     };
 
+    const drawExcalidrawObject = (obj: BoardObject) => {
+      if (obj.object_type === 'image') return;
+      const p = obj.props as Record<string, unknown>;
+      const stroke = String(p.stroke ?? '#1e1e1e');
+      const fill = String(p.fill ?? 'transparent');
+      const sw = Number(p.strokeWidth ?? 2);
+      const fillStyle = (p.fillStyle as FillStyleKind) ?? 'hachure';
+      const strokeStyle = (p.strokeStyle as StrokeStyleKind) ?? 'solid';
+      const roughness = (typeof p.roughness === 'number' ? p.roughness : 1) as RoughnessLevel;
+      const opacityRaw = typeof p.opacity === 'number' ? p.opacity : 100;
+      const alpha = opacityRaw <= 1 ? opacityRaw : opacityRaw / 100;
+      const label = typeof p.label === 'string' ? p.label : '';
+      const fontCss = resolveFontFamilyCss((p.fontFamily as FontFamilyKind) ?? 'hand');
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.05, Math.min(1, alpha));
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = sw;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.setLineDash(getStrokeDashArray(strokeStyle, sw));
+
+      const strokePoly = (pts: number[]) => {
+        if (pts.length < 4) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0], pts[1]);
+        for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+        ctx.stroke();
+      };
+
+      if (obj.object_type === 'frame' || obj.object_type === 'rect') {
+        const x = Number(p.x ?? 0);
+        const y = Number(p.y ?? 0);
+        const w = Number(p.w ?? 120);
+        const h = Number(p.h ?? 70);
+        if (obj.object_type === 'frame') {
+          ctx.setLineDash([8, 5]);
+          ctx.fillStyle = fill !== 'transparent' ? fill : 'rgba(248, 250, 252, 0.5)';
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeStyle = '#94a3b8';
+          ctx.strokeRect(x, y, w, h);
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#64748b';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillText(label || 'Frame', x + 4, y - 6);
+        } else {
+          if (fill !== 'transparent') {
+            if (fillStyle === 'solid') {
+              ctx.fillStyle = fill;
+              ctx.fillRect(x, y, w, h);
+            } else {
+              const segs = generateHachureSegments(x, y, w, h, fillStyle, 10);
+              ctx.save();
+              ctx.strokeStyle = fill;
+              ctx.lineWidth = 2;
+              ctx.setLineDash([]);
+              segs.forEach(([x1, y1, x2, y2]) => {
+                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+              });
+              ctx.restore();
+            }
+          }
+          generateSketchyRectPaths(x, y, w, h, roughness, obj.id).forEach(strokePoly);
+          if (label) {
+            ctx.fillStyle = stroke;
+            ctx.font = `bold 14px ${fontCss}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x + w / 2, y + h / 2);
+          }
+        }
+      } else if (obj.object_type === 'rhombus') {
+        const cx = Number(p.cx ?? 100);
+        const cy = Number(p.cy ?? 100);
+        const rx = Number(p.rx ?? 55);
+        const ry = Number(p.ry ?? 40);
+        if (fill !== 'transparent') {
+          ctx.fillStyle = fill;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - ry); ctx.lineTo(cx + rx, cy); ctx.lineTo(cx, cy + ry); ctx.lineTo(cx - rx, cy);
+          ctx.closePath();
+          ctx.fill();
+        }
+        generateSketchyDiamondPaths(cx, cy, rx, ry, roughness, obj.id).forEach(strokePoly);
+        if (label) {
+          ctx.fillStyle = stroke;
+          ctx.font = `bold 12px ${fontCss}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, cx, cy);
+        }
+      } else if (obj.object_type === 'ellipse') {
+        const cx = Number(p.cx ?? 100);
+        const cy = Number(p.cy ?? 100);
+        const rx = Number(p.rx ?? 55);
+        const ry = Number(p.ry ?? 36);
+        if (fill !== 'transparent') {
+          ctx.fillStyle = fill;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        generateSketchyEllipsePaths(cx, cy, rx, ry, roughness, obj.id).forEach(strokePoly);
+        if (label) {
+          ctx.fillStyle = stroke;
+          ctx.font = `bold 13px ${fontCss}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, cx, cy);
+        }
+      } else if (obj.object_type === 'line' || obj.object_type === 'arrow') {
+        const x1 = Number(p.x1 ?? 0);
+        const y1 = Number(p.y1 ?? 0);
+        const x2 = Number(p.x2 ?? 100);
+        const y2 = Number(p.y2 ?? 100);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        if (obj.object_type === 'arrow') {
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          const head = 11 + sw;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - head * Math.cos(ang - 0.45), y2 - head * Math.sin(ang - 0.45));
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - head * Math.cos(ang + 0.45), y2 - head * Math.sin(ang + 0.45));
+          ctx.stroke();
+        }
+        if (label) {
+          ctx.fillStyle = '#4f46e5';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 8);
+        }
+      }
+      ctx.restore();
+    };
+
+    page.objects.forEach(drawExcalidrawObject);
     page.strokes.forEach(drawSingleStroke);
+
+    // Live Excalidraw Shape Drag Preview
+    if (shapeStartRef.current && shapeEndRef.current) {
+      const [x0, y0] = shapeStartRef.current;
+      const [x1, y1] = shapeEndRef.current;
+      const previewObj: BoardObject = {
+        id: 'preview-shape',
+        object_type: activeTool as BoardObject['object_type'],
+        props:
+          activeTool === 'arrow' || activeTool === 'line'
+            ? { x1, y1, x2: x1, y2: y1, x1_a: x0 } // replaced below
+            : {},
+        created_at: 0,
+        updated_at: 0,
+      };
+      if (activeTool === 'arrow' || activeTool === 'line') {
+        previewObj.props = {
+          x1: x0, y1: y0, x2: x1, y2: y1,
+          stroke: excalidrawStyle.strokeColor,
+          strokeWidth: excalidrawStyle.strokeWidth,
+          strokeStyle: excalidrawStyle.strokeStyle,
+          opacity: excalidrawStyle.opacity,
+        };
+      } else if (activeTool === 'rhombus' || activeTool === 'ellipse') {
+        previewObj.props = {
+          cx: (x0 + x1) / 2, cy: (y0 + y1) / 2,
+          rx: Math.abs(x1 - x0) / 2, ry: Math.abs(y1 - y0) / 2,
+          stroke: excalidrawStyle.strokeColor,
+          fill: excalidrawStyle.backgroundColor,
+          fillStyle: excalidrawStyle.fillStyle,
+          strokeWidth: excalidrawStyle.strokeWidth,
+          strokeStyle: excalidrawStyle.strokeStyle,
+          roughness: excalidrawStyle.roughness,
+          opacity: excalidrawStyle.opacity,
+        };
+      } else {
+        previewObj.props = {
+          x: Math.min(x0, x1), y: Math.min(y0, y1),
+          w: Math.abs(x1 - x0), h: Math.abs(y1 - y0),
+          stroke: excalidrawStyle.strokeColor,
+          fill: excalidrawStyle.backgroundColor,
+          fillStyle: excalidrawStyle.fillStyle,
+          strokeWidth: excalidrawStyle.strokeWidth,
+          strokeStyle: excalidrawStyle.strokeStyle,
+          roughness: excalidrawStyle.roughness,
+          opacity: excalidrawStyle.opacity,
+        };
+      }
+      drawExcalidrawObject(previewObj);
+    }
 
     if (previewPoints && previewPoints.length > 1) {
       drawSingleStroke({
@@ -392,6 +603,27 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
       return;
     }
 
+    if (activeTool === 'select') {
+      return;
+    }
+
+    // Excalidraw Vector Diagramming Tools (rect, rhombus, ellipse, arrow, line, frame)
+    if (
+      activeTool === 'rect' ||
+      activeTool === 'rhombus' ||
+      activeTool === 'ellipse' ||
+      activeTool === 'arrow' ||
+      activeTool === 'line' ||
+      activeTool === 'frame'
+    ) {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      isDrawingRef.current = true;
+      shapeStartRef.current = [rawX, rawY];
+      shapeEndRef.current = [rawX, rawY];
+      redrawCanvas();
+      return;
+    }
+
     // Pen / Ballpoint / Highlighter
     const activeLayer = page.layers.find((l) => l.id === activeLayerId);
     if (activeLayer?.locked) return;
@@ -441,6 +673,12 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
       return;
     }
 
+    if (shapeStartRef.current) {
+      shapeEndRef.current = [rawX, rawY];
+      redrawCanvas();
+      return;
+    }
+
     const [x, y] = snapToRulerIfNear(rawX, rawY);
     const pressure = e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5;
     if (penSettings.straightLine && liveStrokeRef.current.length >= 1) {
@@ -469,6 +707,57 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     }
 
     if (activeTool === 'eraser') {
+      return;
+    }
+
+    if (shapeStartRef.current && shapeEndRef.current) {
+      const [x0, y0] = shapeStartRef.current;
+      const [x1, y1] = shapeEndRef.current;
+      shapeStartRef.current = null;
+      shapeEndRef.current = null;
+      if (Math.hypot(x1 - x0, y1 - y0) > 6) {
+        const now = Date.now();
+        const styleBase = {
+          stroke: excalidrawStyle.strokeColor,
+          fill: excalidrawStyle.backgroundColor,
+          fillStyle: excalidrawStyle.fillStyle,
+          strokeWidth: excalidrawStyle.strokeWidth,
+          strokeStyle: excalidrawStyle.strokeStyle,
+          roughness: excalidrawStyle.roughness,
+          roundness: excalidrawStyle.roundness,
+          opacity: excalidrawStyle.opacity,
+          fontFamily: excalidrawStyle.fontFamily,
+        };
+        const props =
+          activeTool === 'arrow' || activeTool === 'line'
+            ? { x1: x0, y1: y0, x2: x1, y2: y1, ...styleBase }
+            : activeTool === 'rhombus' || activeTool === 'ellipse'
+              ? { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, rx: Math.abs(x1 - x0) / 2, ry: Math.abs(y1 - y0) / 2, ...styleBase }
+              : {
+                  x: Math.min(x0, x1),
+                  y: Math.min(y0, y1),
+                  w: Math.abs(x1 - x0),
+                  h: Math.abs(y1 - y0),
+                  ...styleBase,
+                  ...(activeTool === 'frame' ? { label: 'Frame' } : {}),
+                };
+        onUpdatePage((prev) => ({
+          ...prev,
+          objects: [
+            ...prev.objects,
+            {
+              id: `ex-${now}-${Math.random().toString(36).slice(2, 5)}`,
+              object_type: activeTool as BoardObject['object_type'],
+              props,
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        }));
+        if (!toolLocked && onSelectTool) onSelectTool('select');
+      } else {
+        redrawCanvas();
+      }
       return;
     }
 

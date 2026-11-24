@@ -9,9 +9,21 @@
  * - listening={false} by default
  */
 import React from "react";
-import { Rect, Circle, Line, Text as KonvaText, Arrow } from "react-konva";
+import { Group, Rect, Circle, Line, Text as KonvaText, Arrow } from "react-konva";
 import type Konva from "konva";
 import type { BoardObject } from "@ai-classroom/whiteboard-core";
+import {
+  generateSketchyRectPaths,
+  generateSketchyDiamondPaths,
+  generateSketchyEllipsePaths,
+  generateHachureSegments,
+  getStrokeDashArray,
+  resolveFontFamilyCss,
+  type FillStyleKind,
+  type FontFamilyKind,
+  type RoughnessLevel,
+  type StrokeStyleKind,
+} from "@/lib/excalidrawEngine";
 
 export interface BoundingBox {
   x: number;
@@ -90,6 +102,7 @@ export function computeObjectBbox(obj: BoardObject): BoundingBox {
   }
   const pn = obj.props as Record<string, number & string>;
   switch (obj.object_type) {
+    case "frame":
     case "rect": {
       const x = Number(pn.x ?? 0);
       const y = Number(pn.y ?? 0);
@@ -171,10 +184,20 @@ export interface RenderObjectProps {
 
 function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObjectProps) {
   const p = obj.props as Record<string, number & string>;
+  const rawEx = obj.props as Record<string, unknown>;
   const strokeW = Number(p.strokeWidth ?? 2);
   const hitW = Math.min(12, strokeW + 6);
   const rotRad = Number(p.rotation ?? 0);
   const rotDeg = Number.isFinite(rotRad) ? (rotRad * 180) / Math.PI : 0;
+  const exOpacityRaw = typeof rawEx.opacity === "number" ? rawEx.opacity : 100;
+  const exOpacity = exOpacityRaw <= 1 ? Math.max(0.05, exOpacityRaw) : Math.max(0.05, Math.min(1, exOpacityRaw / 100));
+  const strokeStyle = (rawEx.strokeStyle as StrokeStyleKind) ?? "solid";
+  const dashArr = getStrokeDashArray(strokeStyle, strokeW);
+  const roughness = (typeof rawEx.roughness === "number" ? rawEx.roughness : 0) as RoughnessLevel;
+  const fillStyle = (rawEx.fillStyle as FillStyleKind) ?? "solid";
+  const roundness = (rawEx.roundness as "sharp" | "round") ?? "sharp";
+  const fontFamily = resolveFontFamilyCss((rawEx.fontFamily as FontFamilyKind) ?? "sans");
+  const shapeLabel = typeof rawEx.label === "string" && rawEx.label.trim().length > 0 ? rawEx.label : null;
   const bbox = computeObjectBbox(obj);
   const pivotX = bbox.x + bbox.w / 2;
   const pivotY = bbox.y + bbox.h / 2;
@@ -213,11 +236,119 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
   }
 
   switch (obj.object_type) {
+    case "frame": {
+      const fw = Number(p.w ?? p.width ?? 420);
+      const fh = Number(p.h ?? p.height ?? 300);
+      const fx = Number(p.x ?? 0);
+      const fy = Number(p.y ?? 0);
+      const title = shapeLabel ?? "Frame 1";
+      return (
+        <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening}>
+          <KonvaText
+            x={fx + 4}
+            y={fy - 20}
+            text={title}
+            fontSize={12}
+            fontStyle="bold"
+            fill="#64748b"
+            listening={false}
+          />
+          <Rect
+            x={fx}
+            y={fy}
+            width={fw}
+            height={fh}
+            cornerRadius={12}
+            fill={p.fill && p.fill !== "transparent" ? p.fill : "rgba(248, 250, 252, 0.45)"}
+            stroke={p.stroke ?? "#94a3b8"}
+            strokeWidth={1.8}
+            dash={[8, 5]}
+            perfectDrawEnabled={false}
+            shadowForStrokeEnabled={false}
+          />
+        </Group>
+      );
+    }
     case "rect": {
       const rw = Number(p.w ?? p.width ?? 100);
       const rh = Number(p.h ?? p.height ?? 60);
       const rx = Number(p.x ?? 0);
       const ry = Number(p.y ?? 0);
+      const fillVal = p.fill ?? "transparent";
+      const useHachure = fillVal !== "transparent" && fillStyle !== "solid";
+      const hachureSegs = useHachure ? generateHachureSegments(rx, ry, rw, rh, fillStyle, 11) : [];
+      const roughPaths = roughness > 0 ? generateSketchyRectPaths(rx, ry, rw, rh, roughness, obj.id) : null;
+
+      if (roughPaths || useHachure || shapeLabel) {
+        return (
+          <Group
+            id={obj.id}
+            ref={refCallback}
+            x={rx + rw / 2}
+            y={ry + rh / 2}
+            offsetX={rx + rw / 2}
+            offsetY={ry + rh / 2}
+            rotation={rotDeg}
+            opacity={exOpacity}
+            listening={listening}
+          >
+            <Rect
+              x={rx}
+              y={ry}
+              width={rw}
+              height={rh}
+              cornerRadius={roundness === "round" ? 10 : 0}
+              fill={useHachure ? "transparent" : fillVal}
+              stroke={roughPaths ? "transparent" : (p.stroke ?? "#6366f1")}
+              strokeWidth={strokeW}
+              dash={dashArr}
+              perfectDrawEnabled={false}
+              shadowForStrokeEnabled={false}
+              hitStrokeWidth={hitW}
+            />
+            {hachureSegs.map((seg, i) => (
+              <Line
+                key={`h-${i}`}
+                points={seg}
+                stroke={fillVal}
+                strokeWidth={2}
+                lineCap="round"
+                listening={false}
+                perfectDrawEnabled={false}
+              />
+            ))}
+            {roughPaths?.map((pts, i) => (
+              <Line
+                key={`r-${i}`}
+                points={pts}
+                stroke={p.stroke ?? "#1e1e1e"}
+                strokeWidth={strokeW}
+                dash={dashArr}
+                tension={0.35}
+                lineCap="round"
+                lineJoin="round"
+                listening={false}
+                perfectDrawEnabled={false}
+              />
+            ))}
+            {shapeLabel && (
+              <KonvaText
+                x={rx + 8}
+                y={ry + rh / 2 - 9}
+                width={Math.max(20, rw - 16)}
+                align="center"
+                text={shapeLabel}
+                fontSize={14}
+                fontFamily={fontFamily}
+                fontStyle="bold"
+                fill={p.stroke ?? "#1e1e1e"}
+                listening={false}
+              />
+            )}
+          </Group>
+        );
+      }
+
       return (
         <Rect
           id={obj.id}
@@ -228,9 +359,12 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
           offsetY={rh / 2}
           width={rw}
           height={rh}
-          fill={p.fill ?? "transparent"}
+          cornerRadius={roundness === "round" ? 10 : 0}
+          fill={fillVal}
           stroke={p.stroke ?? "#6366f1"}
           strokeWidth={strokeW}
+          dash={dashArr}
+          opacity={exOpacity}
           rotation={rotDeg}
           listening={listening}
           perfectDrawEnabled={false}
@@ -261,21 +395,48 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
       const cy = Number(p.cy ?? p.y ?? 0);
       const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 50));
       const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 30));
+      const roughPaths = roughness > 0 ? generateSketchyEllipsePaths(cx, cy, rx, ry, roughness, obj.id) : null;
       return (
-        <Line
-          id={obj.id}
-          ref={refCallback}
-          points={generateEllipsePoints(cx, cy, rx, ry)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={strokeW}
-          listening={listening}
-          perfectDrawEnabled={false}
-          shadowForStrokeEnabled={false}
-          hitStrokeWidth={hitW}
-          {...lineRotProps}
-        />
+        <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening} {...lineRotProps}>
+          <Line
+            points={generateEllipsePoints(cx, cy, rx, ry)}
+            closed
+            fill={p.fill ?? "transparent"}
+            stroke={roughPaths ? "transparent" : (p.stroke ?? "#6366f1")}
+            strokeWidth={strokeW}
+            dash={dashArr}
+            perfectDrawEnabled={false}
+            shadowForStrokeEnabled={false}
+            hitStrokeWidth={hitW}
+          />
+          {roughPaths?.map((pts, i) => (
+            <Line
+              key={`re-${i}`}
+              points={pts}
+              stroke={p.stroke ?? "#1e1e1e"}
+              strokeWidth={strokeW}
+              dash={dashArr}
+              tension={0.35}
+              lineCap="round"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          ))}
+          {shapeLabel && (
+            <KonvaText
+              x={cx - rx + 6}
+              y={cy - 9}
+              width={Math.max(20, rx * 2 - 12)}
+              align="center"
+              text={shapeLabel}
+              fontSize={13}
+              fontFamily={fontFamily}
+              fontStyle="bold"
+              fill={p.stroke ?? "#1e1e1e"}
+              listening={false}
+            />
+          )}
+        </Group>
       );
     }
     case "triangle":
@@ -302,23 +463,50 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
       const cy = Number(p.cy ?? p.y ?? 0);
       const rx = Number(p.rx ?? (p.w ? Number(p.w) / 2 : 40));
       const ry = Number(p.ry ?? (p.h ? Number(p.h) / 2 : 50));
+      const roughPaths = roughness > 0 ? generateSketchyDiamondPaths(cx, cy, rx, ry, roughness, obj.id) : null;
       return (
-        <Line
-          id={obj.id}
-          ref={refCallback}
-          points={generateRhombusPoints(cx, cy, rx, ry)}
-          closed
-          fill={p.fill ?? "transparent"}
-          stroke={p.stroke ?? "#6366f1"}
-          strokeWidth={strokeW}
-          lineCap="round"
-          lineJoin="round"
-          listening={listening}
-          perfectDrawEnabled={false}
-          shadowForStrokeEnabled={false}
-          hitStrokeWidth={hitW}
-          {...lineRotProps}
-        />
+        <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening} {...lineRotProps}>
+          <Line
+            points={generateRhombusPoints(cx, cy, rx, ry)}
+            closed
+            fill={p.fill ?? "transparent"}
+            stroke={roughPaths ? "transparent" : (p.stroke ?? "#6366f1")}
+            strokeWidth={strokeW}
+            dash={dashArr}
+            lineCap="round"
+            lineJoin="round"
+            perfectDrawEnabled={false}
+            shadowForStrokeEnabled={false}
+            hitStrokeWidth={hitW}
+          />
+          {roughPaths?.map((pts, i) => (
+            <Line
+              key={`rd-${i}`}
+              points={pts}
+              stroke={p.stroke ?? "#1e1e1e"}
+              strokeWidth={strokeW}
+              dash={dashArr}
+              tension={0.35}
+              lineCap="round"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          ))}
+          {shapeLabel && (
+            <KonvaText
+              x={cx - rx + 8}
+              y={cy - 8}
+              width={Math.max(20, rx * 2 - 16)}
+              align="center"
+              text={shapeLabel}
+              fontSize={12}
+              fontFamily={fontFamily}
+              fontStyle="bold"
+              fill={p.stroke ?? "#1e1e1e"}
+              listening={false}
+            />
+          )}
+        </Group>
       );
     }
     case "trapezoid": {

@@ -15,6 +15,7 @@ import { AddPagePopover } from './AddPagePopover';
 import { LaserToolPopover } from './LaserToolPopover';
 
 export type NotesToolId =
+  | 'select'
   | 'fountain'
   | 'ballpoint'
   | 'highlighter'
@@ -24,7 +25,13 @@ export type NotesToolId =
   | 'tape'
   | 'text'
   | 'sticker'
-  | 'reading';
+  | 'reading'
+  | 'rect'
+  | 'rhombus'
+  | 'ellipse'
+  | 'arrow'
+  | 'line'
+  | 'frame';
 
 export interface PenSettings {
   color: string;
@@ -94,6 +101,11 @@ export interface NotesToolbarPillsProps {
   onOpenFeynmanAI: () => void;
   onCapturePhoto: () => void;
   onSnipCanvas: () => void;
+  toolLocked?: boolean;
+  onToggleToolLock?: () => void;
+  onOpenMermaid?: () => void;
+  onOpenCommandPalette?: () => void;
+  onExportSvg?: () => void;
 }
 
 const PEN_SWATCHES = [
@@ -141,6 +153,11 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
   onOpenFeynmanAI,
   onCapturePhoto,
   onSnipCanvas,
+  toolLocked = false,
+  onToggleToolLock,
+  onOpenMermaid,
+  onOpenCommandPalette,
+  onExportSvg,
 }) => {
   const [openPopover, setOpenPopover] = useState<
     null | 'addPage' | 'utility' | 'pen' | 'highlighter' | 'eraser' | 'lasso' | 'laser'
@@ -190,6 +207,27 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
         />
 
         <div className="flex items-center gap-1.5">
+          {onOpenMermaid && (
+            <button
+              type="button"
+              data-testid="notes-open-mermaid-btn"
+              onClick={onOpenMermaid}
+              className="hidden sm:inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+            >
+              🔀 Mermaid
+            </button>
+          )}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              data-testid="notes-open-cmd-btn"
+              onClick={onOpenCommandPalette}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              title="Command Palette Excalidraw (Ctrl+K)"
+            >
+              ⌘ Menu
+            </button>
+          )}
           <button
             type="button"
             onClick={onTogglePageMode}
@@ -201,7 +239,7 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
           <button
             type="button"
             onClick={() => handleToolClick('reading')}
-            className={`hidden sm:inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+            className={`hidden md:inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
               activeTool === 'reading'
                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -280,11 +318,90 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
           </button>
         </div>
 
-        {/* RIGHT FLOATING PILL (Desktop/Tablet >= 768px): Freenote Pen Rack */}
+        {/* RIGHT FLOATING PILL (Desktop/Tablet >= 768px): Freenote Pen Rack + Excalidraw Diagram Tools */}
         <div
           data-testid="notes-pill-right"
-          className="pointer-events-auto hidden md:flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 px-2.5 py-1.5 shadow-lg backdrop-blur-md"
+          className="pointer-events-auto hidden md:flex items-center gap-0.5 rounded-full border border-slate-200/90 bg-white/95 px-2 py-1.5 shadow-lg backdrop-blur-md"
         >
+          {onToggleToolLock && (
+            <button
+              type="button"
+              onClick={onToggleToolLock}
+              title="Kunci Alat Excalidraw (Q)"
+              className={`flex h-8 w-7 items-center justify-center rounded-full text-xs transition ${
+                toolLocked ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              {toolLocked ? '🔒' : '🔓'}
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="notes-tool-select"
+            onClick={() => handleToolClick('select')}
+            title="Seleksi (1 / V)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition ${
+              activeTool === 'select' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            ↖
+          </button>
+          <button
+            type="button"
+            data-testid="notes-tool-rect"
+            onClick={() => handleToolClick('rect')}
+            title="Kotak Excalidraw (2)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition ${
+              activeTool === 'rect' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            ▭
+          </button>
+          <button
+            type="button"
+            data-testid="notes-tool-rhombus"
+            onClick={() => handleToolClick('rhombus')}
+            title="Belah Ketupat / Diamond (3)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition ${
+              activeTool === 'rhombus' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            ◇
+          </button>
+          <button
+            type="button"
+            data-testid="notes-tool-ellipse"
+            onClick={() => handleToolClick('ellipse')}
+            title="Elips / Lingkaran (4)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition ${
+              activeTool === 'ellipse' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            ◯
+          </button>
+          <button
+            type="button"
+            data-testid="notes-tool-arrow"
+            onClick={() => handleToolClick('arrow')}
+            title="Panah Terikat (5)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition ${
+              activeTool === 'arrow' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            →
+          </button>
+          <button
+            type="button"
+            data-testid="notes-tool-frame"
+            onClick={() => handleToolClick('frame')}
+            title="Frame Slide (F)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition ${
+              activeTool === 'frame' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            #
+          </button>
+          <div className="mx-0.5 h-5 w-px bg-slate-200" />
           <button
             type="button"
             data-testid="notes-tool-fountain"
@@ -521,6 +638,15 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
                 >
                   <span>📤</span><span>Ekspor PNG Tajam</span>
                 </button>
+                {onExportSvg && (
+                  <button
+                    type="button"
+                    onClick={() => { onExportSvg(); setOpenPopover(null); }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 font-medium text-slate-800 hover:bg-slate-100"
+                  >
+                    <span>📐</span><span>Ekspor SVG Vektor (Excalidraw)</span>
+                  </button>
+                )}
               </div>
             )}
 
