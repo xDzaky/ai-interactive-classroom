@@ -481,16 +481,11 @@ export default function PersonalRoomPage() {
           >
             AI
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 whitespace-nowrap">AI Smart Whiteboard</span>
-              <span className="hidden sm:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
-                Mode Tanpa Login
-              </span>
-            </div>
-            <p className="hidden text-[11px] text-slate-500 sm:block">
-              Klik tengah objek untuk pilih · Tarik ujung untuk ubah bentuk · Klik kanan untuk Roda AI & 3D
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 whitespace-nowrap">AI Smart Whiteboard</span>
+            <span className="hidden sm:inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 whitespace-nowrap">
+              Mode Tanpa Login
+            </span>
           </div>
         </div>
 

@@ -2345,8 +2345,8 @@ export function WhiteboardCanvas({
     text: "text",
   };
 
-  const isDrawingTool = !readOnly && activeTool !== "select";
-  const isDraggable = !isDrawingTool && !readOnly;
+  // Stage dragging is handled exclusively by Hand tool (isHandPanning), NEVER by Select tool!
+  const isDraggable = false;
 
   return (
     <div

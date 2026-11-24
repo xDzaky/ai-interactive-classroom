@@ -146,7 +146,16 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
     candidates.push(ellipseFit.candidate);
   }
 
-  // 5b. Polygon candidates via multi-epsilon Douglas-Peucker
+  // 5b. Polygon candidates via multi-epsilon Douglas-Peucker (evaluate all epsilons, keep best per kind)
+  const addBestCandidate = (cand: ShapeCandidate) => {
+    const existingIdx = candidates.findIndex((c) => c.kind === cand.kind);
+    if (existingIdx === -1) {
+      candidates.push(cand);
+    } else if (cand.confidence > candidates[existingIdx].confidence) {
+      candidates[existingIdx] = cand;
+    }
+  };
+
   for (const epsRatio of CONSTANTS.POLYGON_EPSILONS) {
     const epsilon = epsRatio * bbox.diagonal;
     // Closed polyline for RDP
@@ -240,32 +249,39 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
     if (k === 3 && !isSelfIntersecting) {
       const hasRightAngle = angles.some((a) => Math.abs(a - 90) <= 10);
       if (hasRightAngle) {
-        candidates.push({
+        addBestCandidate({
           kind: 'right_triangle',
           confidence: confidence * 0.98,
           fitError,
           geometry: { type: 'polygon', points: refined },
         });
       }
-      candidates.push({
+      addBestCandidate({
         kind: 'triangle',
         confidence,
         fitError,
         geometry: { type: 'polygon', points: refined },
       });
-      break; // Found primary polygon simplification
     } else if (k === 4 && !isSelfIntersecting) {
       const s0 = sideLengths[0];
       const s1 = sideLengths[1];
       const s2 = sideLengths[2];
       const s3 = sideLengths[3];
+      const maxSide = Math.max(s0, s1, s2, s3, 0.001);
+      const minSide = Math.min(s0, s1, s2, s3);
+
+      // Reject degenerate quads that are actually triangles with a tiny overshot corner or slight side bend!
+      if (minSide / maxSide < 0.16 || angles.some((a) => a > 152)) {
+        continue;
+      }
+
       const oppEqual =
         Math.abs(s0 - s2) / Math.max((s0 + s2) / 2, 0.001) <= CONSTANTS.QUAD_OPP_SIDE_EQUAL_RATIO &&
         Math.abs(s1 - s3) / Math.max((s1 + s3) / 2, 0.001) <= CONSTANTS.QUAD_OPP_SIDE_EQUAL_RATIO;
-      const allSidesEqual = (Math.max(s0, s1, s2, s3) - Math.min(s0, s1, s2, s3)) / meanSide <= CONSTANTS.QUAD_SIDE_EQUAL_RATIO;
+      const allSidesEqual = (maxSide - minSide) / meanSide <= CONSTANTS.QUAD_SIDE_EQUAL_RATIO;
       const all90 = angles.every((a) => Math.abs(a - 90) <= CONSTANTS.QUAD_RIGHT_ANGLE_TOLERANCE_DEG);
 
-      let quadKind: ShapeKind = 'rect';
+      let quadKind: ShapeKind | null = null;
       if (allSidesEqual && all90) {
         quadKind = 'square';
       } else if (oppEqual && all90) {
@@ -291,6 +307,9 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
           quadKind = 'trapezoid';
         }
       }
+
+      // Never blindly default an irregular 4-gon (like an overshot triangle!) to 'rect'
+      if (!quadKind) continue;
 
       // Check axis snapping for rect / square
       let finalPoints = refined;
@@ -320,29 +339,26 @@ export function recognizeShape(points: Pt[], opts?: RecognizeOptions): Recognize
         }
       }
 
-      candidates.push({
+      addBestCandidate({
         kind: quadKind,
         confidence,
         fitError,
         geometry: { type: 'polygon', points: finalPoints },
       });
-      break;
     } else if (k === 5 && !isSelfIntersecting && sideCV <= CONSTANTS.POLYGON_REGULARITY_CV) {
-      candidates.push({
+      addBestCandidate({
         kind: 'pentagon',
         confidence,
         fitError,
         geometry: { type: 'polygon', points: refined },
       });
-      break;
     } else if (k === 6 && !isSelfIntersecting && sideCV <= CONSTANTS.POLYGON_REGULARITY_CV) {
-      candidates.push({
+      addBestCandidate({
         kind: 'hexagon',
         confidence,
         fitError,
         geometry: { type: 'polygon', points: refined },
       });
-      break;
     } else if (k === 10) {
       // Star detection: alternating radii from centroid
       const centroid: Pt = { x: bbox.centerX, y: bbox.centerY };
