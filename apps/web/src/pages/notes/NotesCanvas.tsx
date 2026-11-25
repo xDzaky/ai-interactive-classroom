@@ -954,8 +954,14 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
         {(page.texts ?? []).map((txt) => (
           <input
             key={txt.id}
+            data-testid={`notes-text-input-${txt.id}`}
             type="text"
+            autoFocus
+            size={Math.max(18, txt.text.length + 3)}
+            placeholder="Ketik teks..."
             value={txt.text}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onChange={(e) =>
               onUpdatePage(
                 (prev) => ({
@@ -973,7 +979,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
               color: txt.color,
               zIndex: 25,
             }}
-            className="rounded border border-transparent bg-transparent px-1 font-medium outline-none focus:border-blue-400 focus:bg-white/90"
+            className="min-w-[120px] rounded border border-blue-200/70 bg-white/85 px-1.5 py-0.5 font-medium outline-none focus:border-blue-500 focus:bg-white shadow-xs"
           />
         ))}
 

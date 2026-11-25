@@ -511,6 +511,10 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     controls.enableDamping = true;
     controls.dampingFactor = 0.09;
     controls.enablePan = false;
+    // Prevent 3D mesh & gimbal clipping when zooming (disable internal wheel zoom in compact whiteboard widget; clamp safely in Studio modal)
+    controls.enableZoom = !compact;
+    controls.minDistance = 6.4;
+    controls.maxDistance = 16.0;
     controls.autoRotateSpeed = 2.4;
     controlsRef.current = controls;
 
@@ -527,8 +531,8 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     solidGroupRef.current = solidGroup;
     sectionGroupRef.current = sectionGroup;
 
-    // 3D 360° 3-Axis Quaternion Rotation Gimbal Ring Gizmo (V5)
-    const gimbal = new RotationGimbal3D(1.55);
+    // 3D 360° 3-Axis Quaternion Rotation Gimbal Ring Gizmo (inscribed inside object)
+    const gimbal = new RotationGimbal3D(1.38);
     scene.add(gimbal.root);
     gimbalRef.current = gimbal;
 

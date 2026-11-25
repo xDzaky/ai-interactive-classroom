@@ -12,7 +12,11 @@
  * - custom_proof (step-by-step animated mathematical proof reveal)
  */
 import React, { useEffect, useRef, useState } from 'react';
-import type { ManimGxTemplateKind } from '@ai-classroom/math-core';
+import {
+  analyzeForManimGX,
+  parseCircleEquation,
+  type ManimGxTemplateKind,
+} from '@ai-classroom/math-core';
 import {
   probeManimGxRuntime,
   validateManimGxSourceClient,
@@ -298,6 +302,131 @@ function drawManimFrame(
         ctx.fillText(String(Math.round(v * localT)), bx + 4, baseY - bh - 5);
       }
     });
+  } else if (templateId === 'circle_cartesian') {
+    // Exact Cartesian Circle Visualization: (x - a)^2 + (y - b)^2 = r^2
+    const { a, b, r } = parseCircleEquation(formulaLatex || '(x - 2)^2 + (y - 1)^2 = 9');
+    const padL = 46;
+    const padR = 20;
+    const padT = 34;
+    const padB = 34;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    const span = Math.max(r * 2 + 3.6, 6);
+    const pxPerUnit = Math.min(plotW / (span + 1.5), plotH / (span + 0.8));
+    const midX = a + 0.35;
+    const midY = b;
+    const toSx = (wx: number) => padL + plotW / 2 + (wx - midX) * pxPerUnit;
+    const toSy = (wy: number) => padT + plotH / 2 - (wy - midY) * pxPerUnit;
+
+    const xMin = Math.floor(midX - plotW / (2 * pxPerUnit));
+    const xMax = Math.ceil(midX + plotW / (2 * pxPerUnit));
+    const yMin = Math.floor(midY - plotH / (2 * pxPerUnit));
+    const yMax = Math.ceil(midY + plotH / (2 * pxPerUnit));
+
+    // Crisp Cartesian dark background
+    ctx.fillStyle = '#1e2128';
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle unit grid + tick labels
+    ctx.lineWidth = 1;
+    ctx.font = '10px monospace';
+    for (let gx = xMin; gx <= xMax; gx++) {
+      const sx = toSx(gx);
+      if (sx < padL - 2 || sx > w - padR + 2) continue;
+      ctx.strokeStyle = gx === 0 ? 'rgba(148, 163, 184, 0.55)' : 'rgba(148, 163, 184, 0.13)';
+      ctx.lineWidth = gx === 0 ? 1.4 : 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, padT);
+      ctx.lineTo(sx, h - padB);
+      ctx.stroke();
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(String(gx), sx - (gx < 0 ? 7 : 3), h - padB + 14);
+    }
+    for (let gy = yMin; gy <= yMax; gy++) {
+      const sy = toSy(gy);
+      if (sy < padT - 2 || sy > h - padB + 2) continue;
+      ctx.strokeStyle = gy === 0 ? 'rgba(148, 163, 184, 0.55)' : 'rgba(148, 163, 184, 0.13)';
+      ctx.lineWidth = gy === 0 ? 1.4 : 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, sy);
+      ctx.lineTo(w - padR, sy);
+      ctx.stroke();
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(String(gy), padL - 20, sy + 3);
+    }
+
+    // Axis titles: Sumbu X & Sumbu Y
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Sumbu X', padL + plotW / 2 - 22, h - 6);
+    ctx.save();
+    ctx.translate(13, padT + plotH / 2 + 22);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Sumbu Y', 0, 0);
+    ctx.restore();
+
+    const cSx = toSx(a);
+    const cSy = toSy(b);
+    const rPx = r * pxPerUnit;
+
+    // Animated warm amber/peach circle arc (0 -> 2π)
+    const arcProgress = easeInOutCubic(Math.min(1, tNorm * 1.45));
+    ctx.strokeStyle = '#fdba74';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(cSx, cSy, rPx, 0, Math.PI * 2 * Math.max(0.02, arcProgress));
+    ctx.stroke();
+
+    // Dashed blue radius line from Pusat (a,b) -> (a+r, b)
+    const radReveal = Math.max(0, Math.min(1, (tNorm - 0.1) * 2.5));
+    if (radReveal > 0) {
+      const endX = cSx + rPx * radReveal;
+      ctx.save();
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cSx, cSy);
+      ctx.lineTo(endX, cSy);
+      ctx.stroke();
+      ctx.restore();
+      if (radReveal > 0.5) {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`r = ${r}`, cSx + rPx * 0.45, cSy + 14);
+      }
+    }
+
+    // Center dot (pink) + label Pusat (a, b)
+    ctx.fillStyle = '#f472b6';
+    ctx.beginPath();
+    ctx.arc(cSx, cSy, 4.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(`Pusat (${a}, ${b})`, cSx - 34, cSy - 10);
+
+    // 4 Cardinal points in blue with exact coordinate labels
+    const cardinals: Array<{ wx: number; wy: number; dx: number; dy: number }> = [
+      { wx: a, wy: b + r, dx: -16, dy: -8 },
+      { wx: a + r, wy: b, dx: 6, dy: 4 },
+      { wx: a, wy: b - r, dx: -18, dy: 14 },
+      { wx: a - r, wy: b, dx: -38, dy: 4 },
+    ];
+    if (arcProgress > 0.35) {
+      for (const pt of cardinals) {
+        const px = toSx(pt.wx);
+        const py = toSy(pt.wy);
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.arc(px, py, 3.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`(${pt.wx}, ${pt.wy})`, px + pt.dx, py + pt.dy);
+      }
+    }
   } else if (templateId === 'custom_proof') {
     const steps = [
       `Diketahui: ${formulaLatex || 'a^2 + b^2 = c^2'}`,
@@ -413,9 +542,29 @@ export const ManimGxWidget: React.FC<ManimGxWidgetProps> = ({
   const [progress, setProgress] = useState(0.15);
   const [showCode, setShowCode] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState<ManimGxTemplateKind>(templateId);
+  const [activeFormula, setActiveFormula] = useState(formulaLatex);
+  const [activeTitle, setActiveTitle] = useState(title);
   const [codeDraft, setCodeDraft] = useState(sceneCode);
   const [codeErrors, setCodeErrors] = useState<string[]>([]);
   const [runtimeLabel, setRuntimeLabel] = useState<string>('Procedural 60fps');
+
+  useEffect(() => {
+    setActiveTemplate(templateId);
+    setActiveFormula(formulaLatex);
+    setActiveTitle(title);
+  }, [templateId, formulaLatex, title]);
+
+  const applyFormula = (nextFormula: string) => {
+    const analysis = analyzeForManimGX({ latex: nextFormula });
+    setActiveFormula(nextFormula);
+    setActiveTemplate(analysis.templateKind);
+    setActiveTitle(analysis.scene.title);
+    setCodeDraft(analysis.scene.pythonCode);
+    onUpdateSceneCode?.(analysis.scene.pythonCode);
+    setProgress(0.05);
+    setPlaying(true);
+  };
 
   useEffect(() => {
     setCodeDraft(sceneCode);
@@ -461,8 +610,8 @@ export const ManimGxWidget: React.FC<ManimGxWidgetProps> = ({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawManimFrame(ctx, canvas.width, canvas.height, templateId, progress, formulaLatex);
-  }, [progress, templateId, formulaLatex, fullscreen]);
+    drawManimFrame(ctx, canvas.width, canvas.height, activeTemplate, progress, activeFormula);
+  }, [progress, activeTemplate, activeFormula, fullscreen]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     if (!onMovePosition || fullscreen) return;
@@ -494,7 +643,7 @@ export const ManimGxWidget: React.FC<ManimGxWidgetProps> = ({
     }
   };
 
-  const canConvert3D = templateId === 'surface_3d' || templateId === 'solid_3d';
+  const canConvert3D = activeTemplate === 'surface_3d' || activeTemplate === 'solid_3d';
 
   return (
     <div
@@ -520,7 +669,7 @@ export const ManimGxWidget: React.FC<ManimGxWidgetProps> = ({
           <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-extrabold text-cyan-300">
             ManimGX
           </span>
-          <span className="truncate font-bold text-slate-100">{title}</span>
+          <span className="truncate font-bold text-slate-100">{activeTitle}</span>
           <span className="hidden sm:inline rounded-full bg-slate-800 px-2 py-0.5 text-[9px] text-emerald-300">
             {runtimeLabel}
           </span>
@@ -555,6 +704,49 @@ export const ManimGxWidget: React.FC<ManimGxWidgetProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Quick Interactive Formula & Preset Bar (Lingkaran Kartesius, Permukaan 3D, Kalkulus, Matriks) */}
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        className="flex items-center gap-1.5 border-b border-slate-800/80 bg-slate-900/70 px-2.5 py-1 text-[10px]"
+      >
+        <input
+          type="text"
+          data-testid={`manimgx-formula-input-${id}`}
+          value={activeFormula}
+          onChange={(e) => setActiveFormula(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') applyFormula(activeFormula);
+          }}
+          placeholder="Ketik rumus, mis. (x - 2)^2 + (y - 1)^2 = 9"
+          className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-amber-200 outline-none focus:border-cyan-400"
+        />
+        <button
+          type="button"
+          onClick={() => applyFormula(activeFormula)}
+          className="rounded-md bg-indigo-600 px-2 py-0.5 font-bold text-white hover:bg-indigo-500"
+        >
+          Plot
+        </button>
+        {(
+          [
+            ['Lingkaran', '(x - 2)^2 + (y - 1)^2 = 9'],
+            ['3D', 'z = sin(x) * cos(y)'],
+            ['Kalkulus', 'y = sin(x)'],
+          ] as const
+        ).map(([lbl, expr]) => (
+          <button
+            key={lbl}
+            type="button"
+            data-testid={`manimgx-preset-${lbl.toLowerCase()}-${id}`}
+            onClick={() => applyFormula(expr)}
+            className="hidden sm:inline-block rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[9px] font-semibold text-slate-200 hover:border-cyan-400 hover:text-cyan-300"
+          >
+            {lbl}
+          </button>
+        ))}
       </div>
 
       {/* Main Viewport (Canvas + optional Python Code Drawer) */}

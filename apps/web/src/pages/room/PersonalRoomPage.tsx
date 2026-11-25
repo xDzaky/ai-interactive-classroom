@@ -990,6 +990,33 @@ export default function PersonalRoomPage() {
       },
     },
     {
+      id: "manimgx-circle",
+      label: "ManimGX: Persamaan Lingkaran (x - 2)² + (y - 1)² = 9",
+      category: "ManimGX & AI",
+      run: () => {
+        const latex = "(x - 2)^2 + (y - 1)^2 = 9";
+        const analysis = analyzeForManimGX({ latex });
+        handleEvent({
+          event_type: "object.created",
+          payload: {
+            id: `manimgx-${Date.now()}`,
+            object_type: "viz_manimgx",
+            props: {
+              x: 240,
+              y: 100,
+              w: 500,
+              h: 390,
+              title: analysis.scene.title,
+              formulaLatex: latex,
+              templateId: analysis.templateKind,
+              sceneCode: analysis.scene.pythonCode,
+              label: analysis.scene.title,
+            },
+          },
+        });
+      },
+    },
+    {
       id: "manimgx-3d",
       label: "Buat Animasi 3D ManimGX (z = sin(x)*cos(y))",
       category: "ManimGX & AI",

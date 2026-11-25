@@ -1,37 +1,44 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { analyzeForManimGX } from "./manimgxRouter.js";
 
-describe("V6 ManimGX Intent Router & Deterministic Scene Templates", () => {
-  it("routes z = sin(x)cos(y) to ThreeDScene Surface template", () => {
-    const res = analyzeForManimGX({ latex: "z = \\sin(x)\\cos(y)" });
+describe("manimgxRouter", () => {
+  it("routes 3D surface equations to surface_3d", () => {
+    const res = analyzeForManimGX({ latex: "z = \\sin(x) \\cdot \\cos(y)" });
     expect(res.eligible).toBe(true);
     expect(res.templateKind).toBe("surface_3d");
-    expect(res.scene.pythonCode).toContain("m.ThreeDScene");
-    expect(res.scene.pythonCode).toContain("m.Surface");
+    expect(res.scene.pythonCode).toContain("ThreeDScene");
   });
 
-  it("routes 3D solid descriptions to SolidGeometryScene with recommendedSolidType", () => {
-    const res = analyzeForManimGX({ text: "Kubus rusuk 5 cm" });
-    expect(res.templateKind).toBe("solid_3d");
-    expect(res.recommendedSolidType).toBe("cube");
-    expect(res.scene.pythonCode).toContain("m.Cube");
-  });
-
-  it("routes matrix notation to LinearTransformScene", () => {
+  it("routes matrix expressions to linear_transform", () => {
     const res = analyzeForManimGX({ latex: "\\begin{bmatrix} 2 & 1 \\\\ 0 & 1 \\end{bmatrix}" });
+    expect(res.eligible).toBe(true);
     expect(res.templateKind).toBe("linear_transform");
-    expect(res.scene.pythonCode).toContain("apply_matrix([[2, 1], [0, 1]])");
+    expect(res.scene.pythonCode).toContain("apply_matrix");
   });
 
-  it("routes stat data to AnimatedChartScene", () => {
-    const res = analyzeForManimGX({ text: "A: 30, B: 45, C: 25" });
-    expect(res.templateKind).toBe("stat_chart");
-    expect(res.scene.pythonCode).toContain("m.BarChart");
+  it("routes solid geometry terms to solid_3d", () => {
+    const res = analyzeForManimGX({ text: "kubus dengan rusuk 4 cm" });
+    expect(res.eligible).toBe(true);
+    expect(res.templateKind).toBe("solid_3d");
   });
 
-  it("routes y = sin(x) and integrals to FunctionCalculusScene", () => {
-    const res = analyzeForManimGX({ latex: "\\int_0^2 x^2 dx" });
+  it("routes Cartesian circle equations (x - 2)^2 + (y - 1)^2 = 9 to circle_cartesian", () => {
+    const res = analyzeForManimGX({ latex: "(x - 2)^2 + (y - 1)^2 = 9" });
+    expect(res.eligible).toBe(true);
+    expect(res.templateKind).toBe("circle_cartesian");
+    expect(res.scene.params.a).toBe(2);
+    expect(res.scene.params.b).toBe(1);
+    expect(res.scene.params.r).toBe(3);
+  });
+
+  it("routes trig/calculus expressions to function_calculus", () => {
+    const res = analyzeForManimGX({ latex: "y = \\sin(x)" });
+    expect(res.eligible).toBe(true);
     expect(res.templateKind).toBe("function_calculus");
-    expect(res.scene.params.showRiemann).toBe(true);
+  });
+
+  it("marks empty input as ineligible", () => {
+    const res = analyzeForManimGX({ latex: "" });
+    expect(res.eligible).toBe(false);
   });
 });

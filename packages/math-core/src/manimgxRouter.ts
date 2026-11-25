@@ -49,7 +49,19 @@ export function analyzeForManimGX(selection: { latex?: string; text?: string }):
     };
   }
 
-  // 2. 3D Surface: z = f(x, y) or sphere equation x^2 + y^2 + z^2 = R
+  // 2. Circle Equation on Cartesian Plane: (x - a)^2 + (y - b)^2 = r^2 or x^2 + y^2 = r^2
+  if (
+    (/lingkaran/i.test(low) && (/pusat|jari|persamaan/i.test(low))) ||
+    ((/x.*?\^2/.test(low) && /y.*?\^2/.test(low)) && !/z\^?2/.test(low) && /=/.test(low))
+  ) {
+    return {
+      eligible: true,
+      templateKind: "circle_cartesian",
+      scene: buildManimGxTemplate("circle_cartesian", raw),
+    };
+  }
+
+  // 3. 3D Surface: z = f(x, y) or sphere equation x^2 + y^2 + z^2 = R
   if (/z\s*=/.test(low) || (/x\^?2/.test(low) && /y\^?2/.test(low) && /z\^?2/.test(low))) {
     const pyExpr = low.includes("sin") && low.includes("cos")
       ? "math.sin(u) * math.cos(v)"

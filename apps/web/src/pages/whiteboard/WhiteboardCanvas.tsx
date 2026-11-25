@@ -746,6 +746,14 @@ export function WhiteboardCanvas({
   }, [selectedIds, onSelectionChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [convert3DShape, setConvert3DShape] = useState<Input2DShape | null>(null);
+  const [dismissedConvert3DId, setDismissedConvert3DId] = useState<string | null>(null);
+  const [inlineTextDraft, setInlineTextDraft] = useState<{
+    worldX: number;
+    worldY: number;
+    screenX: number;
+    screenY: number;
+    value: string;
+  } | null>(null);
   const [explainTarget, setExplainTarget] = useState<BoardObject | BoardStroke | null>(null);
   const [dynamicCursor, setDynamicCursor] = useState<string | null>(null);
   const isHandPanning = useRef(false);
@@ -952,10 +960,11 @@ export function WhiteboardCanvas({
   );
 
   const handleConvertProposal = useCallback(
-    (proposal: SolidProposal) => {
-      if (!convert3DShape) return;
+    (proposal: SolidProposal, shapeOverride?: Input2DShape) => {
+      const targetShape = shapeOverride ?? convert3DShape;
+      if (!targetShape) return;
       const solidEvent = createConvertShapeToSolidEvent(
-        convert3DShape,
+        targetShape,
         proposal,
         roomId,
         actorId,
@@ -968,13 +977,14 @@ export function WhiteboardCanvas({
           events: [
             {
               event_type: "object.deleted",
-              payload: { id: convert3DShape.id },
+              payload: { id: targetShape.id },
             },
             solidEvent,
           ],
         },
       });
       setConvert3DShape(null);
+      setDismissedConvert3DId(null);
       setSelectedIds([]);
     },
     [convert3DShape, roomId, actorId, commitEvent]
@@ -1704,6 +1714,19 @@ export function WhiteboardCanvas({
         longPressTimer.current = setTimeout(() => {
           setContextMenu({ x: screenClientX || 200, y: screenClientY || 200 });
         }, 500);
+        return;
+      }
+
+      if (tool === "text") {
+        e.evt.preventDefault?.();
+        const v = viewportController.getState();
+        setInlineTextDraft({
+          worldX: pos.x,
+          worldY: pos.y,
+          screenX: pos.x * v.scale + v.x,
+          screenY: pos.y * v.scale + v.y,
+          value: "",
+        });
         return;
       }
 
@@ -3225,14 +3248,140 @@ export function WhiteboardCanvas({
         );
       })()}
 
-      {/* 2D to 3D Shape Conversion Proposal Menu (P11-T08, P12-T03) */}
-      {convert3DShape && (
-        <ShapeToSolidMenu
-          shape={convert3DShape}
-          onSelectProposal={handleConvertProposal}
-          onDismiss={() => setConvert3DShape(null)}
+      {/* Inline Text Tool Input on /whiteboard */}
+      {inlineTextDraft && (
+        <input
+          data-testid="whiteboard-inline-text-input"
+          type="text"
+          autoFocus
+          placeholder="Ketik teks lalu Enter..."
+          value={inlineTextDraft.value}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) =>
+            setInlineTextDraft((prev) => (prev ? { ...prev, value: e.target.value } : null))
+          }
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") {
+              const trimmed = inlineTextDraft.value.trim();
+              if (trimmed) {
+                const newId = `txt-${uid()}`;
+                const txtColor = excalidrawStyle?.strokeColor ?? (darkCanvas ? "#f8fafc" : "#0f172a");
+                commitEvent({
+                  event_type: "object.created",
+                  payload: {
+                    id: newId,
+                    object_type: "text",
+                    props: {
+                      x: inlineTextDraft.worldX,
+                      y: inlineTextDraft.worldY,
+                      text: trimmed,
+                      fontSize: 20,
+                      fill: txtColor,
+                      stroke: txtColor,
+                      fontFamily: excalidrawStyle?.fontFamily ?? "hand",
+                      opacity: excalidrawStyle?.opacity ?? 100,
+                    },
+                  },
+                });
+                setSelectedIds([newId]);
+                if (!toolLocked) onToolChange?.("select");
+              }
+              setInlineTextDraft(null);
+            } else if (e.key === "Escape") {
+              setInlineTextDraft(null);
+            }
+          }}
+          onBlur={() => {
+            const trimmed = inlineTextDraft.value.trim();
+            if (trimmed) {
+              const newId = `txt-${uid()}`;
+              const txtColor = excalidrawStyle?.strokeColor ?? (darkCanvas ? "#f8fafc" : "#0f172a");
+              commitEvent({
+                event_type: "object.created",
+                payload: {
+                  id: newId,
+                  object_type: "text",
+                  props: {
+                    x: inlineTextDraft.worldX,
+                    y: inlineTextDraft.worldY,
+                    text: trimmed,
+                    fontSize: 20,
+                    fill: txtColor,
+                    stroke: txtColor,
+                    fontFamily: excalidrawStyle?.fontFamily ?? "hand",
+                    opacity: excalidrawStyle?.opacity ?? 100,
+                  },
+                },
+              });
+              setSelectedIds([newId]);
+              if (!toolLocked) onToolChange?.("select");
+            }
+            setInlineTextDraft(null);
+          }}
+          style={{
+            position: "absolute",
+            left: Math.max(12, Math.min(inlineTextDraft.screenX, width - 220)),
+            top: Math.max(56, Math.min(inlineTextDraft.screenY - 12, height - 48)),
+            color: excalidrawStyle?.strokeColor ?? (darkCanvas ? "#f8fafc" : "#0f172a"),
+            zIndex: 45,
+          }}
+          className="min-w-[180px] rounded-lg border-2 border-indigo-500 bg-white/95 px-2.5 py-1 text-base font-semibold shadow-xl outline-none"
         />
       )}
+
+      {/* 2D to 3D Shape Conversion Proposal Menu — Always anchored right beside any selected 2D convertible object! */}
+      {(() => {
+        const CONVERTIBLE_2D = new Set([
+          "rect",
+          "circle",
+          "ellipse",
+          "triangle",
+          "rhombus",
+          "trapezoid",
+          "parallelogram",
+          "pentagon",
+          "hexagon",
+          "polygon",
+        ]);
+        let activeShape: Input2DShape | null = convert3DShape;
+        if (!activeShape && selectedIds.length === 1) {
+          const selObj = scene.objects[selectedIds[0]];
+          if (selObj && CONVERTIBLE_2D.has(selObj.object_type) && dismissedConvert3DId !== selObj.id) {
+            activeShape = {
+              id: selObj.id,
+              object_type: selObj.object_type,
+              props: selObj.props as Record<string, unknown>,
+            };
+          }
+        }
+        if (!activeShape) return null;
+        const bbox = getItemBBox(activeShape.id, scene);
+        const v = viewportController.getState();
+        let screenPos: { x: number; y: number } | undefined;
+        if (bbox) {
+          const rightX = (bbox.x + bbox.w) * v.scale + v.x + 14;
+          const leftX = bbox.x * v.scale + v.x - 262;
+          const sx = rightX + 252 <= width ? rightX : Math.max(16, leftX);
+          const sy = bbox.y * v.scale + v.y;
+          screenPos = { x: sx, y: sy };
+        }
+        const shapeId = activeShape.id;
+        return (
+          <ShapeToSolidMenu
+            shape={activeShape}
+            screenPos={screenPos}
+            containerWidth={width}
+            containerHeight={height}
+            onSelectProposal={(prop) => handleConvertProposal(prop, activeShape!)}
+            onDismiss={() => {
+              setConvert3DShape(null);
+              setDismissedConvert3DId(shapeId);
+            }}
+          />
+        );
+      })()}
 
       {/* Socratic AI Math Explanation Modal (P15-T01) */}
       {explainTarget && (

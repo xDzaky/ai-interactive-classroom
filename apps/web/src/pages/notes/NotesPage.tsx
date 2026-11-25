@@ -999,9 +999,9 @@ export default function NotesPage() {
         <button
           type="button"
           data-testid="notes-manimgx-launch-btn"
-          onClick={() => setActiveManimGx(analyzeForManimGX({ latex: 'z = sin(x) * cos(y)' }))}
+          onClick={() => setActiveManimGx(analyzeForManimGX({ latex: '(x - 2)^2 + (y - 1)^2 = 9' }))}
           className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 shadow-lg hover:bg-slate-800"
-          title="Buka Player Animasi 3D ManimGX di Catatan"
+          title="Buka Player Animasi 3D & Lingkaran ManimGX di Catatan"
         >
           🎬 ManimGX 3D
         </button>
@@ -1037,7 +1037,7 @@ export default function NotesPage() {
       {activeManimGx && (
         <div
           data-testid="notes-manimgx-player"
-          className="fixed bottom-16 right-4 z-40 h-80 w-[440px] max-w-[92vw]"
+          className="fixed bottom-16 right-4 z-40 h-[360px] w-[480px] max-w-[92vw]"
         >
           <ManimGxWidget
             id="notes-manim"

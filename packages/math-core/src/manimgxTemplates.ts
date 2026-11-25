@@ -12,7 +12,54 @@ export type ManimGxTemplateKind =
   | "function_calculus"
   | "linear_transform"
   | "stat_chart"
+  | "circle_cartesian"
   | "custom_proof";
+
+export interface ParsedCircleEquation {
+  a: number;
+  b: number;
+  r: number;
+}
+
+/**
+ * Parses circle equations such as:
+ * - `(x - 2)^2 + (y - 1)^2 = 9` -> { a: 2, b: 1, r: 3 }
+ * - `(x + 1)^2 + (y - 3)^2 = 16` -> { a: -1, b: 3, r: 4 }
+ * - `x^2 + y^2 = 25` -> { a: 0, b: 0, r: 5 }
+ * - `lingkaran pusat (2, 1) jari-jari 3` -> { a: 2, b: 1, r: 3 }
+ */
+export function parseCircleEquation(raw: string): ParsedCircleEquation {
+  const s = raw.replace(/\s+/g, " ").trim();
+
+  // Pattern 1: pusat (a, b) ... jari-jari r
+  const idMatch = s.match(/pusat\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/i);
+  const rTextMatch = s.match(/(?:jari[- ]?jari|r)\s*=?\s*(\d+(?:\.\d+)?)/i);
+  if (idMatch) {
+    return {
+      a: Number(idMatch[1]),
+      b: Number(idMatch[2]),
+      r: rTextMatch ? Math.max(0.5, Number(rTextMatch[1])) : 3,
+    };
+  }
+
+  // Pattern 2: (x - a)^2 + (y - b)^2 = R^2 or R
+  const norm = s.replace(/\\left|\\right|\{|\}/g, "").replace(/\s+/g, "");
+  const xShift = norm.match(/\(x([+-]\d+(?:\.\d+)?)\)\^2/i);
+  const yShift = norm.match(/\(y([+-]\d+(?:\.\d+)?)\)\^2/i);
+  const rhsPow = norm.match(/=(\d+(?:\.\d+)?)\^2/);
+  const rhsNum = norm.match(/=(\d+(?:\.\d+)?)/);
+
+  const a = xShift ? -Number(xShift[1]) : 0;
+  const b = yShift ? -Number(yShift[1]) : 0;
+  let r = 3;
+  if (rhsPow) {
+    r = Math.max(0.5, Number(rhsPow[1]));
+  } else if (rhsNum) {
+    const val = Number(rhsNum[1]);
+    r = val > 0 ? Number(Math.sqrt(val).toFixed(2)) : 3;
+  }
+  return { a, b, r };
+}
 
 export interface ManimGxGeneratedScene {
   templateKind: ManimGxTemplateKind;
@@ -173,6 +220,40 @@ class TrigProofScene(m.Scene):
         self.play(m.Write(title), m.Create(circle), m.FadeIn(dot))
         self.play(theta.animate.set_value(math.radians(150)), run_time=3.5)
         self.play(theta.animate.set_value(math.radians(45)), run_time=2.5)
+        self.wait(1.0)
+`,
+    };
+  }
+
+  if (kind === "circle_cartesian") {
+    const parsed = parseCircleEquation(sourceLatex);
+    const a = typeof params.a === "number" ? params.a : parsed.a;
+    const b = typeof params.b === "number" ? params.b : parsed.b;
+    const r = typeof params.r === "number" ? params.r : parsed.r;
+    const xMin = Math.floor(a - r - 2);
+    const xMax = Math.ceil(a + r + 2);
+    const yMin = Math.floor(b - r - 2);
+    const yMax = Math.ceil(b + r + 2);
+    return {
+      templateKind: "circle_cartesian",
+      sceneClass: "CircleCartesianScene",
+      title: `Persamaan Lingkaran dengan Pusat (${a}, ${b}) dan Jari-Jari ${r}`,
+      durationSec: 6,
+      params: { ...params, latex: sourceLatex, a, b, r },
+      pythonCode: `import math
+import manimgx as m
+
+class CircleCartesianScene(m.Scene):
+    def construct(self):
+        axes = m.Axes(x_range=[${xMin}, ${xMax}, 1], y_range=[${yMin}, ${yMax}, 1])
+        center = m.Dot(axes.c2p(${a}, ${b}), color="#F472B6")
+        circle = m.Circle(radius=${r}, color="#FDBA74").move_to(axes.c2p(${a}, ${b}))
+        radius_line = m.DashedLine(axes.c2p(${a}, ${b}), axes.c2p(${a + r}, ${b}), color="#60A5FA")
+        label_center = m.Text("Pusat (${a}, ${b})").next_to(center, m.UP)
+        label_r = m.Text("r = ${r}").next_to(radius_line, m.UP)
+        self.play(m.Create(axes), m.FadeIn(center), m.Write(label_center))
+        self.play(m.Create(radius_line), m.Write(label_r))
+        self.play(m.Create(circle), run_time=2.0)
         self.wait(1.0)
 `,
     };

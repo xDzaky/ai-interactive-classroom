@@ -112,23 +112,24 @@ export class RotationGimbal3D {
   private edgeTangentScreen = { tx: 1, ty: 0 };
   private currentDeltaRad = 0;
 
-  constructor(boundingRadius = 1.6) {
-    this.radius = Math.max(0.8, 1.28 * boundingRadius);
+  constructor(boundingRadius = 1.35) {
+    // Keep the 3-axis rotation gimbal cleanly inscribed INSIDE the 3D object
+    this.radius = Math.max(0.55, 0.68 * boundingRadius);
     this.root.name = 'RotationGimbal3D';
 
     const makeRing = (axis: GimbalAxis) => {
-      const visGeo = new THREE.TorusGeometry(this.radius, 0.036, 16, 96);
+      const visGeo = new THREE.TorusGeometry(this.radius, 0.024, 16, 96);
       const visMat = new THREE.MeshBasicMaterial({
         color: GIMBAL_COLORS[axis],
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.82,
         depthTest: false,
       });
       const visMesh = new THREE.Mesh(visGeo, visMat);
       visMesh.renderOrder = 20;
       visMesh.userData = { gimbalAxis: axis };
 
-      const hitGeo = new THREE.TorusGeometry(this.radius, 0.16, 10, 48);
+      const hitGeo = new THREE.TorusGeometry(this.radius, 0.14, 10, 48);
       const hitMat = new THREE.MeshBasicMaterial({ visible: false });
       const hitMesh = new THREE.Mesh(hitGeo, hitMat);
       hitMesh.userData = { gimbalAxis: axis };
@@ -150,12 +151,12 @@ export class RotationGimbal3D {
     this.visibleRings = { x: rx.visMesh, y: ry.visMesh, z: rz.visMesh };
     this.hitRings = { x: rx.hitMesh, y: ry.hitMesh, z: rz.hitMesh };
 
-    // Outer screen-space trackball ring
-    const outerGeo = new THREE.TorusGeometry(this.radius * 1.1, 0.016, 10, 96);
+    // Inner subtle screen-space trackball ring (stays cleanly inside object bounds)
+    const outerGeo = new THREE.TorusGeometry(this.radius * 0.98, 0.012, 10, 96);
     const outerMat = new THREE.MeshBasicMaterial({
       color: 0x94a3b8,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.22,
       depthTest: false,
     });
     this.outerRing = new THREE.Mesh(outerGeo, outerMat);
@@ -164,7 +165,8 @@ export class RotationGimbal3D {
   }
 
   public setRadiusFromBoundingSphere(sphereRadius: number): void {
-    const nextR = Math.max(0.9, 1.28 * sphereRadius);
+    // Keep gimbal rings cleanly inscribed inside the solid rather than protruding outside
+    const nextR = Math.max(0.55, 0.62 * sphereRadius);
     const ratio = nextR / this.radius;
     if (Math.abs(ratio - 1) > 0.05) {
       this.root.scale.setScalar(ratio);
