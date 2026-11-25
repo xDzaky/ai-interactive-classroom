@@ -7,8 +7,10 @@
  */
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
+  analyzeForManimGX,
   classifyMathIntent,
   synthesizeVisualFromFormula,
+  type ManimGxAnalysis,
   type MathVisualIntent,
   type SynthesizedVisualSpec,
 } from '@ai-classroom/math-core';
@@ -17,10 +19,12 @@ export interface MathTextBlockWidgetProps {
   id: string;
   latex: string;
   selected?: boolean;
+  originalStrokesCount?: number;
   onSelect?: () => void;
   onChangeLatex: (nextLatex: string) => void;
   onVisualize: (intent: MathVisualIntent) => void;
   onSynthesizeVisual?: (spec: SynthesizedVisualSpec) => void;
+  onAnimateManimGx?: (analysis: ManimGxAnalysis) => void;
   onMovePosition?: (dx: number, dy: number) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
@@ -39,10 +43,12 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
   id,
   latex,
   selected = false,
+  originalStrokesCount = 0,
   onSelect,
   onChangeLatex,
   onVisualize,
   onSynthesizeVisual,
+  onAnimateManimGx,
   onMovePosition,
   onDelete,
   onDuplicate,
@@ -102,6 +108,7 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
 
   const intent = useMemo(() => classifyMathIntent(latex), [latex]);
   const synthesized = useMemo(() => synthesizeVisualFromFormula(latex), [latex]);
+  const manimAnalysis = useMemo(() => analyzeForManimGX({ latex }), [latex]);
 
   const handleDragStart = (e: React.PointerEvent) => {
     if (!onMovePosition) return;
@@ -163,6 +170,11 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
         >
           <span>∑</span>
           <span>Blok Matematika</span>
+          {originalStrokesCount > 0 && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold normal-case text-amber-800">
+              ✍ Tulisan Tangan
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {onDuplicate && (
@@ -262,7 +274,7 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
       {/* Contextual Action Bar */}
       <div
         onPointerDown={(e) => e.stopPropagation()}
-        className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2"
+        className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2"
       >
         <button
           type="button"
@@ -278,6 +290,16 @@ export const MathTextBlockWidget: React.FC<MathTextBlockWidgetProps> = ({
         >
           Langkah
         </button>
+        {manimAnalysis.eligible && onAnimateManimGx && (
+          <button
+            type="button"
+            data-testid={`math-manimgx-btn-${id}`}
+            onClick={() => onAnimateManimGx(manimAnalysis)}
+            className="rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-cyan-300 shadow-sm hover:bg-slate-800"
+          >
+            🎬 Animasi ManimGX
+          </button>
+        )}
         {synthesized && onSynthesizeVisual ? (
           <button
             type="button"

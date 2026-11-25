@@ -453,4 +453,6 @@ function findBraceEnd(s: string, start: number): [number, string] {
 export * from "./intentClassifier.js";
 export * from "./trigIdentities.js";
 export * from "./diagramSynthesizer.js";
+export * from "./manimgxTemplates.js";
+export * from "./manimgxRouter.js";
 

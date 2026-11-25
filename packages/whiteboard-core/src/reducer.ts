@@ -118,6 +118,7 @@ export function applyEvent(
         const nextStroke: BoardStroke = {
           ...existingStroke,
           ...(typeof p.props_patch.color === "string" ? { color: p.props_patch.color } : {}),
+          ...(typeof p.props_patch.width === "number" ? { width: p.props_patch.width } : {}),
           ...(Array.isArray(p.props_patch.points)
             ? { points: p.props_patch.points as [number, number, number][] }
             : {}),

@@ -150,3 +150,29 @@ export interface NotebookFolder {
   color: string;
   createdAt: number;
 }
+
+export interface ManimGxObjectProps {
+  cx: number;
+  cy: number;
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  rotation: number;
+  sourceLatex: string;
+  linkedSourceId?: string;
+  pythonCode: string;
+  sceneClass: string;
+  templateKind:
+    | "surface_3d"
+    | "solid_3d"
+    | "function_calculus"
+    | "linear_transform"
+    | "stat_chart"
+    | "custom_proof";
+  runtimeMode: "browser_webgpu" | "procedural_canvas" | "server_mp4";
+  videoAssetId?: string;
+  posterAssetId?: string;
+  status: "idle" | "generating" | "inspecting" | "rendering" | "ready" | "error";
+  errorMessage?: string;
+}

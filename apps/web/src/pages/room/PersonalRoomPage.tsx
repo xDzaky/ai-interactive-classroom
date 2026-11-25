@@ -50,7 +50,10 @@ import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
 import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
 import { LayersPanel } from "@/components/whiteboard/LayersPanel";
 import { ExcalidrawToolbar } from "@/components/whiteboard/ExcalidrawToolbar";
-import { ExcalidrawPropertiesPanel } from "@/components/whiteboard/ExcalidrawPropertiesPanel";
+import {
+  ExcalidrawPropertiesPanel,
+  getCapabilitiesForSelection,
+} from "@/components/whiteboard/ExcalidrawPropertiesPanel";
 import {
   ExcalidrawCommandPalette,
   MermaidToDiagramModal,
@@ -76,6 +79,8 @@ import { useVoiceCommands, type ParsedVoiceIntent } from "@/hooks/useVoiceComman
 import { exportStageToPng } from "@/lib/exportPng";
 import { parsePerfParam, makePerfScene } from "@/dev/perfFixture";
 import { FpsMeter } from "@/dev/FpsMeter";
+import { analyzeForManimGX } from "@ai-classroom/math-core";
+import { useHandwritingToLatex } from "@/hooks/useHandwritingToLatex";
 
 const TongchuangSolidWidget = lazy(() =>
   import("@/components/math/TongchuangSolidWidget").then((m) => ({
@@ -160,6 +165,7 @@ export default function PersonalRoomPage() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showMermaidModal, setShowMermaidModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const handwriting = useHandwritingToLatex({ enabled: true });
   const [aiCaption, setAiCaption] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [showRemoteModal, setShowRemoteModal] = useState(false);
@@ -740,6 +746,38 @@ export default function PersonalRoomPage() {
     a.click();
   }
 
+  // Sync Gaya & Properti panel values immediately from primary selected object/stroke
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+    const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+    const primaryId = selectedIds[0];
+    const obj = scene?.objects[primaryId];
+    if (obj) {
+      const p = obj.props as Record<string, unknown>;
+      setExcalidrawStyle((prev) => ({
+        ...prev,
+        strokeColor: typeof p.stroke === "string" ? p.stroke : typeof p.fill === "string" && (obj.object_type === "text" || obj.object_type === "annotation") ? p.fill : prev.strokeColor,
+        backgroundColor: typeof p.fill === "string" ? p.fill : "transparent",
+        fillStyle: p.fillStyle === "hachure" || p.fillStyle === "cross-hatch" || p.fillStyle === "solid" ? p.fillStyle : prev.fillStyle,
+        strokeWidth: typeof p.strokeWidth === "number" ? p.strokeWidth : prev.strokeWidth,
+        strokeStyle: p.strokeStyle === "solid" || p.strokeStyle === "dashed" || p.strokeStyle === "dotted" ? p.strokeStyle : "solid",
+        roughness: p.roughness === 0 || p.roughness === 1 || p.roughness === 2 ? p.roughness : 0,
+        roundness: p.roundness === "sharp" || p.roundness === "round" ? p.roundness : "round",
+        fontFamily: p.fontFamily === "hand" || p.fontFamily === "sans" || p.fontFamily === "mono" ? p.fontFamily : prev.fontFamily,
+        opacity: typeof p.opacity === "number" ? (p.opacity <= 1 ? Math.round(p.opacity * 100) : Math.round(p.opacity)) : 100,
+      }));
+      return;
+    }
+    const stroke = scene?.strokes[primaryId];
+    if (stroke) {
+      setExcalidrawStyle((prev) => ({
+        ...prev,
+        strokeColor: stroke.color,
+        strokeWidth: stroke.width,
+      }));
+    }
+  }, [selectedIds]);
+
   const handleChangeExcalidrawStyle = useCallback(
     (patch: Partial<ExcalidrawStyleState>) => {
       setExcalidrawStyle((prev) => {
@@ -749,26 +787,42 @@ export default function PersonalRoomPage() {
         return next;
       });
       if (selectedIds.length > 0) {
-        const propsPatch: Record<string, unknown> = {};
-        if (patch.strokeColor !== undefined) propsPatch.stroke = patch.strokeColor;
-        if (patch.backgroundColor !== undefined) propsPatch.fill = patch.backgroundColor;
-        if (patch.fillStyle !== undefined) propsPatch.fillStyle = patch.fillStyle;
-        if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
-        if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
-        if (patch.roughness !== undefined) propsPatch.roughness = patch.roughness;
-        if (patch.roundness !== undefined) propsPatch.roundness = patch.roundness;
-        if (patch.opacity !== undefined) propsPatch.opacity = patch.opacity;
-        if (patch.fontFamily !== undefined) propsPatch.fontFamily = patch.fontFamily;
-        if (Object.keys(propsPatch).length > 0) {
-          handleEvent({
-            event_type: "batch",
-            payload: {
-              events: selectedIds.map((id) => ({
-                event_type: "object.updated",
-                payload: { id, props_patch: propsPatch },
-              })),
-            },
-          });
+        const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+        const events: WhiteboardEvent[] = [];
+        for (const id of selectedIds) {
+          const stroke = scene?.strokes[id];
+          if (stroke) {
+            const strokePatch: Record<string, unknown> = {};
+            if (patch.strokeColor !== undefined) strokePatch.color = patch.strokeColor;
+            if (patch.strokeWidth !== undefined) strokePatch.width = patch.strokeWidth;
+            if (Object.keys(strokePatch).length > 0) {
+              events.push({ event_type: "object.updated", payload: { id, props_patch: strokePatch } });
+            }
+            continue;
+          }
+          const obj = scene?.objects[id];
+          if (!obj) continue;
+          const propsPatch: Record<string, unknown> = {};
+          if (patch.strokeColor !== undefined) {
+            propsPatch.stroke = patch.strokeColor;
+            if (obj.object_type === "text" || obj.object_type === "annotation") {
+              propsPatch.fill = patch.strokeColor;
+            }
+          }
+          if (patch.backgroundColor !== undefined) propsPatch.fill = patch.backgroundColor;
+          if (patch.fillStyle !== undefined) propsPatch.fillStyle = patch.fillStyle;
+          if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
+          if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
+          if (patch.roughness !== undefined) propsPatch.roughness = patch.roughness;
+          if (patch.roundness !== undefined) propsPatch.roundness = patch.roundness;
+          if (patch.opacity !== undefined) propsPatch.opacity = patch.opacity;
+          if (patch.fontFamily !== undefined) propsPatch.fontFamily = patch.fontFamily;
+          if (Object.keys(propsPatch).length > 0) {
+            events.push({ event_type: "object.updated", payload: { id, props_patch: propsPatch } });
+          }
+        }
+        if (events.length > 0) {
+          handleEvent({ event_type: "batch", payload: { events } });
         }
       }
     },
@@ -921,6 +975,46 @@ export default function PersonalRoomPage() {
   );
 
   const commandActions: CommandPaletteAction[] = [
+    {
+      id: "wb-h2l",
+      label: "Ubah Tulisan Tangan → Rumus LaTeX",
+      category: "ManimGX & AI",
+      run: () => {
+        const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+        const strokes = Object.values(scene?.strokes ?? {});
+        if (strokes.length === 0) return;
+        const targetStrokes = selectedIds.some((id) => Boolean(scene?.strokes[id]))
+          ? selectedIds.map((id) => scene.strokes[id]).filter(Boolean)
+          : strokes.slice(-8);
+        handwriting.convertStrokesToLatex(targetStrokes);
+      },
+    },
+    {
+      id: "manimgx-3d",
+      label: "Buat Animasi 3D ManimGX (z = sin(x)*cos(y))",
+      category: "ManimGX & AI",
+      run: () => {
+        const analysis = analyzeForManimGX({ latex: "z = sin(x) * cos(y)" });
+        handleEvent({
+          event_type: "object.created",
+          payload: {
+            id: `manimgx-${Date.now()}`,
+            object_type: "viz_manimgx",
+            props: {
+              x: 240,
+              y: 110,
+              w: 480,
+              h: 340,
+              title: analysis.scene.title,
+              formulaLatex: "z = sin(x) * cos(y)",
+              templateId: analysis.templateKind,
+              sceneCode: analysis.scene.pythonCode,
+              label: analysis.scene.title,
+            },
+          },
+        });
+      },
+    },
     { id: "mermaid", label: "Mermaid → Diagram Flowchart", category: "Excalidraw", run: () => setShowMermaidModal(true) },
     { id: "zen", label: zenMode ? "Keluar Zen Mode" : "Aktifkan Zen Mode (Tanpa Gangguan)", category: "Tampilan", shortcut: "Alt+Z", run: () => setZenMode((v) => !v) },
     { id: "dark", label: darkCanvas ? "Tema Kanvas Terang" : "Tema Kanvas Gelap (Dark Mode)", category: "Tampilan", shortcut: "Alt+Shift+D", run: () => setDarkCanvas((v) => !v) },
@@ -1161,56 +1255,69 @@ export default function PersonalRoomPage() {
             </button>
           )}
 
-          {/* Excalidraw Left Floating Properties Panel */}
-          {!zenMode && (
-            <ExcalidrawPropertiesPanel
-              open={showPropsPanel && (selectedIds.length > 0 || (activeTool !== "select" && activeTool !== "hand" && activeTool !== "eraser" && activeTool !== "laser"))}
-              style={excalidrawStyle}
-              selectedCount={selectedIds.length}
-              hasCopiedStyle={Boolean(copiedStyle)}
-              darkCanvas={darkCanvas}
-              onChangeStyle={handleChangeExcalidrawStyle}
-              onAlign={handleAlignSelected}
-              onDistribute={handleDistributeSelected}
-              onCopyStyle={() => setCopiedStyle({ ...excalidrawStyle })}
-              onPasteStyle={() => copiedStyle && handleChangeExcalidrawStyle(copiedStyle)}
-              onDuplicate={() => {
-                const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
-                const events: WhiteboardEvent[] = [];
-                selectedIds.forEach((id) => {
-                  const o = scene.objects[id];
-                  if (!o) return;
-                  const p = o.props as Record<string, unknown>;
-                  events.push({
-                    event_type: "object.created",
-                    payload: {
-                      id: `${id}-dup-${Date.now()}`,
-                      object_type: o.object_type,
-                      props: {
-                        ...p,
-                        ...(typeof p.x === "number" ? { x: p.x + 28 } : {}),
-                        ...(typeof p.y === "number" ? { y: p.y + 28 } : {}),
-                        ...(typeof p.cx === "number" ? { cx: p.cx + 28 } : {}),
-                        ...(typeof p.cy === "number" ? { cy: p.cy + 28 } : {}),
+          {/* Excalidraw Left Floating Properties Panel — Capability-Filtered! */}
+          {!zenMode && (() => {
+            const activeScene = boardState.scenes[boardState.active_scene_id];
+            const selectedTypes: string[] = selectedIds
+              .map((id): string | null => activeScene?.objects[id]?.object_type ?? (activeScene?.strokes[id] ? "stroke" : null))
+              .filter((t): t is string => t !== null);
+            const caps = getCapabilitiesForSelection(selectedTypes, activeTool);
+            const shouldOpen =
+              showPropsPanel &&
+              caps.hasAny &&
+              (selectedTypes.length > 0 ||
+                (activeTool !== "select" && activeTool !== "hand" && activeTool !== "eraser" && activeTool !== "laser"));
+            return (
+              <ExcalidrawPropertiesPanel
+                open={shouldOpen}
+                style={excalidrawStyle}
+                selectedCount={selectedIds.length}
+                capabilities={caps}
+                hasCopiedStyle={Boolean(copiedStyle)}
+                darkCanvas={darkCanvas}
+                onChangeStyle={handleChangeExcalidrawStyle}
+                onAlign={handleAlignSelected}
+                onDistribute={handleDistributeSelected}
+                onCopyStyle={() => setCopiedStyle({ ...excalidrawStyle })}
+                onPasteStyle={() => copiedStyle && handleChangeExcalidrawStyle(copiedStyle)}
+                onDuplicate={() => {
+                  const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+                  const events: WhiteboardEvent[] = [];
+                  selectedIds.forEach((id) => {
+                    const o = scene.objects[id];
+                    if (!o) return;
+                    const p = o.props as Record<string, unknown>;
+                    events.push({
+                      event_type: "object.created",
+                      payload: {
+                        id: `${id}-dup-${Date.now()}`,
+                        object_type: o.object_type,
+                        props: {
+                          ...p,
+                          ...(typeof p.x === "number" ? { x: p.x + 28 } : {}),
+                          ...(typeof p.y === "number" ? { y: p.y + 28 } : {}),
+                          ...(typeof p.cx === "number" ? { cx: p.cx + 28 } : {}),
+                          ...(typeof p.cy === "number" ? { cy: p.cy + 28 } : {}),
+                        },
                       },
+                    });
+                  });
+                  if (events.length > 0) handleEvent({ event_type: "batch", payload: { events } });
+                }}
+                onDelete={() => {
+                  if (selectedIds.length === 0) return;
+                  handleEvent({
+                    event_type: "batch",
+                    payload: {
+                      events: selectedIds.map((id) => ({ event_type: "object.deleted", payload: { id } })),
                     },
                   });
-                });
-                if (events.length > 0) handleEvent({ event_type: "batch", payload: { events } });
-              }}
-              onDelete={() => {
-                if (selectedIds.length === 0) return;
-                handleEvent({
-                  event_type: "batch",
-                  payload: {
-                    events: selectedIds.map((id) => ({ event_type: "object.deleted", payload: { id } })),
-                  },
-                });
-                setSelectedIds([]);
-              }}
-              onClose={() => setShowPropsPanel(false)}
-            />
-          )}
+                  setSelectedIds([]);
+                }}
+                onClose={() => setShowPropsPanel(false)}
+              />
+            );
+          })()}
 
           {/* Mobile Bottom Thumb Dock (< 768px) — thumb-reachable core tools */}
           <div
@@ -1532,6 +1639,57 @@ export default function PersonalRoomPage() {
         open={showRemoteModal}
         onClose={() => setShowRemoteModal(false)}
       />
+
+      {/* V6 Unified Handwriting-to-LaTeX Confirmation Chip on /whiteboard */}
+      {handwriting.candidate && (
+        <div
+          data-testid="wb-latex-confirm-chip"
+          className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/98 px-3.5 py-2 text-xs shadow-2xl"
+        >
+          <span className="font-semibold text-slate-600">Rumus terdeteksi:</span>
+          <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono font-bold text-indigo-800">
+            {handwriting.candidate.latex}
+          </code>
+          <button
+            type="button"
+            data-testid="wb-latex-accept-btn"
+            onClick={() => {
+              const accepted = handwriting.acceptCandidate();
+              if (!accepted) return;
+              const events: WhiteboardEvent[] = [
+                ...accepted.strokeIds.map((sid) => ({
+                  event_type: "object.deleted" as const,
+                  payload: { id: sid },
+                })),
+                {
+                  event_type: "object.created" as const,
+                  payload: {
+                    id: `math-${Date.now()}`,
+                    object_type: "math_block",
+                    props: {
+                      x: Math.max(40, Math.round(accepted.bbox.x)),
+                      y: Math.max(60, Math.round(accepted.bbox.y)),
+                      latex: accepted.latex,
+                      originalStrokes: accepted.originalStrokes,
+                    },
+                  },
+                },
+              ];
+              handleEvent({ event_type: "batch", payload: { events } });
+            }}
+            className="rounded-lg bg-indigo-600 px-2.5 py-1 font-bold text-white hover:bg-indigo-700"
+          >
+            ✓ Jadi LaTeX
+          </button>
+          <button
+            type="button"
+            onClick={handwriting.dismissCandidate}
+            className="rounded-lg bg-slate-100 px-2 py-1 font-semibold text-slate-600 hover:bg-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Blank Screen Overlay (triggered from Mobile Remote) */}
       {isBlanked && (

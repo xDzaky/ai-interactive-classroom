@@ -2630,6 +2630,51 @@ export function WhiteboardCanvas({
             payload: { id, props_patch: propsPatch },
           });
         }}
+        onAnimateMathBlock={(mathObj, analysis) => {
+          const mp = mathObj.props as Record<string, unknown>;
+          const bx = Number(mp.x ?? 180) + 330;
+          const by = Number(mp.y ?? 90);
+          const newId = `manimgx-${uid()}`;
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id: newId,
+              object_type: "viz_manimgx",
+              props: {
+                x: bx,
+                y: by,
+                w: 480,
+                h: 340,
+                title: analysis.scene.title,
+                formulaLatex: String(mp.latex ?? ""),
+                templateId: analysis.templateKind,
+                sceneCode: analysis.scene.pythonCode,
+                linkedMathBlockId: mathObj.id,
+                label: analysis.scene.title,
+              },
+            },
+          });
+        }}
+        onConvertManimTo3D={(manimObj) => {
+          const mp = manimObj.props as Record<string, unknown>;
+          const newId = `solid-${uid()}`;
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id: newId,
+              object_type: "viz_solid",
+              props: {
+                x: Number(mp.x ?? 220) + 40,
+                y: Number(mp.y ?? 100) + 40,
+                w: 320,
+                h: 320,
+                solid_type: "cube",
+                params: { type: "cube", s: 4 },
+                label: `Model 3D · ${String(mp.title ?? "ManimGX")}`,
+              },
+            },
+          });
+        }}
         onSynthesizeMathBlock={(mathObj, spec) => {
           const mp = mathObj.props as Record<string, unknown>;
           const bx = Number(mp.x ?? 180) + 340;

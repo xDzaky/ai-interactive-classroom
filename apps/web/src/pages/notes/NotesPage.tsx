@@ -25,12 +25,18 @@ import {
 } from '@/lib/notesStore';
 import { putMediaAsset } from '@/lib/mediaStore';
 import type { LaserConfig } from '@/lib/laserPointerEngine';
-import { ExcalidrawPropertiesPanel } from '@/components/whiteboard/ExcalidrawPropertiesPanel';
+import {
+  ExcalidrawPropertiesPanel,
+  getCapabilitiesForSelection,
+} from '@/components/whiteboard/ExcalidrawPropertiesPanel';
 import {
   ExcalidrawCommandPalette,
   MermaidToDiagramModal,
   type CommandPaletteAction,
 } from '@/components/whiteboard/ExcalidrawCommandPalette';
+import { ManimGxWidget } from '@/components/math/ManimGxWidget';
+import { useHandwritingToLatex } from '@/hooks/useHandwritingToLatex';
+import { analyzeForManimGX, type ManimGxAnalysis } from '@ai-classroom/math-core';
 import {
   DEFAULT_EXCALIDRAW_STYLE,
   exportBasicSceneToSvg,
@@ -112,7 +118,10 @@ export default function NotesPage() {
   const [showFeynman, setShowFeynman] = useState(false);
   const [feynmanPrompt, setFeynmanPrompt] = useState('');
   const [feynmanAnswer, setFeynmanAnswer] = useState('');
+  const [activeManimGx, setActiveManimGx] = useState<ManimGxAnalysis | null>(null);
   const [statusToast, setStatusToast] = useState<string | null>(null);
+
+  const handwriting = useHandwritingToLatex({ enabled: true });
 
   // Undo/Redo stacks per active page
   const [undoStack, setUndoStack] = useState<NotePage[]>([]);
@@ -345,7 +354,53 @@ export default function NotesPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [viewMode]);
 
+  const handleConvertPageHandwritingToLatex = useCallback(() => {
+    if (!activePage || activePage.strokes.length === 0) {
+      showToast('Tulis rumus dengan pena terlebih dahulu di halaman catatan');
+      return;
+    }
+    const recent = activePage.strokes.slice(-8).map((s) => ({
+      id: s.id,
+      points: s.points,
+      color: s.color,
+      width: s.width,
+    }));
+    handwriting.convertStrokesToLatex(recent);
+  }, [activePage, handwriting]);
+
+  const handleAcceptHandwritingLatex = useCallback(() => {
+    const accepted = handwriting.acceptCandidate();
+    if (!accepted || !activePage) return;
+    handleUpdatePage((p) => ({
+      ...p,
+      texts: [
+        ...(p.texts ?? []),
+        {
+          id: `nlatex-${Date.now()}`,
+          x: Math.max(24, Math.round(accepted.bbox.x)),
+          y: Math.max(24, Math.round(accepted.bbox.y)),
+          text: accepted.latex,
+          fontSize: 18,
+          color: '#312e81',
+          layerId: activeLayerId,
+        },
+      ],
+    }));
+    const analysis = analyzeForManimGX({ latex: accepted.latex });
+    if (analysis.eligible) {
+      setActiveManimGx(analysis);
+    }
+    showToast(`Tulisan diubah ke LaTeX: ${accepted.latex}`);
+  }, [handwriting, activePage, handleUpdatePage, activeLayerId]);
+
   const notesCommandActions: CommandPaletteAction[] = [
+    { id: 'n-h2l', label: 'Ubah Tulisan Tangan → Rumus LaTeX', category: 'ManimGX & AI', run: handleConvertPageHandwritingToLatex },
+    {
+      id: 'n-manim',
+      label: 'Buat Animasi 3D ManimGX (z = sin(x)*cos(y))',
+      category: 'ManimGX & AI',
+      run: () => setActiveManimGx(analyzeForManimGX({ latex: 'z = sin(x) * cos(y)' })),
+    },
     { id: 'n-mermaid', label: 'Mermaid → Diagram Flowchart', category: 'Excalidraw', run: () => setShowMermaidModal(true) },
     { id: 'n-svg', label: 'Ekspor Halaman ke SVG Vektor', category: 'Ekspor', run: handleExportSvg },
     { id: 'n-png', label: 'Ekspor Halaman ke PNG', category: 'Ekspor', run: handleExportPng },
@@ -661,7 +716,7 @@ export default function NotesPage() {
           onDropImageBlob={(blob, pos, name) => void handleInsertImageBlob(blob, pos, name)}
         />
 
-        {/* Shared Excalidraw Left Style Properties Panel in /notes (when diagramming tool is active) */}
+        {/* Shared Excalidraw Left Style Properties Panel in /notes (capability-filtered!) */}
         <ExcalidrawPropertiesPanel
           open={
             showExProps &&
@@ -674,6 +729,7 @@ export default function NotesPage() {
           }
           style={excalidrawStyle}
           selectedCount={0}
+          capabilities={getCapabilitiesForSelection([], activeTool)}
           onChangeStyle={(patch) => setExcalidrawStyle((prev) => ({ ...prev, ...patch }))}
           onClose={() => setShowExProps(false)}
         />
@@ -928,6 +984,77 @@ export default function NotesPage() {
         onInsert={handleInsertMermaidInNotes}
         onClose={() => setShowMermaidModal(false)}
       />
+
+      {/* V6 Unified Handwriting-to-LaTeX Quick Action & Confirmation Chip */}
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+        <button
+          type="button"
+          data-testid="notes-handwriting-latex-btn"
+          onClick={handleConvertPageHandwritingToLatex}
+          className="rounded-full border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-lg hover:bg-indigo-50"
+          title="Konversi goresan tulisan tangan menjadi rumus LaTeX"
+        >
+          ✍ Tulisan → LaTeX
+        </button>
+        <button
+          type="button"
+          data-testid="notes-manimgx-launch-btn"
+          onClick={() => setActiveManimGx(analyzeForManimGX({ latex: 'z = sin(x) * cos(y)' }))}
+          className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 shadow-lg hover:bg-slate-800"
+          title="Buka Player Animasi 3D ManimGX di Catatan"
+        >
+          🎬 ManimGX 3D
+        </button>
+      </div>
+
+      {handwriting.candidate && (
+        <div
+          data-testid="notes-latex-confirm-chip"
+          className="fixed bottom-16 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/98 px-3.5 py-2 text-xs shadow-2xl"
+        >
+          <span className="font-semibold text-slate-600">Rumus terdeteksi:</span>
+          <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono font-bold text-indigo-800">
+            {handwriting.candidate.latex}
+          </code>
+          <button
+            type="button"
+            data-testid="notes-latex-accept-btn"
+            onClick={handleAcceptHandwritingLatex}
+            className="rounded-lg bg-indigo-600 px-2.5 py-1 font-bold text-white hover:bg-indigo-700"
+          >
+            ✓ Jadi LaTeX
+          </button>
+          <button
+            type="button"
+            onClick={handwriting.dismissCandidate}
+            className="rounded-lg bg-slate-100 px-2 py-1 font-semibold text-slate-600 hover:bg-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {activeManimGx && (
+        <div
+          data-testid="notes-manimgx-player"
+          className="fixed bottom-16 right-4 z-40 h-80 w-[440px] max-w-[92vw]"
+        >
+          <ManimGxWidget
+            id="notes-manim"
+            title={activeManimGx.scene.title}
+            formulaLatex={String(activeManimGx.scene.params.latex ?? 'z = sin(x) * cos(y)')}
+            templateId={activeManimGx.templateKind}
+            sceneCode={activeManimGx.scene.pythonCode}
+            selected={true}
+            onUpdateSceneCode={(next) =>
+              setActiveManimGx((prev) =>
+                prev ? { ...prev, scene: { ...prev.scene, pythonCode: next } } : null,
+              )
+            }
+            onDelete={() => setActiveManimGx(null)}
+          />
+        </div>
+      )}
 
       {statusToast && (
         <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xl">

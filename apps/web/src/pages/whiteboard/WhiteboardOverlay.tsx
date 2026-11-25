@@ -25,13 +25,20 @@ import { MathTextBlockWidget } from "../../components/math/MathTextBlockWidget.j
 import { TextbookGraphWidget } from "../../components/math/TextbookGraphWidget.js";
 import { StatChartWidget } from "../../components/math/StatChartWidget.js";
 import { TrigProofWidget } from "../../components/math/TrigProofWidget.js";
+import { ManimGxWidget } from "../../components/math/ManimGxWidget.js";
 import { SimulationWidget } from "../../components/whiteboard/SimulationWidget.js";
 import { ImageContextToolbar } from "../../components/whiteboard/ImageContextToolbar.js";
 import { getMediaObjectUrl } from "@/lib/mediaStore";
 import type { SimulationTemplateId } from "@ai-classroom/whiteboard-core";
 import type { SolidType, SolidParams, CompoundSolidPart } from "@ai-classroom/geometry-core";
 import type { TexturePreset } from "@/lib/faceTextures";
-import type { MathVisualIntent, SynthesizedVisualSpec, TrigIdentityId } from "@ai-classroom/math-core";
+import type {
+  ManimGxAnalysis,
+  ManimGxTemplateKind,
+  MathVisualIntent,
+  SynthesizedVisualSpec,
+  TrigIdentityId,
+} from "@ai-classroom/math-core";
 import type { ViewportController, ViewportState } from "@/lib/viewport";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -68,6 +75,8 @@ export interface WhiteboardOverlayProps {
   onUpdateObjectProps?: (id: string, propsPatch: Record<string, unknown>) => void;
   onVisualizeMathBlock?: (mathBlockObj: BoardObject, intent: MathVisualIntent) => void;
   onSynthesizeMathBlock?: (mathBlockObj: BoardObject, spec: SynthesizedVisualSpec) => void;
+  onAnimateMathBlock?: (mathBlockObj: BoardObject, analysis: ManimGxAnalysis) => void;
+  onConvertManimTo3D?: (manimObj: BoardObject) => void;
   onOpenInspector?: (obj: BoardObject) => void;
 }
 
@@ -428,6 +437,7 @@ interface MathBlockOverlayProps {
   onChangeLatex: (next: string) => void;
   onVisualize: (intent: MathVisualIntent) => void;
   onSynthesize?: (spec: SynthesizedVisualSpec) => void;
+  onAnimateManimGx?: (analysis: ManimGxAnalysis) => void;
   onMove?: (x: number, y: number) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
@@ -612,6 +622,7 @@ function MathBlockOverlay({
   onChangeLatex,
   onVisualize,
   onSynthesize,
+  onAnimateManimGx,
   onMove,
   onDelete,
   onDuplicate,
@@ -662,10 +673,12 @@ function MathBlockOverlay({
         id={obj.id}
         latex={latex}
         selected={isSelected}
+        originalStrokesCount={Array.isArray(props.originalStrokes) ? props.originalStrokes.length : 0}
         onSelect={onSelect}
         onChangeLatex={onChangeLatex}
         onVisualize={onVisualize}
         onSynthesizeVisual={onSynthesize}
+        onAnimateManimGx={onAnimateManimGx}
         onDelete={onDelete}
         onDuplicate={onDuplicate}
         onMovePosition={
@@ -702,6 +715,8 @@ export function WhiteboardOverlay({
   onUpdateObjectProps,
   onVisualizeMathBlock,
   onSynthesizeMathBlock,
+  onAnimateMathBlock,
+  onConvertManimTo3D,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -719,7 +734,8 @@ export function WhiteboardOverlay({
               obj.object_type === "image" ||
               obj.object_type === "textbook_graph" ||
               obj.object_type === "stat_chart" ||
-              obj.object_type === "trig_proof")
+              obj.object_type === "trig_proof" ||
+              obj.object_type === "viz_manimgx")
         ),
     [scene]
   );
@@ -848,6 +864,11 @@ export function WhiteboardOverlay({
                 ? (spec) => onSynthesizeMathBlock(obj, spec)
                 : undefined
             }
+            onAnimateManimGx={
+              onAnimateMathBlock
+                ? (analysis) => onAnimateMathBlock(obj, analysis)
+                : undefined
+            }
             onMove={onMoveObject ? (nx, ny) => onMoveObject(obj.id, nx, ny) : undefined}
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
             onDuplicate={onDuplicateObject ? () => onDuplicateObject(obj) : undefined}
@@ -945,6 +966,42 @@ export function WhiteboardOverlay({
               id={obj.id}
               identityId={String((obj.props as Record<string, unknown>).identityId ?? "double_angle") as TrigIdentityId}
               initialThetaDeg={Number((obj.props as Record<string, unknown>).thetaDeg ?? 28)}
+              onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+              onMovePosition={
+                onMoveObject
+                  ? (dx, dy) => {
+                      const p = obj.props as Record<string, unknown>;
+                      const s = viewportController?.getState().scale ?? view.scale;
+                      onMoveObject(obj.id, Number(p.x ?? 220) + dx / (s || 1), Number(p.y ?? 90) + dy / (s || 1));
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        ) : obj.object_type === "viz_manimgx" ? (
+          <div
+            key={obj.id}
+            data-testid={`viz-manimgx-container-${obj.id}`}
+            style={{
+              position: "absolute",
+              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
+              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
+              width: Number((obj.props as Record<string, unknown>).w ?? 480),
+              height: Number((obj.props as Record<string, unknown>).h ?? 340),
+              pointerEvents: "auto",
+              zIndex: Boolean(selectedIds?.includes(obj.id)) ? 25 : 20,
+            }}
+          >
+            <ManimGxWidget
+              id={obj.id}
+              title={String((obj.props as Record<string, unknown>).title ?? "Animasi ManimGX")}
+              formulaLatex={String((obj.props as Record<string, unknown>).formulaLatex ?? "y = sin(x)")}
+              templateId={String((obj.props as Record<string, unknown>).templateId ?? "function_calculus") as ManimGxTemplateKind}
+              sceneCode={String((obj.props as Record<string, unknown>).sceneCode ?? "")}
+              selected={Boolean(selectedIds?.includes(obj.id))}
+              onSelect={() => setSelectedSolid(obj.id)}
+              onUpdateSceneCode={(nextCode) => onUpdateObjectProps?.(obj.id, { sceneCode: nextCode })}
+              onConvertToInteractive3D={onConvertManimTo3D ? () => onConvertManimTo3D(obj) : undefined}
               onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
               onMovePosition={
                 onMoveObject
