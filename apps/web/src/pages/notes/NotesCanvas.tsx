@@ -35,6 +35,8 @@ import {
   type StrokeStyleKind,
 } from '@/lib/excalidrawEngine';
 import type { BoardObject } from '@ai-classroom/whiteboard-core';
+import type { ManimGxTemplateKind } from '@ai-classroom/math-core';
+import { ManimGxWidget } from '@/components/math/ManimGxWidget';
 import type {
   EraserSettings,
   LassoSettings,
@@ -208,6 +210,18 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     window.addEventListener('resize', updateDims);
     return () => window.removeEventListener('resize', updateDims);
   }, [page.mode, page.pageSize]);
+
+  const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [isSpacePanning, setIsSpacePanning] = useState(false);
+  const isSpacePanRef = useRef(false);
+  const panDragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
+  const draggingObjRef = useRef<{ id: string; lastX: number; lastY: number } | null>(null);
+  const copiedNoteItemRef = useRef<{
+    kind: 'object' | 'text';
+    data: Record<string, unknown>;
+    pasteCount: number;
+  } | null>(null);
 
   // Attach LaserPointerEngine to dedicated overlay canvas (never mutates undo stack!)
   useEffect(() => {
@@ -424,6 +438,48 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     page.objects.forEach(drawExcalidrawObject);
     page.strokes.forEach(drawSingleStroke);
 
+    // Selection highlight for selected vector object in /notes
+    if (selectedObjId) {
+      const selObj = page.objects.find((o) => o.id === selectedObjId);
+      if (selObj && selObj.object_type !== 'image' && selObj.object_type !== 'viz_manimgx') {
+        const sp = selObj.props as Record<string, unknown>;
+        let bx = 0;
+        let by = 0;
+        let bw = 0;
+        let bh = 0;
+        if (selObj.object_type === 'rect' || selObj.object_type === 'frame') {
+          bx = Number(sp.x ?? 0);
+          by = Number(sp.y ?? 0);
+          bw = Number(sp.w ?? 100);
+          bh = Number(sp.h ?? 60);
+        } else if (selObj.object_type === 'rhombus' || selObj.object_type === 'ellipse') {
+          const rx = Number(sp.rx ?? 50);
+          const ry = Number(sp.ry ?? 35);
+          bx = Number(sp.cx ?? 0) - rx;
+          by = Number(sp.cy ?? 0) - ry;
+          bw = rx * 2;
+          bh = ry * 2;
+        } else if (selObj.object_type === 'arrow' || selObj.object_type === 'line') {
+          const x1 = Number(sp.x1 ?? 0);
+          const y1 = Number(sp.y1 ?? 0);
+          const x2 = Number(sp.x2 ?? 100);
+          const y2 = Number(sp.y2 ?? 100);
+          bx = Math.min(x1, x2);
+          by = Math.min(y1, y2);
+          bw = Math.max(12, Math.abs(x2 - x1));
+          bh = Math.max(12, Math.abs(y2 - y1));
+        }
+        if (bw > 0 && bh > 0) {
+          ctx.save();
+          ctx.strokeStyle = '#2563eb';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([5, 3]);
+          ctx.strokeRect(bx - 5, by - 5, bw + 10, bh + 10);
+          ctx.restore();
+        }
+      }
+    }
+
     // Live Excalidraw Shape Drag Preview
     if (shapeStartRef.current && shapeEndRef.current) {
       const [x0, y0] = shapeStartRef.current;
@@ -506,7 +562,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   useEffect(() => {
     redrawCanvas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, canvasDims]);
+  }, [page, canvasDims, selectedObjId]);
 
   const toLocalPt = (e: React.PointerEvent): [number, number] => {
     const rect = inkCanvasRef.current!.getBoundingClientRect();
@@ -537,8 +593,191 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     return [x, y];
   };
 
+  const hitTestNoteObject = (x: number, y: number): BoardObject | null => {
+    for (let i = page.objects.length - 1; i >= 0; i--) {
+      const obj = page.objects[i];
+      if (obj.object_type === 'viz_manimgx' || obj.object_type === 'image') continue;
+      const p = obj.props as Record<string, unknown>;
+      if (obj.object_type === 'rect' || obj.object_type === 'frame') {
+        const ox = Number(p.x ?? 0);
+        const oy = Number(p.y ?? 0);
+        const ow = Number(p.w ?? 100);
+        const oh = Number(p.h ?? 60);
+        if (x >= ox - 8 && x <= ox + ow + 8 && y >= oy - 8 && y <= oy + oh + 8) return obj;
+      } else if (obj.object_type === 'rhombus' || obj.object_type === 'ellipse') {
+        const cx = Number(p.cx ?? 0);
+        const cy = Number(p.cy ?? 0);
+        const rx = Number(p.rx ?? 50);
+        const ry = Number(p.ry ?? 35);
+        if (x >= cx - rx - 8 && x <= cx + rx + 8 && y >= cy - ry - 8 && y <= cy + ry + 8) return obj;
+      } else if (obj.object_type === 'arrow' || obj.object_type === 'line') {
+        const x1 = Number(p.x1 ?? 0);
+        const y1 = Number(p.y1 ?? 0);
+        const x2 = Number(p.x2 ?? 100);
+        const y2 = Number(p.y2 ?? 100);
+        const minX = Math.min(x1, x2) - 10;
+        const maxX = Math.max(x1, x2) + 10;
+        const minY = Math.min(y1, y2) - 10;
+        const maxY = Math.max(y1, y2) + 10;
+        if (x >= minX && x <= maxX && y >= minY && y <= maxY) return obj;
+      }
+    }
+    return null;
+  };
+
+  // Spacebar temporary Hand pan + Ctrl+C / Ctrl+V / Delete for selected item in /notes
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      Boolean((target as HTMLElement | null)?.isContentEditable);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTyping(e.target)) return;
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        isSpacePanRef.current = true;
+        setIsSpacePanning(true);
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedObjId || selectedTextId)) {
+        e.preventDefault();
+        if (selectedObjId) {
+          const delId = selectedObjId;
+          setSelectedObjId(null);
+          onUpdatePage((prev) => ({
+            ...prev,
+            objects: prev.objects.filter((o) => o.id !== delId),
+          }));
+        } else if (selectedTextId) {
+          const delId = selectedTextId;
+          setSelectedTextId(null);
+          onUpdatePage((prev) => ({
+            ...prev,
+            texts: (prev.texts ?? []).filter((t) => t.id !== delId),
+          }));
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (selectedObjId) {
+          const obj = page.objects.find((o) => o.id === selectedObjId);
+          if (obj) {
+            e.preventDefault();
+            copiedNoteItemRef.current = {
+              kind: 'object',
+              data: JSON.parse(JSON.stringify(obj)),
+              pasteCount: 0,
+            };
+          }
+        } else if (selectedTextId) {
+          const txt = (page.texts ?? []).find((t) => t.id === selectedTextId);
+          if (txt) {
+            e.preventDefault();
+            copiedNoteItemRef.current = {
+              kind: 'text',
+              data: JSON.parse(JSON.stringify(txt)),
+              pasteCount: 0,
+            };
+          }
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        const clip = copiedNoteItemRef.current;
+        if (!clip) return;
+        e.preventDefault();
+        clip.pasteCount += 1;
+        const off = 24 * clip.pasteCount;
+        const now = Date.now();
+        if (clip.kind === 'text') {
+          const t = clip.data as unknown as NotePage['texts'] extends Array<infer U> | undefined ? U : never;
+          const newId = `txt-${now}`;
+          onUpdatePage((prev) => ({
+            ...prev,
+            texts: [...(prev.texts ?? []), { ...t, id: newId, x: t.x + off, y: t.y + off }],
+          }));
+          setSelectedTextId(newId);
+        } else if (clip.kind === 'object') {
+          const o = clip.data as unknown as BoardObject;
+          const p = JSON.parse(JSON.stringify(o.props)) as Record<string, unknown>;
+          if (typeof p.x === 'number') p.x += off;
+          if (typeof p.y === 'number') p.y += off;
+          if (typeof p.cx === 'number') p.cx += off;
+          if (typeof p.cy === 'number') p.cy += off;
+          if (typeof p.x1 === 'number') p.x1 += off;
+          if (typeof p.y1 === 'number') p.y1 += off;
+          if (typeof p.x2 === 'number') p.x2 += off;
+          if (typeof p.y2 === 'number') p.y2 += off;
+          const newId = `nobj-${now}`;
+          onUpdatePage((prev) => ({
+            ...prev,
+            objects: [...prev.objects, { ...o, id: newId, props: p, created_at: now, updated_at: now }],
+          }));
+          setSelectedObjId(newId);
+        }
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isSpacePanRef.current = false;
+        setIsSpacePanning(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [page.objects, page.texts, selectedObjId, selectedTextId, onUpdatePage]);
+
+  // Drag helper for DOM-positioned Note items (text, image, sticker, tape)
+  const startDomDrag = (
+    e: React.PointerEvent,
+    onDelta: (dxWorld: number, dyWorld: number) => void,
+    onClickWithoutDrag?: () => void,
+  ) => {
+    e.stopPropagation();
+    let lx = e.clientX;
+    let ly = e.clientY;
+    let moved = false;
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - lx;
+      const dy = ev.clientY - ly;
+      if (Math.hypot(dx, dy) > 2) moved = true;
+      lx = ev.clientX;
+      ly = ev.clientY;
+      if (dx !== 0 || dy !== 0) {
+        onDelta(dx / (pan.scale || 1), dy / (pan.scale || 1));
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (!moved && onClickWithoutDrag) onClickWithoutDrag();
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (activeTool === 'reading') return;
+
+    // Hand tool / Spacebar / Middle-click viewport panning
+    if (activeTool === 'hand' || isSpacePanRef.current || e.button === 1) {
+      const scroller = containerRef.current;
+      if (!scroller) return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      panDragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        scrollLeft: scroller.scrollLeft,
+        scrollTop: scroller.scrollTop,
+      };
+      return;
+    }
 
     // Cross-device Stylus Palm Rejection!
     const route = inputRouterRef.current.onPointerDown(e);
@@ -579,13 +818,15 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     }
 
     if (activeTool === 'text') {
+      const newId = `txt-${Date.now()}`;
       onUpdatePage((prev) => ({
         ...prev,
         texts: [
           ...(prev.texts ?? []),
-          { id: `txt-${Date.now()}`, x: rawX, y: rawY, text: 'Catatan baru...', fontSize: 16, color: penSettings.color, layerId: activeLayerId },
+          { id: newId, x: rawX, y: rawY, text: '', fontSize: 16, color: penSettings.color, layerId: activeLayerId },
         ],
       }));
+      setSelectedTextId(newId);
       return;
     }
 
@@ -604,6 +845,15 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     }
 
     if (activeTool === 'select') {
+      setSelectedTextId(null);
+      const hit = hitTestNoteObject(rawX, rawY);
+      if (hit) {
+        setSelectedObjId(hit.id);
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        draggingObjRef.current = { id: hit.id, lastX: rawX, lastY: rawY };
+      } else {
+        setSelectedObjId(null);
+      }
       return;
     }
 
@@ -651,6 +901,44 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (panDragRef.current && containerRef.current) {
+      const { startX, startY, scrollLeft, scrollTop } = panDragRef.current;
+      containerRef.current.scrollLeft = scrollLeft - (e.clientX - startX);
+      containerRef.current.scrollTop = scrollTop - (e.clientY - startY);
+      return;
+    }
+
+    if (draggingObjRef.current) {
+      const [rawX, rawY] = toLocalPt(e);
+      const dx = rawX - draggingObjRef.current.lastX;
+      const dy = rawY - draggingObjRef.current.lastY;
+      draggingObjRef.current.lastX = rawX;
+      draggingObjRef.current.lastY = rawY;
+      const dragId = draggingObjRef.current.id;
+      if (dx !== 0 || dy !== 0) {
+        onUpdatePage(
+          (prev) => ({
+            ...prev,
+            objects: prev.objects.map((o) => {
+              if (o.id !== dragId) return o;
+              const p = { ...(o.props as Record<string, unknown>) };
+              if (typeof p.x === 'number') p.x += dx;
+              if (typeof p.y === 'number') p.y += dy;
+              if (typeof p.cx === 'number') p.cx += dx;
+              if (typeof p.cy === 'number') p.cy += dy;
+              if (typeof p.x1 === 'number') p.x1 += dx;
+              if (typeof p.y1 === 'number') p.y1 += dy;
+              if (typeof p.x2 === 'number') p.x2 += dx;
+              if (typeof p.y2 === 'number') p.y2 += dy;
+              return { ...o, props: p, updated_at: Date.now() };
+            }),
+          }),
+          false,
+        );
+      }
+      return;
+    }
+
     if (!isDrawingRef.current) return;
     const route = inputRouterRef.current.onPointerMove(e);
     if (!route.allowDraw) return;
@@ -690,6 +978,14 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (panDragRef.current) {
+      panDragRef.current = null;
+      return;
+    }
+    if (draggingObjRef.current) {
+      draggingObjRef.current = null;
+      return;
+    }
     inputRouterRef.current.onPointerUp(e);
     if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
@@ -835,7 +1131,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           height: canvasDims.h * pan.scale,
         }}
       >
-        {/* Background Image Tracing Layers */}
+        {/* Background Image Tracing Layers (draggable when unlocked & select tool) */}
         {page.objects
           .filter((o) => o.object_type === 'image')
           .map((obj) => {
@@ -848,9 +1144,39 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
             const y = Number(p.y ?? 100);
             const opacity = typeof p.opacity === 'number' ? p.opacity : 1;
             const locked = Boolean(p.locked);
+            const canDragImg = !locked && activeTool === 'select';
             return (
               <div
                 key={obj.id}
+                onPointerDown={
+                  canDragImg
+                    ? (e) => {
+                        setSelectedObjId(obj.id);
+                        setSelectedTextId(null);
+                        startDomDrag(e, (dx, dy) =>
+                          onUpdatePage(
+                            (prev) => ({
+                              ...prev,
+                              objects: prev.objects.map((o) => {
+                                if (o.id !== obj.id) return o;
+                                const op = o.props as Record<string, unknown>;
+                                return {
+                                  ...o,
+                                  props: {
+                                    ...op,
+                                    x: Number(op.x ?? 100) + dx,
+                                    y: Number(op.y ?? 100) + dy,
+                                  },
+                                  updated_at: Date.now(),
+                                };
+                              }),
+                            }),
+                            false,
+                          ),
+                        );
+                      }
+                    : undefined
+                }
                 style={{
                   position: 'absolute',
                   left: x * pan.scale,
@@ -858,9 +1184,11 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
                   width: w * pan.scale,
                   height: h * pan.scale,
                   opacity,
-                  pointerEvents: locked ? 'none' : 'auto',
-                  zIndex: 2,
+                  pointerEvents: canDragImg ? 'auto' : 'none',
+                  cursor: canDragImg ? 'move' : 'default',
+                  zIndex: selectedObjId === obj.id ? 22 : 2,
                 }}
+                className={selectedObjId === obj.id ? 'ring-2 ring-blue-500 rounded-md' : ''}
               >
                 {url && <img src={url} alt={String(p.label ?? 'Gambar Catatan')} className="h-full w-full object-contain select-none" draggable={false} />}
               </div>
@@ -880,13 +1208,15 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           className="relative z-10 block h-full w-full"
           style={{
             cursor:
-              activeTool === 'reading'
+              activeTool === 'hand' || activeTool === 'reading' || isSpacePanning
                 ? 'grab'
-                : activeTool === 'laser'
-                  ? 'crosshair'
-                  : activeTool === 'eraser'
-                    ? 'cell'
-                    : 'crosshair',
+                : activeTool === 'select'
+                  ? 'default'
+                  : activeTool === 'laser'
+                    ? 'crosshair'
+                    : activeTool === 'eraser'
+                      ? 'cell'
+                      : 'crosshair',
           }}
         />
 
@@ -899,13 +1229,41 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           className="pointer-events-none absolute inset-0 z-20 h-full w-full"
         />
 
-        {/* Interactive Study Tapes (Pita Perekat — Click to Hide/Reveal for Active Recall!) */}
+        {/* Interactive Study Tapes (Pita Perekat — Drag in Select mode, Click to Hide/Reveal!) */}
         {(page.tapes ?? []).map((tape) => (
           <button
             key={tape.id}
             type="button"
             data-testid={`note-tape-${tape.id}`}
-            onClick={() =>
+            onPointerDown={(e) => {
+              if (activeTool === 'select') {
+                startDomDrag(
+                  e,
+                  (dx, dy) =>
+                    onUpdatePage(
+                      (prev) => ({
+                        ...prev,
+                        tapes: (prev.tapes ?? []).map((t) =>
+                          t.id === tape.id ? { ...t, x: t.x + dx, y: t.y + dy } : t,
+                        ),
+                      }),
+                      false,
+                    ),
+                  () =>
+                    onUpdatePage(
+                      (prev) => ({
+                        ...prev,
+                        tapes: (prev.tapes ?? []).map((t) =>
+                          t.id === tape.id ? { ...t, revealed: !t.revealed } : t,
+                        ),
+                      }),
+                      false,
+                    ),
+                );
+              }
+            }}
+            onClick={() => {
+              if (activeTool === 'select') return;
               onUpdatePage(
                 (prev) => ({
                   ...prev,
@@ -914,8 +1272,8 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
                   ),
                 }),
                 false,
-              )
-            }
+              );
+            }}
             style={{
               position: 'absolute',
               left: tape.x * pan.scale,
@@ -924,18 +1282,35 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
               height: tape.h * pan.scale,
               zIndex: 24,
               backgroundColor: tape.revealed ? 'rgba(13, 148, 136, 0.14)' : tape.color,
+              cursor: activeTool === 'select' ? 'move' : 'pointer',
             }}
             className="flex items-center justify-center rounded-md border border-teal-500/50 text-[10px] font-bold text-white shadow-sm transition"
-            title="Klik untuk membuka/menutup pita hafalan"
+            title={activeTool === 'select' ? 'Seret untuk pindah · Klik untuk buka/tutup' : 'Klik untuk membuka/menutup pita hafalan'}
           >
             {tape.revealed ? '' : 'Klik Buka Hafalan'}
           </button>
         ))}
 
-        {/* Stickers */}
+        {/* Stickers (Draggable in Select mode) */}
         {(page.stickers ?? []).map((stk) => (
           <div
             key={stk.id}
+            onPointerDown={
+              activeTool === 'select'
+                ? (e) =>
+                    startDomDrag(e, (dx, dy) =>
+                      onUpdatePage(
+                        (prev) => ({
+                          ...prev,
+                          stickers: (prev.stickers ?? []).map((s) =>
+                            s.id === stk.id ? { ...s, x: s.x + dx, y: s.y + dy } : s,
+                          ),
+                        }),
+                        false,
+                      ),
+                    )
+                : undefined
+            }
             style={{
               position: 'absolute',
               left: stk.x * pan.scale,
@@ -944,44 +1319,170 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
               transform: 'translate(-50%, -50%)',
               zIndex: 23,
             }}
-            className="select-none pointer-events-none"
+            className={`select-none ${activeTool === 'select' ? 'pointer-events-auto cursor-move hover:scale-110 transition-transform' : 'pointer-events-none'}`}
           >
             {stk.emoji}
           </div>
         ))}
 
-        {/* Editable Text Notes */}
-        {(page.texts ?? []).map((txt) => (
-          <input
-            key={txt.id}
-            data-testid={`notes-text-input-${txt.id}`}
-            type="text"
-            autoFocus
-            size={Math.max(18, txt.text.length + 3)}
-            placeholder="Ketik teks..."
-            value={txt.text}
-            onPointerDown={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) =>
-              onUpdatePage(
-                (prev) => ({
-                  ...prev,
-                  texts: (prev.texts ?? []).map((t) => (t.id === txt.id ? { ...t, text: e.target.value } : t)),
-                }),
-                false,
-              )
-            }
-            style={{
-              position: 'absolute',
-              left: txt.x * pan.scale,
-              top: txt.y * pan.scale,
-              fontSize: txt.fontSize * pan.scale,
-              color: txt.color,
-              zIndex: 25,
-            }}
-            className="min-w-[120px] rounded border border-blue-200/70 bg-white/85 px-1.5 py-0.5 font-medium outline-none focus:border-blue-500 focus:bg-white shadow-xs"
-          />
-        ))}
+        {/* Editable & Draggable Text Notes */}
+        {(page.texts ?? []).map((txt) => {
+          const isSel = selectedTextId === txt.id;
+          return (
+            <div
+              key={txt.id}
+              data-testid={`notes-text-wrapper-${txt.id}`}
+              style={{
+                position: 'absolute',
+                left: txt.x * pan.scale,
+                top: txt.y * pan.scale,
+                zIndex: isSel ? 28 : 25,
+              }}
+              className={`group flex items-center gap-0.5 rounded-lg border bg-white/90 px-1 py-0.5 shadow-xs transition ${
+                isSel ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-blue-200/70 hover:border-blue-400'
+              }`}
+            >
+              {/* Always-available Drag Grip Handle so text can be moved effortlessly */}
+              <span
+                data-testid={`notes-text-drag-${txt.id}`}
+                title="Seret untuk memindahkan teks"
+                onPointerDown={(e) => {
+                  setSelectedTextId(txt.id);
+                  setSelectedObjId(null);
+                  startDomDrag(e, (dx, dy) =>
+                    onUpdatePage(
+                      (prev) => ({
+                        ...prev,
+                        texts: (prev.texts ?? []).map((t) =>
+                          t.id === txt.id ? { ...t, x: Math.max(0, t.x + dx), y: Math.max(0, t.y + dy) } : t,
+                        ),
+                      }),
+                      false,
+                    ),
+                  );
+                }}
+                className="flex cursor-grab select-none items-center px-1 text-xs font-bold text-slate-400 hover:text-blue-600 active:cursor-grabbing"
+              >
+                ⋮⋮
+              </span>
+              <input
+                data-testid={`notes-text-input-${txt.id}`}
+                type="text"
+                size={Math.max(14, txt.text.length + 2)}
+                placeholder="Ketik teks..."
+                value={txt.text}
+                onFocus={() => {
+                  setSelectedTextId(txt.id);
+                  setSelectedObjId(null);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) =>
+                  onUpdatePage(
+                    (prev) => ({
+                      ...prev,
+                      texts: (prev.texts ?? []).map((t) => (t.id === txt.id ? { ...t, text: e.target.value } : t)),
+                    }),
+                    false,
+                  )
+                }
+                style={{
+                  fontSize: txt.fontSize * pan.scale,
+                  color: txt.color,
+                }}
+                className="min-w-[100px] bg-transparent px-1 py-0.5 font-medium outline-none"
+              />
+              <button
+                type="button"
+                title="Hapus teks"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setSelectedTextId(null);
+                  onUpdatePage((prev) => ({
+                    ...prev,
+                    texts: (prev.texts ?? []).filter((t) => t.id !== txt.id),
+                  }));
+                }}
+                className="rounded px-1 text-[11px] font-bold text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 group-focus-within:opacity-100"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Embedded ManimGX Visuals directly on the Note Page */}
+        {page.objects
+          .filter((o) => o.object_type === 'viz_manimgx')
+          .map((obj) => {
+            const p = obj.props as Record<string, unknown>;
+            const x = Number(p.x ?? 80);
+            const y = Number(p.y ?? 80);
+            const w = Number(p.w ?? 460);
+            const h = Number(p.h ?? 330);
+            return (
+              <div
+                key={obj.id}
+                data-testid={`notes-manimgx-obj-${obj.id}`}
+                style={{
+                  position: 'absolute',
+                  left: x * pan.scale,
+                  top: y * pan.scale,
+                  width: w * pan.scale,
+                  height: h * pan.scale,
+                  zIndex: 26,
+                }}
+              >
+                <ManimGxWidget
+                  id={obj.id}
+                  title={String(p.title ?? 'Visualisasi ManimGX')}
+                  formulaLatex={String(p.formulaLatex ?? '(x - 2)^2 + (y - 1)^2 = 9')}
+                  templateId={String(p.templateId ?? 'circle_cartesian') as ManimGxTemplateKind}
+                  sceneCode={String(p.sceneCode ?? '')}
+                  onMovePosition={(dx, dy) =>
+                    onUpdatePage(
+                      (prev) => ({
+                        ...prev,
+                        objects: prev.objects.map((o) => {
+                          if (o.id !== obj.id) return o;
+                          const op = o.props as Record<string, unknown>;
+                          return {
+                            ...o,
+                            props: {
+                              ...op,
+                              x: Math.max(0, Number(op.x ?? 80) + dx / (pan.scale || 1)),
+                              y: Math.max(0, Number(op.y ?? 80) + dy / (pan.scale || 1)),
+                            },
+                            updated_at: Date.now(),
+                          };
+                        }),
+                      }),
+                      false,
+                    )
+                  }
+                  onUpdateSceneCode={(nextCode) =>
+                    onUpdatePage(
+                      (prev) => ({
+                        ...prev,
+                        objects: prev.objects.map((o) =>
+                          o.id === obj.id
+                            ? { ...o, props: { ...(o.props as Record<string, unknown>), sceneCode: nextCode }, updated_at: Date.now() }
+                            : o,
+                        ),
+                      }),
+                      false,
+                    )
+                  }
+                  onDelete={() =>
+                    onUpdatePage((prev) => ({
+                      ...prev,
+                      objects: prev.objects.filter((o) => o.id !== obj.id),
+                    }))
+                  }
+                />
+              </div>
+            );
+          })}
 
         {/* Virtual Rotatable Ruler (Matches Screenshot_20261124-235231.jpg.jpeg!) */}
         {showRuler && (

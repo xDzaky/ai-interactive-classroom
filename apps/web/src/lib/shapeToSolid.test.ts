@@ -61,8 +61,11 @@ describe('Datar -> Ruang Proposals (P11-T08)', () => {
     expect(event.payload.id).toBe('solid-123');
     expect(event.payload.object_type).toBe('viz_solid');
     expect(event.payload.props.solid_type).toBe(proposal.solidType);
-    expect(event.payload.props.x).toBe(proposal.position.x);
-    expect(event.payload.props.y).toBe(proposal.position.y);
+    // Top-left (x, y) must center the (w, h) box right on the 2D shape's center
+    expect(event.payload.props.x + event.payload.props.w / 2).toBeCloseTo(proposal.position.x, 0);
+    expect(event.payload.props.y + event.payload.props.h / 2).toBeCloseTo(proposal.position.y, 0);
+    expect(event.payload.props.w).toBeGreaterThanOrEqual(200);
+    expect(event.payload.props.h).toBeGreaterThanOrEqual(200);
   });
 });
 

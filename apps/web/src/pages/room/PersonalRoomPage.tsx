@@ -298,34 +298,179 @@ export default function PersonalRoomPage() {
     [canvasSize.width, canvasSize.height, handleEvent],
   );
 
-  // Global Ctrl+V / Cmd+V clipboard image paste (ignored in text/math inputs)
+  // Internal 2D/3D Clipboard for Ctrl+C / Ctrl+V copy-paste
+  const clipboardRef = useRef<{
+    objects: Array<{ object_type: string; props: Record<string, unknown> }>;
+    strokes: Array<{ points: number[][]; color: string; width: number; tool?: string }>;
+    pasteCount: number;
+  } | null>(null);
+  const [clipboardToast, setClipboardToast] = useState<string | null>(null);
+  const showClipboardToast = useCallback((msg: string) => {
+    setClipboardToast(msg);
+    window.setTimeout(() => setClipboardToast((cur) => (cur === msg ? null : cur)), 2200);
+  }, []);
+
+  const shiftClonedProps = (raw: Record<string, unknown>, dx: number, dy: number): Record<string, unknown> => {
+    const p: Record<string, unknown> = JSON.parse(JSON.stringify(raw));
+    if (typeof p.x === "number") p.x += dx;
+    if (typeof p.y === "number") p.y += dy;
+    if (typeof p.cx === "number") p.cx += dx;
+    if (typeof p.cy === "number") p.cy += dy;
+    if (typeof p.x1 === "number") p.x1 += dx;
+    if (typeof p.y1 === "number") p.y1 += dy;
+    if (typeof p.x2 === "number") p.x2 += dx;
+    if (typeof p.y2 === "number") p.y2 += dy;
+    if (typeof p.x3 === "number") p.x3 += dx;
+    if (typeof p.y3 === "number") p.y3 += dy;
+    if (Array.isArray(p.customPoints)) {
+      p.customPoints = (p.customPoints as number[]).map((v, idx) => v + (idx % 2 === 0 ? dx : dy));
+    }
+    if (Array.isArray(p.points) && typeof p.points[0] === "number") {
+      p.points = (p.points as number[]).map((v, idx) => v + (idx % 2 === 0 ? dx : dy));
+    }
+    return p;
+  };
+
+  const handleCopySelected = useCallback(() => {
+    const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+    if (!scene || selectedIds.length === 0) return;
+    const objects: Array<{ object_type: string; props: Record<string, unknown> }> = [];
+    const strokes: Array<{ points: number[][]; color: string; width: number; tool?: string }> = [];
+    for (const id of selectedIds) {
+      const obj = scene.objects[id];
+      if (obj) {
+        objects.push({
+          object_type: obj.object_type,
+          props: JSON.parse(JSON.stringify(obj.props)),
+        });
+      } else if (scene.strokes[id]) {
+        const st = scene.strokes[id];
+        strokes.push({
+          points: JSON.parse(JSON.stringify(st.points)),
+          color: st.color,
+          width: st.width,
+          tool: st.tool,
+        });
+      }
+    }
+    const total = objects.length + strokes.length;
+    if (total === 0) return;
+    clipboardRef.current = { objects, strokes, pasteCount: 0 };
+    try {
+      sessionStorage.setItem("ai-classroom-clipboard-v1", JSON.stringify(clipboardRef.current));
+    } catch {
+      // ignore storage quota errors
+    }
+    showClipboardToast(`${total} objek disalin (Ctrl+V untuk tempel)`);
+  }, [selectedIds, showClipboardToast]);
+
+  const handlePasteClipboard = useCallback((): boolean => {
+    let data = clipboardRef.current;
+    if (!data) {
+      try {
+        const raw = sessionStorage.getItem("ai-classroom-clipboard-v1");
+        if (raw) {
+          data = JSON.parse(raw);
+          clipboardRef.current = data;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!data || (data.objects.length === 0 && data.strokes.length === 0)) return false;
+    data.pasteCount += 1;
+    const offset = 28 * data.pasteCount;
+    const ts = Date.now();
+    const events: WhiteboardEvent[] = [];
+    const newIds: string[] = [];
+
+    data.objects.forEach((item, i) => {
+      const newId = `paste-${ts}-${i}-${Math.random().toString(36).slice(2, 5)}`;
+      newIds.push(newId);
+      events.push({
+        event_type: "object.created",
+        payload: {
+          id: newId,
+          object_type: item.object_type,
+          props: shiftClonedProps(item.props, offset, offset),
+        },
+      } as WhiteboardEvent);
+    });
+
+    data.strokes.forEach((st, i) => {
+      const newId = `pstroke-${ts}-${i}-${Math.random().toString(36).slice(2, 5)}`;
+      newIds.push(newId);
+      events.push({
+        event_type: "stroke.committed",
+        payload: {
+          id: newId,
+          points: st.points.map(([x, y, ...rest]) => [x + offset, y + offset, ...rest]),
+          color: st.color,
+          width: st.width,
+          tool: (st.tool as "pen" | "highlighter") ?? "pen",
+        },
+      } as WhiteboardEvent);
+    });
+
+    if (events.length > 0) {
+      handleEvent({ event_type: "batch", payload: { events } });
+      setSelectedIds(newIds);
+      setActiveTool("select");
+      showClipboardToast(`${events.length} objek ditempel`);
+      return true;
+    }
+    return false;
+  }, [handleEvent, showClipboardToast]);
+
+  // Global Ctrl+C / Cmd+C for 2D & 3D objects + Ctrl+V / Cmd+V for images or copied objects
   useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
+    const isEditingText = () => {
       const active = document.activeElement;
-      if (
+      return (
         active instanceof HTMLInputElement ||
         active instanceof HTMLTextAreaElement ||
         active?.tagName?.toLowerCase() === "math-field" ||
-        (active as HTMLElement | null)?.isContentEditable
-      ) {
-        return;
-      }
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of Array.from(items)) {
-        if (item.kind === "file" && item.type.startsWith("image/")) {
-          const file = item.getAsFile();
-          if (file) {
-            e.preventDefault();
-            void handleIngestImageBlob(file, undefined, file.name || "Tempel Gambar");
-            break;
-          }
+        Boolean((active as HTMLElement | null)?.isContentEditable)
+      );
+    };
+
+    const onKeyDownCopy = (e: KeyboardEvent) => {
+      if (isEditingText()) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && !e.shiftKey && !e.altKey) {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          handleCopySelected();
         }
       }
     };
+
+    const onPaste = (e: ClipboardEvent) => {
+      if (isEditingText()) return;
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of Array.from(items)) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) {
+              e.preventDefault();
+              void handleIngestImageBlob(file, undefined, file.name || "Tempel Gambar");
+              return;
+            }
+          }
+        }
+      }
+      if (handlePasteClipboard()) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDownCopy);
     window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [handleIngestImageBlob]);
+    return () => {
+      window.removeEventListener("keydown", onKeyDownCopy);
+      window.removeEventListener("paste", onPaste);
+    };
+  }, [handleIngestImageBlob, handleCopySelected, handlePasteClipboard, selectedIds.length]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -1042,6 +1187,8 @@ export default function PersonalRoomPage() {
         });
       },
     },
+    { id: "copy-obj", label: "Salin Objek Terpilih (2D / 3D)", category: "Kanvas", shortcut: "Ctrl+C", run: handleCopySelected },
+    { id: "paste-obj", label: "Tempel Objek dari Clipboard", category: "Kanvas", shortcut: "Ctrl+V", run: () => void handlePasteClipboard() },
     { id: "mermaid", label: "Mermaid → Diagram Flowchart", category: "Excalidraw", run: () => setShowMermaidModal(true) },
     { id: "zen", label: zenMode ? "Keluar Zen Mode" : "Aktifkan Zen Mode (Tanpa Gangguan)", category: "Tampilan", shortcut: "Alt+Z", run: () => setZenMode((v) => !v) },
     { id: "dark", label: darkCanvas ? "Tema Kanvas Terang" : "Tema Kanvas Gelap (Dark Mode)", category: "Tampilan", shortcut: "Alt+Shift+D", run: () => setDarkCanvas((v) => !v) },
@@ -1368,7 +1515,22 @@ export default function PersonalRoomPage() {
                   activeTool === t ? "bg-indigo-600 text-white shadow-sm" : "text-slate-700 hover:bg-slate-100"
                 }`}
               >
-                {icon}
+                {t === "select" ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 3l14 9-6.5 1.5L9 20 5 3z" />
+                  </svg>
+                ) : (
+                  icon
+                )}
               </button>
             ))}
             <button
@@ -1715,6 +1877,16 @@ export default function PersonalRoomPage() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Clipboard Copy/Paste Toast */}
+      {clipboardToast && (
+        <div
+          data-testid="wb-clipboard-toast"
+          className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900/95 px-4 py-1.5 text-xs font-semibold text-white shadow-xl"
+        >
+          {clipboardToast}
         </div>
       )}
 

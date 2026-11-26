@@ -294,17 +294,74 @@ export function proposeSolidsFromShape(shape: Input2DShape): SolidProposal[] {
 }
 
 /**
+ * Computes the exact 2D bounding box (width, height) of an Input2DShape in world units.
+ */
+function computeShape2DBBoxSize(shape: Input2DShape): { w: number; h: number } {
+  const { object_type, props } = shape;
+  if (object_type === 'rect') {
+    return {
+      w: Math.max(40, typeof props.w === 'number' ? Math.abs(props.w) : 160),
+      h: Math.max(40, typeof props.h === 'number' ? Math.abs(props.h) : 160),
+    };
+  }
+  if (object_type === 'circle') {
+    const r = Math.max(20, typeof props.r === 'number' ? props.r : 60);
+    return { w: r * 2, h: r * 2 };
+  }
+  if (object_type === 'ellipse') {
+    const rx = Math.max(20, Number(props.rx ?? (props.w ? Number(props.w) / 2 : 60)));
+    const ry = Math.max(20, Number(props.ry ?? (props.h ? Number(props.h) / 2 : 45)));
+    return { w: rx * 2, h: ry * 2 };
+  }
+  if (object_type === 'triangle') {
+    const xs = [Number(props.x1 ?? 0), Number(props.x2 ?? 100), Number(props.x3 ?? 50)];
+    const ys = [Number(props.y1 ?? 0), Number(props.y2 ?? 0), Number(props.y3 ?? 86)];
+    return {
+      w: Math.max(40, Math.max(...xs) - Math.min(...xs)),
+      h: Math.max(40, Math.max(...ys) - Math.min(...ys)),
+    };
+  }
+  const fakeObj = { id: shape.id, object_type, props, created_at: 0, updated_at: 0 } as BoardObject;
+  const verts = getShapeVertices(fakeObj);
+  if (verts && verts.length >= 6) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < verts.length; i += 2) {
+      if (verts[i] < minX) minX = verts[i];
+      if (verts[i] > maxX) maxX = verts[i];
+      if (verts[i + 1] < minY) minY = verts[i + 1];
+      if (verts[i + 1] > maxY) maxY = verts[i + 1];
+    }
+    return {
+      w: Math.max(40, maxX - minX),
+      h: Math.max(40, maxY - minY),
+    };
+  }
+  return { w: 200, h: 200 };
+}
+
+/**
  * Creates an object.created WhiteboardEvent for replacing a 2D shape with a 3D viz_solid.
- * Aligns top-left (x, y) cleanly with the 320px default widget size so the solid spawns right on the shape!
+ * Centers the 3D widget box EXACTLY on the 2D shape's center (proposal.position) and
+ * scales (w, h) proportionally so the rendered 3D solid matches the 2D shape's visual size.
  */
 export function createConvertShapeToSolidEvent(
-  _shape: Input2DShape,
+  shape: Input2DShape,
   proposal: SolidProposal,
   _roomId?: string,
   _actorId?: string,
   solidId?: string
 ) {
-  const widgetSize = 320;
+  const { w: shapeW, h: shapeH } = computeShape2DBBoxSize(shape);
+  // In TongchuangSolidWidget (fov=38, dist~6.4), the 3D mesh fills ~70% of the canvas height.
+  // Scaling the container by ~1.42x ensures the 3D solid's on-screen footprint matches the 2D shape.
+  const boxH = Math.max(200, Math.min(640, Math.round(shapeH * 1.42)));
+  const boxW = Math.max(boxH, Math.min(700, Math.round(shapeW * 1.42)));
+  const topLeftX = Math.round(proposal.position.x - boxW / 2);
+  const topLeftY = Math.round(proposal.position.y - boxH / 2);
+
   return {
     event_type: 'object.created' as const,
     payload: {
@@ -316,10 +373,10 @@ export function createConvertShapeToSolidEvent(
         profile_points_cm: proposal.profilePointsCm,
         extra_params: proposal.extraParams,
         params: proposal.params,
-        x: proposal.position.x,
-        y: proposal.position.y,
-        w: widgetSize,
-        h: widgetSize,
+        x: topLeftX,
+        y: topLeftY,
+        w: boxW,
+        h: boxH,
         label: proposal.title,
       },
     },

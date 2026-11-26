@@ -34,7 +34,6 @@ import {
   MermaidToDiagramModal,
   type CommandPaletteAction,
 } from '@/components/whiteboard/ExcalidrawCommandPalette';
-import { ManimGxWidget } from '@/components/math/ManimGxWidget';
 import { useHandwritingToLatex } from '@/hooks/useHandwritingToLatex';
 import { analyzeForManimGX, type ManimGxAnalysis } from '@ai-classroom/math-core';
 import {
@@ -118,7 +117,6 @@ export default function NotesPage() {
   const [showFeynman, setShowFeynman] = useState(false);
   const [feynmanPrompt, setFeynmanPrompt] = useState('');
   const [feynmanAnswer, setFeynmanAnswer] = useState('');
-  const [activeManimGx, setActiveManimGx] = useState<ManimGxAnalysis | null>(null);
   const [statusToast, setStatusToast] = useState<string | null>(null);
 
   const handwriting = useHandwritingToLatex({ enabled: true });
@@ -338,6 +336,7 @@ export default function NotesPage() {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'q') setToolLocked((v) => !v);
+      else if (k === 'h') setActiveTool('hand');
       else if (k === '1' || k === 'v') setActiveTool('select');
       else if (k === '2' || k === 'r') setActiveTool('rect');
       else if (k === '3' || k === 'd') setActiveTool('rhombus');
@@ -368,6 +367,39 @@ export default function NotesPage() {
     handwriting.convertStrokesToLatex(recent);
   }, [activePage, handwriting]);
 
+  const handleInsertManimGxInNotes = useCallback(
+    (analysis: ManimGxAnalysis, pos?: { x: number; y: number }) => {
+      const now = Date.now();
+      const existingCount = (activePage?.objects ?? []).filter((o) => o.object_type === 'viz_manimgx').length;
+      const x = pos ? Math.max(24, Math.round(pos.x)) : 80 + (existingCount % 4) * 32;
+      const y = pos ? Math.max(24, Math.round(pos.y)) : 120 + (existingCount % 4) * 32;
+      handleUpdatePage((p) => ({
+        ...p,
+        objects: [
+          ...p.objects,
+          {
+            id: `nmanim-${now}`,
+            object_type: 'viz_manimgx',
+            props: {
+              x,
+              y,
+              w: 460,
+              h: analysis.templateKind === 'surface_3d' || analysis.templateKind === 'solid_3d' ? 350 : 320,
+              title: analysis.scene.title,
+              formulaLatex: String(analysis.scene.params.latex ?? '(x - 2)^2 + (y - 1)^2 = 9'),
+              templateId: analysis.templateKind,
+              sceneCode: analysis.scene.pythonCode,
+            },
+            created_at: now,
+            updated_at: now,
+          },
+        ],
+      }));
+      showToast(`ManimGX "${analysis.scene.title}" diletakkan di catatan`);
+    },
+    [activePage, handleUpdatePage],
+  );
+
   const handleAcceptHandwritingLatex = useCallback(() => {
     const accepted = handwriting.acceptCandidate();
     if (!accepted || !activePage) return;
@@ -388,18 +420,27 @@ export default function NotesPage() {
     }));
     const analysis = analyzeForManimGX({ latex: accepted.latex });
     if (analysis.eligible) {
-      setActiveManimGx(analysis);
+      handleInsertManimGxInNotes(analysis, {
+        x: accepted.bbox.x,
+        y: accepted.bbox.y + 48,
+      });
     }
     showToast(`Tulisan diubah ke LaTeX: ${accepted.latex}`);
-  }, [handwriting, activePage, handleUpdatePage, activeLayerId]);
+  }, [handwriting, activePage, handleUpdatePage, activeLayerId, handleInsertManimGxInNotes]);
 
   const notesCommandActions: CommandPaletteAction[] = [
     { id: 'n-h2l', label: 'Ubah Tulisan Tangan → Rumus LaTeX', category: 'ManimGX & AI', run: handleConvertPageHandwritingToLatex },
     {
+      id: 'n-manim-circle',
+      label: 'ManimGX: Persamaan Lingkaran (x - 2)² + (y - 1)² = 9',
+      category: 'ManimGX & AI',
+      run: () => handleInsertManimGxInNotes(analyzeForManimGX({ latex: '(x - 2)^2 + (y - 1)^2 = 9' })),
+    },
+    {
       id: 'n-manim',
       label: 'Buat Animasi 3D ManimGX (z = sin(x)*cos(y))',
       category: 'ManimGX & AI',
-      run: () => setActiveManimGx(analyzeForManimGX({ latex: 'z = sin(x) * cos(y)' })),
+      run: () => handleInsertManimGxInNotes(analyzeForManimGX({ latex: 'z = sin(x) * cos(y)' })),
     },
     { id: 'n-mermaid', label: 'Mermaid → Diagram Flowchart', category: 'Excalidraw', run: () => setShowMermaidModal(true) },
     { id: 'n-svg', label: 'Ekspor Halaman ke SVG Vektor', category: 'Ekspor', run: handleExportSvg },
@@ -999,11 +1040,11 @@ export default function NotesPage() {
         <button
           type="button"
           data-testid="notes-manimgx-launch-btn"
-          onClick={() => setActiveManimGx(analyzeForManimGX({ latex: '(x - 2)^2 + (y - 1)^2 = 9' }))}
-          className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-cyan-300 shadow-lg hover:bg-slate-800"
-          title="Buka Player Animasi 3D & Lingkaran ManimGX di Catatan"
+          onClick={() => handleInsertManimGxInNotes(analyzeForManimGX({ latex: '(x - 2)^2 + (y - 1)^2 = 9' }))}
+          className="rounded-full border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-lg hover:bg-indigo-50"
+          title="Tambahkan Visualisasi ManimGX langsung ke halaman catatan"
         >
-          🎬 ManimGX 3D
+          🎬 ManimGX
         </button>
       </div>
 
@@ -1031,28 +1072,6 @@ export default function NotesPage() {
           >
             ✕
           </button>
-        </div>
-      )}
-
-      {activeManimGx && (
-        <div
-          data-testid="notes-manimgx-player"
-          className="fixed bottom-16 right-4 z-40 h-[360px] w-[480px] max-w-[92vw]"
-        >
-          <ManimGxWidget
-            id="notes-manim"
-            title={activeManimGx.scene.title}
-            formulaLatex={String(activeManimGx.scene.params.latex ?? 'z = sin(x) * cos(y)')}
-            templateId={activeManimGx.templateKind}
-            sceneCode={activeManimGx.scene.pythonCode}
-            selected={true}
-            onUpdateSceneCode={(next) =>
-              setActiveManimGx((prev) =>
-                prev ? { ...prev, scene: { ...prev.scene, pythonCode: next } } : null,
-              )
-            }
-            onDelete={() => setActiveManimGx(null)}
-          />
         </div>
       )}
 

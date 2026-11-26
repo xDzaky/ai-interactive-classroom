@@ -90,6 +90,78 @@ function extractTransform(obj: BoardObject): { x: number; y: number } {
   };
 }
 
+/**
+ * GPU-accelerated, zero-lag overlay wrapper synced 1:1 with ViewportController.
+ * Locks DOM widgets (ManimGX, graphs, charts, simulations) to Konva world coordinates
+ * during Hand pan & wheel zoom with zero React re-renders.
+ */
+function ViewportSyncedOverlayBox({
+  wx,
+  wy,
+  w,
+  h,
+  zIndex,
+  testId,
+  view,
+  viewportController,
+  children,
+}: {
+  wx: number;
+  wy: number;
+  w: number;
+  h: number;
+  zIndex: number;
+  testId?: string;
+  view: ViewTransform;
+  viewportController?: ViewportController;
+  children: React.ReactNode;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const apply = (v: ViewportState) => {
+      const el = boxRef.current;
+      if (!el) return;
+      const sx = wx * v.scale + v.x;
+      const sy = wy * v.scale + v.y;
+      el.style.transform = `translate3d(${sx}px, ${sy}px, 0) scale(${v.scale})`;
+    };
+
+    if (viewportController) {
+      const unsub = viewportController.subscribe(apply);
+      apply(viewportController.getState());
+      return unsub;
+    } else {
+      apply({ x: view.x, y: view.y, scale: view.scale });
+    }
+  }, [viewportController, view.x, view.y, view.scale, wx, wy]);
+
+  const init = viewportController ? viewportController.getState() : view;
+  const initSx = wx * init.scale + init.x;
+  const initSy = wy * init.scale + init.y;
+
+  return (
+    <div
+      ref={boxRef}
+      data-testid={testId}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: w,
+        height: h,
+        transformOrigin: "0 0",
+        transform: `translate3d(${initSx}px, ${initSy}px, 0) scale(${init.scale})`,
+        willChange: "transform",
+        pointerEvents: "auto",
+        zIndex,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ─── VizSolidOverlay ─────────────────────────────────────────────────────────
 
 interface VizSolidOverlayProps {
@@ -891,17 +963,15 @@ export function WhiteboardOverlay({
             onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
           />
         ) : obj.object_type === "textbook_graph" ? (
-          <div
+          <ViewportSyncedOverlayBox
             key={obj.id}
-            style={{
-              position: "absolute",
-              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
-              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
-              width: Number((obj.props as Record<string, unknown>).w ?? 450),
-              height: Number((obj.props as Record<string, unknown>).h ?? 310),
-              pointerEvents: "auto",
-              zIndex: 19,
-            }}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 220)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 90)}
+            w={Number((obj.props as Record<string, unknown>).w ?? 450)}
+            h={Number((obj.props as Record<string, unknown>).h ?? 310)}
+            zIndex={19}
+            view={view}
+            viewportController={viewportController}
           >
             <TextbookGraphWidget
               id={obj.id}
@@ -918,19 +988,17 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
-          </div>
+          </ViewportSyncedOverlayBox>
         ) : obj.object_type === "stat_chart" ? (
-          <div
+          <ViewportSyncedOverlayBox
             key={obj.id}
-            style={{
-              position: "absolute",
-              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
-              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
-              width: Number((obj.props as Record<string, unknown>).w ?? 420),
-              height: Number((obj.props as Record<string, unknown>).h ?? 290),
-              pointerEvents: "auto",
-              zIndex: 19,
-            }}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 220)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 90)}
+            w={Number((obj.props as Record<string, unknown>).w ?? 420)}
+            h={Number((obj.props as Record<string, unknown>).h ?? 290)}
+            zIndex={19}
+            view={view}
+            viewportController={viewportController}
           >
             <StatChartWidget
               id={obj.id}
@@ -948,19 +1016,17 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
-          </div>
+          </ViewportSyncedOverlayBox>
         ) : obj.object_type === "trig_proof" ? (
-          <div
+          <ViewportSyncedOverlayBox
             key={obj.id}
-            style={{
-              position: "absolute",
-              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
-              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
-              width: Number((obj.props as Record<string, unknown>).w ?? 440),
-              height: Number((obj.props as Record<string, unknown>).h ?? 400),
-              pointerEvents: "auto",
-              zIndex: 19,
-            }}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 220)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 90)}
+            w={Number((obj.props as Record<string, unknown>).w ?? 440)}
+            h={Number((obj.props as Record<string, unknown>).h ?? 400)}
+            zIndex={19}
+            view={view}
+            viewportController={viewportController}
           >
             <TrigProofWidget
               id={obj.id}
@@ -977,20 +1043,18 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
-          </div>
+          </ViewportSyncedOverlayBox>
         ) : obj.object_type === "viz_manimgx" ? (
-          <div
+          <ViewportSyncedOverlayBox
             key={obj.id}
-            data-testid={`viz-manimgx-container-${obj.id}`}
-            style={{
-              position: "absolute",
-              left: Number((obj.props as Record<string, unknown>).x ?? 220) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
-              top: Number((obj.props as Record<string, unknown>).y ?? 90) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
-              width: Number((obj.props as Record<string, unknown>).w ?? 480),
-              height: Number((obj.props as Record<string, unknown>).h ?? 340),
-              pointerEvents: "auto",
-              zIndex: Boolean(selectedIds?.includes(obj.id)) ? 25 : 20,
-            }}
+            testId={`viz-manimgx-container-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 220)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 90)}
+            w={Number((obj.props as Record<string, unknown>).w ?? 480)}
+            h={Number((obj.props as Record<string, unknown>).h ?? 340)}
+            zIndex={Boolean(selectedIds?.includes(obj.id)) ? 25 : 20}
+            view={view}
+            viewportController={viewportController}
           >
             <ManimGxWidget
               id={obj.id}
@@ -1013,20 +1077,18 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
-          </div>
+          </ViewportSyncedOverlayBox>
         ) : obj.object_type === "simulation" ? (
-          <div
+          <ViewportSyncedOverlayBox
             key={obj.id}
-            data-testid={`viz-simulation-${obj.id}`}
-            style={{
-              position: "absolute",
-              left: Number((obj.props as Record<string, unknown>).x ?? 240) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().x ?? view.x),
-              top: Number((obj.props as Record<string, unknown>).y ?? 100) * (viewportController?.getState().scale ?? view.scale) + (viewportController?.getState().y ?? view.y),
-              width: Number((obj.props as Record<string, unknown>).w ?? 360),
-              height: Number((obj.props as Record<string, unknown>).h ?? 310),
-              pointerEvents: "auto",
-              zIndex: 18,
-            }}
+            testId={`viz-simulation-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 240)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 100)}
+            w={Number((obj.props as Record<string, unknown>).w ?? 360)}
+            h={Number((obj.props as Record<string, unknown>).h ?? 310)}
+            zIndex={18}
+            view={view}
+            viewportController={viewportController}
           >
             <SimulationWidget
               id={obj.id}
@@ -1043,7 +1105,7 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
-          </div>
+          </ViewportSyncedOverlayBox>
         ) : (
           <VizGraphOverlay
             key={obj.id}

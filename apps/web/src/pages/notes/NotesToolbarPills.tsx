@@ -15,6 +15,7 @@ import { AddPagePopover } from './AddPagePopover';
 import { LaserToolPopover } from './LaserToolPopover';
 
 export type NotesToolId =
+  | 'hand'
   | 'select'
   | 'fountain'
   | 'ballpoint'
@@ -337,6 +338,17 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
           )}
           <button
             type="button"
+            data-testid="notes-tool-hand"
+            onClick={() => handleToolClick('hand')}
+            title="Geser Kanvas (H / Spasi)"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition ${
+              activeTool === 'hand' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            ✋
+          </button>
+          <button
+            type="button"
             data-testid="notes-tool-select"
             onClick={() => handleToolClick('select')}
             title="Seleksi (1 / V)"
@@ -344,7 +356,18 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
               activeTool === 'select' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
-            ↖
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 3l14 9-6.5 1.5L9 20 5 3z" />
+            </svg>
           </button>
           <button
             type="button"

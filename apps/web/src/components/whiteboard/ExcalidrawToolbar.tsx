@@ -20,14 +20,29 @@ export interface ExcalidrawToolbarProps {
 
 interface DockItem {
   tool: ToolType;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   keyHint: string;
 }
 
+const MousePointerIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5 3l14 9-6.5 1.5L9 20 5 3z" />
+  </svg>
+);
+
 const MAIN_DOCK: DockItem[] = [
   { tool: 'hand', icon: '✋', label: 'Geser Kanvas (H / Spasi)', keyHint: 'H' },
-  { tool: 'select', icon: '↖', label: 'Seleksi (1 / V)', keyHint: '1' },
+  { tool: 'select', icon: MousePointerIcon, label: 'Seleksi (1 / V)', keyHint: '1' },
   { tool: 'rect', icon: '▭', label: 'Persegi Panjang (2 / R)', keyHint: '2' },
   { tool: 'rhombus', icon: '◇', label: 'Belah Ketupat / Diamond (3 / D)', keyHint: '3' },
   { tool: 'ellipse', icon: '◯', label: 'Elips / Lingkaran (4 / O)', keyHint: '4' },
