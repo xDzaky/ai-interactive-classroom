@@ -49,6 +49,7 @@ import { PhETSimulationModal } from "@/components/whiteboard/PhETSimulationWidge
 import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
 import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
 import { LayersPanel } from "@/components/whiteboard/LayersPanel";
+import { queueWhiteboardToAffineTransfer } from "@/lib/classroomBlockBridge";
 import { ExcalidrawToolbar } from "@/components/whiteboard/ExcalidrawToolbar";
 import {
   ExcalidrawPropertiesPanel,
@@ -161,7 +162,22 @@ export default function PersonalRoomPage() {
   const [gridSnap, setGridSnap] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [darkCanvas, setDarkCanvas] = useState(false);
-  const [showPropsPanel, setShowPropsPanel] = useState(true);
+  const [showPropsPanel, setShowPropsPanel] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 900 && window.innerHeight >= 520 : true,
+  );
+  const handleToggleFullscreen = useCallback(() => {
+    setZenMode((prev) => {
+      const next = !prev;
+      if (typeof document !== "undefined") {
+        if (next && !document.fullscreenElement) {
+          void document.documentElement.requestFullscreen?.().catch(() => {});
+        } else if (!next && document.fullscreenElement) {
+          void document.exitFullscreen?.().catch(() => {});
+        }
+      }
+      return next;
+    });
+  }, []);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showMermaidModal, setShowMermaidModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1189,6 +1205,36 @@ export default function PersonalRoomPage() {
     },
     { id: "copy-obj", label: "Salin Objek Terpilih (2D / 3D)", category: "Kanvas", shortcut: "Ctrl+C", run: handleCopySelected },
     { id: "paste-obj", label: "Tempel Objek dari Clipboard", category: "Kanvas", shortcut: "Ctrl+V", run: () => void handlePasteClipboard() },
+    {
+      id: "send-to-affine",
+      label: "Kirim Objek Terpilih ke Catatan AFFiNE (Doc & Board)",
+      category: "AFFiNE Workspace",
+      run: () => {
+        const scene = boardStateRef.current.scenes[boardStateRef.current.active_scene_id];
+        const firstObj = selectedIds.map((id) => scene?.objects[id]).find(Boolean);
+        const p = (firstObj?.props ?? {}) as Record<string, unknown>;
+        if (firstObj?.object_type === "viz_solid") {
+          queueWhiteboardToAffineTransfer({
+            kind: "solid3d",
+            title: String(p.label ?? "Bangun Ruang 3D"),
+            solidType: (p.solid_type as SolidType) ?? "cube",
+          });
+        } else if (firstObj?.object_type === "viz_manimgx" || firstObj?.object_type === "math_block") {
+          queueWhiteboardToAffineTransfer({
+            kind: "manimgx",
+            title: String(p.title ?? p.label ?? "Visualisasi Matematika"),
+            formula: String(p.formulaLatex ?? p.latex ?? "(x - 2)^2 + (y - 1)^2 = 9"),
+          });
+        } else {
+          queueWhiteboardToAffineTransfer({
+            kind: "manimgx",
+            title: "Catatan dari Papan Tulis",
+            formula: "(x - 2)^2 + (y - 1)^2 = 9",
+          });
+        }
+        window.location.href = "/workspace";
+      },
+    },
     { id: "mermaid", label: "Mermaid → Diagram Flowchart", category: "Excalidraw", run: () => setShowMermaidModal(true) },
     { id: "zen", label: zenMode ? "Keluar Zen Mode" : "Aktifkan Zen Mode (Tanpa Gangguan)", category: "Tampilan", shortcut: "Alt+Z", run: () => setZenMode((v) => !v) },
     { id: "dark", label: darkCanvas ? "Tema Kanvas Terang" : "Tema Kanvas Gelap (Dark Mode)", category: "Tampilan", shortcut: "Alt+Shift+D", run: () => setDarkCanvas((v) => !v) },
@@ -1250,7 +1296,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="insert-math-block-btn"
             onClick={() => handleInsertMathBlock("y = sin(x), 0 <= x <= 2\\pi")}
-            className="h-8 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+            className="hidden md:inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
           >
             Rumus
           </button>
@@ -1258,7 +1304,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="upload-image-btn"
             onClick={() => imageFileInputRef.current?.click()}
-            className="hidden sm:inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+            className="hidden lg:inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
             title="Unggah Gambar atau tekan Ctrl+V"
           >
             Gambar
@@ -1267,7 +1313,7 @@ export default function PersonalRoomPage() {
             type="button"
             data-testid="open-layers-btn"
             onClick={() => setShowLayersPanel((v) => !v)}
-            className={`h-8 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
+            className={`hidden md:inline-flex h-8 items-center whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
               showLayersPanel
                 ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -1282,17 +1328,34 @@ export default function PersonalRoomPage() {
           >
             Catatan
           </Link>
+          <Link
+            to="/workspace"
+            data-testid="nav-affine-workspace-link"
+            title="AFFiNE Doc & Edgeless Board (Page ↔ Kanvas, Mindmap, Database, Presentasi)"
+            className="hidden md:inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+          >
+            Workspace
+          </Link>
           <button
             type="button"
             data-testid="open-ai-drawer-btn"
             onClick={() => setShowAiDrawer((v) => !v)}
-            className={`h-8 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
+            className={`hidden md:inline-flex h-8 items-center whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition ${
               showAiDrawer
                 ? "border-violet-600 bg-violet-600 text-white"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-violet-50 hover:text-violet-700"
             }`}
           >
             Asisten AI
+          </button>
+          <button
+            type="button"
+            data-testid="wb-fullscreen-btn"
+            onClick={handleToggleFullscreen}
+            title="Mode Layar Penuh (Fullscreen)"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+          >
+            ⛶
           </button>
           <button
             type="button"
@@ -1418,14 +1481,14 @@ export default function PersonalRoomPage() {
             />
           </div>
 
-          {/* Zen Mode Floating Exit Pill */}
+          {/* Zen / Fullscreen Mode Floating Exit Pill */}
           {zenMode && (
             <button
               type="button"
-              onClick={() => setZenMode(false)}
+              onClick={handleToggleFullscreen}
               className="fixed top-3 right-3 z-40 rounded-full bg-slate-900/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg"
             >
-              Keluar Zen Mode (Alt+Z)
+              ⤢ Keluar Fullscreen
             </button>
           )}
 
@@ -1493,17 +1556,22 @@ export default function PersonalRoomPage() {
             );
           })()}
 
-          {/* Mobile Bottom Thumb Dock (< 768px) — thumb-reachable core tools */}
+          {/* Mobile Bottom Thumb Dock (< 768px) — Full-width scrollable, zero overlap */}
           <div
             data-testid="mobile-thumb-dock"
-            className="pointer-events-auto absolute bottom-3 left-1/2 z-30 flex md:hidden -translate-x-1/2 items-center gap-1 rounded-2xl border border-slate-200 bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-md select-none"
+            className="pointer-events-auto absolute inset-x-3 bottom-3 z-30 flex md:hidden items-center justify-start gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/98 px-2 py-1.5 shadow-2xl backdrop-blur-md select-none"
+            style={{ scrollbarWidth: "none" }}
           >
             {(
               [
-                ["select", "↖", "Pilih"],
                 ["hand", "✋", "Geser"],
+                ["select", "select", "Pilih"],
                 ["pen", "✏️", "Pena"],
                 ["eraser", "⌫", "Hapus"],
+                ["text", "A", "Teks"],
+                ["rect", "▭", "Kotak"],
+                ["ellipse", "◯", "Lingkaran"],
+                ["arrow", "→", "Panah"],
               ] as const
             ).map(([t, icon, lbl]) => (
               <button
@@ -1511,7 +1579,8 @@ export default function PersonalRoomPage() {
                 type="button"
                 onClick={() => setActiveTool(t)}
                 aria-label={lbl}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl text-base transition ${
+                title={lbl}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold transition ${
                   activeTool === t ? "bg-indigo-600 text-white shadow-sm" : "text-slate-700 hover:bg-slate-100"
                 }`}
               >
@@ -1535,9 +1604,21 @@ export default function PersonalRoomPage() {
             ))}
             <button
               type="button"
+              onClick={() => setShowPropsPanel((v) => !v)}
+              aria-label="Gaya & Warna"
+              title="Gaya & Warna"
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base ${
+                showPropsPanel ? "bg-indigo-600 text-white" : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              🎨
+            </button>
+            <button
+              type="button"
               onClick={() => setShowCatalogPopover((v) => !v)}
               aria-label="Katalog 2D/3D"
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-base text-indigo-700 bg-indigo-50"
+              title="Template 2D/3D"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base text-indigo-700 bg-indigo-50"
             >
               🧊
             </button>
@@ -1546,9 +1627,18 @@ export default function PersonalRoomPage() {
               onClick={handleUndo}
               disabled={history.past.length === 0}
               aria-label="Undo"
-              className="flex h-10 w-9 items-center justify-center rounded-xl text-sm text-slate-600 disabled:opacity-35"
+              className="flex h-10 w-9 shrink-0 items-center justify-center rounded-xl text-sm text-slate-600 disabled:opacity-35"
             >
               ↩
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={history.future.length === 0}
+              aria-label="Redo"
+              className="flex h-10 w-9 shrink-0 items-center justify-center rounded-xl text-sm text-slate-600 disabled:opacity-35"
+            >
+              ↪
             </button>
           </div>
 

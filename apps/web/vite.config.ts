@@ -24,6 +24,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // Don't cache API or WebSocket — always online for collab
         navigateFallbackDenylist: [/^\/api/, /^\/app/],
       },
@@ -34,9 +35,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@ai-classroom/curriculum-schema": path.resolve(__dirname, "../../packages/curriculum-schema/src"),
       "@ai-classroom/whiteboard-core": path.resolve(__dirname, "../../packages/whiteboard-core/src"),
+      "@toeverything/theme/style.css": path.resolve(
+        __dirname,
+        "../../node_modules/.pnpm/@toeverything+theme@1.1.23/node_modules/@toeverything/theme/dist/style.css",
+      ),
     },
   },
   server: {
+    host: true,
     port: 5173,
     proxy: {
       "/api": {
@@ -62,6 +68,7 @@ export default defineConfig({
           "three-vendor": ["three"],
           "canvas-vendor": ["konva", "react-konva", "perfect-freehand"],
           "math-vendor": ["mathlive", "katex"],
+          "affine-vendor": ["@blocksuite/store", "@blocksuite/blocks", "@blocksuite/presets", "lit", "yjs", "y-indexeddb"],
         },
       },
     },

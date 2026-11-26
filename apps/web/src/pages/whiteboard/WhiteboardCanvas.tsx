@@ -1623,12 +1623,58 @@ export function WhiteboardCanvas({
     layer.batchDraw();
   }, []);
 
+  // Multi-touch 2-finger pinch-zoom & pan guard for ALL tools (prevents double-line glitches on mobile!)
+  const stageTouchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const stagePinchRef = useRef<{
+    dist: number;
+    scale: number;
+    midX: number;
+    midY: number;
+    viewX: number;
+    viewY: number;
+  } | null>(null);
+  const isStagePinchingRef = useRef(false);
+
   // ---------------------------------------------------------------------------
   // Pointer down
   // ---------------------------------------------------------------------------
   const handleStagePointerDown = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       if (readOnly) return;
+
+      // Intercept multi-touch pinch-zoom/pan globally (even when Pen or Shape tool is active!)
+      if (e.evt.pointerType === "touch") {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        const sx = e.evt.clientX - rect.left;
+        const sy = e.evt.clientY - rect.top;
+        stageTouchPointersRef.current.set(e.evt.pointerId, { x: sx, y: sy });
+
+        if (stageTouchPointersRef.current.size >= 2) {
+          // Immediately abort any accidental single-finger stroke started milliseconds earlier!
+          isPointerDown.current = false;
+          livePointsRef.current = [];
+          shapeStartRef.current = null;
+          isDraggingSelection.current = false;
+          isMarquee.current = false;
+          clearLivePreview();
+
+          const [p1, p2] = Array.from(stageTouchPointersRef.current.values());
+          const v = viewportController.getState();
+          isStagePinchingRef.current = true;
+          stagePinchRef.current = {
+            dist: Math.max(10, Math.hypot(p2.x - p1.x, p2.y - p1.y)),
+            scale: v.scale,
+            midX: (p1.x + p2.x) / 2,
+            midY: (p1.y + p2.y) / 2,
+            viewX: v.x,
+            viewY: v.y,
+          };
+          return;
+        }
+        if (isStagePinchingRef.current) return;
+      }
+
       if (e.evt.pointerType === "touch" && (activeToolRef.current === "select" || activeToolRef.current === "hand")) {
         const stage = stageRef.current;
         const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
@@ -1761,6 +1807,31 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const handleStagePointerMove = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (e.evt.pointerType === "touch" && stageTouchPointersRef.current.has(e.evt.pointerId)) {
+        const stage = stageRef.current;
+        const rect = stage?.container?.().getBoundingClientRect() ?? { left: 0, top: 0 };
+        stageTouchPointersRef.current.set(e.evt.pointerId, {
+          x: e.evt.clientX - rect.left,
+          y: e.evt.clientY - rect.top,
+        });
+        if (isStagePinchingRef.current) {
+          if (stageTouchPointersRef.current.size >= 2 && stagePinchRef.current) {
+            const [p1, p2] = Array.from(stageTouchPointersRef.current.values());
+            const dist = Math.max(10, Math.hypot(p2.x - p1.x, p2.y - p1.y));
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            const orig = stagePinchRef.current;
+            const nextScale = Math.max(0.15, Math.min(5, orig.scale * (dist / orig.dist)));
+            const worldMidX = (orig.midX - orig.viewX) / orig.scale;
+            const worldMidY = (orig.midY - orig.viewY) / orig.scale;
+            const nextX = midX - worldMidX * nextScale;
+            const nextY = midY - worldMidY * nextScale;
+            viewportController.set({ x: nextX, y: nextY, scale: nextScale });
+          }
+          return;
+        }
+      }
+
       const tool = activeToolRef.current;
       if (e.evt.pointerType === "touch" && (tool === "select" || tool === "hand")) {
         const stage = stageRef.current;
@@ -1898,6 +1969,20 @@ export function WhiteboardCanvas({
   // ---------------------------------------------------------------------------
   const handleStagePointerUp = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (e?.evt?.pointerType === "touch") {
+        stageTouchPointersRef.current.delete(e.evt.pointerId);
+        if (isStagePinchingRef.current) {
+          if (stageTouchPointersRef.current.size === 0) {
+            isStagePinchingRef.current = false;
+            stagePinchRef.current = null;
+          }
+          isPointerDown.current = false;
+          livePointsRef.current = [];
+          clearLivePreview();
+          return;
+        }
+      }
+
       const tool = activeToolRef.current;
       if (e?.evt?.pointerType === "touch" && (tool === "select" || tool === "hand")) {
         const stage = stageRef.current;
@@ -3152,6 +3237,8 @@ export function WhiteboardCanvas({
         const canConvert3D = is2DConvertible(actionContext);
         const isLocked = Boolean(primaryObj && (primaryObj.props as Record<string, unknown>)?.locked);
 
+        if (width < 768 || height < 520) return null;
+
         return (
           <div data-testid="whiteboard-context-menu">
             <TongchuangRadialWheel
@@ -3346,7 +3433,8 @@ export function WhiteboardCanvas({
           "polygon",
         ]);
         let activeShape: Input2DShape | null = convert3DShape;
-        if (!activeShape && selectedIds.length === 1) {
+        const isCompactMobile = width < 768 || height < 520;
+        if (!activeShape && !isCompactMobile && selectedIds.length === 1) {
           const selObj = scene.objects[selectedIds[0]];
           if (selObj && CONVERTIBLE_2D.has(selObj.object_type) && dismissedConvert3DId !== selObj.id) {
             activeShape = {
@@ -3391,8 +3479,8 @@ export function WhiteboardCanvas({
         />
       )}
 
-      {/* Tool hint */}
-      <div className="absolute bottom-14 left-4 text-[10px] text-slate-500 select-none pointer-events-none">
+      {/* Tool hint (Desktop only — keeps mobile canvas clean!) */}
+      <div className="hidden md:block absolute bottom-14 left-4 text-[10px] text-slate-500 select-none pointer-events-none">
         {activeTool === "select"
           ? "Klik untuk memilih · Klik kanan untuk menu · Seret marquee · Scroll untuk zoom"
           : activeTool === "pen"

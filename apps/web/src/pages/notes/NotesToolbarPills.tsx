@@ -107,6 +107,9 @@ export interface NotesToolbarPillsProps {
   onOpenMermaid?: () => void;
   onOpenCommandPalette?: () => void;
   onExportSvg?: () => void;
+  onSwitchToAffine?: () => void;
+  onConvertHandwritingToLatex?: () => void;
+  onLaunchManimGx?: () => void;
 }
 
 const PEN_SWATCHES = [
@@ -159,6 +162,9 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
   onOpenMermaid,
   onOpenCommandPalette,
   onExportSvg,
+  onSwitchToAffine,
+  onConvertHandwritingToLatex,
+  onLaunchManimGx,
 }) => {
   const [openPopover, setOpenPopover] = useState<
     null | 'addPage' | 'utility' | 'pen' | 'highlighter' | 'eraser' | 'lasso' | 'laser'
@@ -184,17 +190,36 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
 
   return (
     <>
-      {/* Top Notebook Header Strip */}
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-3 text-xs">
-        <div className="flex items-center gap-2">
+      {/* Top Notebook Header Strip (Crisp single-line on 360px mobile & desktop) */}
+      <div className="flex h-11 shrink-0 items-center justify-between gap-1.5 border-b border-slate-200/80 bg-white/95 px-2 sm:px-3 text-xs">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Link
             to="/whiteboard"
             data-testid="nav-whiteboard-link"
-            className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+            title="Kembali ke Whiteboard"
+            className="inline-flex h-8 items-center rounded-lg border border-indigo-200 bg-indigo-50 px-2 sm:px-2.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 whitespace-nowrap"
           >
-            ← Whiteboard
+            <span>←</span>
+            <span className="hidden sm:inline ml-1">Whiteboard</span>
           </Link>
-          <span className="hidden sm:inline rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+          {onSwitchToAffine && (
+            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px] font-bold whitespace-nowrap">
+              <span className="rounded-md bg-white px-2 py-0.5 text-indigo-700 shadow-2xs">
+                <span className="sm:hidden">Ink</span>
+                <span className="hidden sm:inline">Freenote Ink</span>
+              </span>
+              <button
+                type="button"
+                data-testid="switch-to-affine-mode-btn"
+                onClick={onSwitchToAffine}
+                className="rounded-md px-2 py-0.5 text-slate-600 hover:text-indigo-700 whitespace-nowrap"
+              >
+                <span className="sm:hidden">Doc</span>
+                <span className="hidden sm:inline">AFFiNE Doc & Board</span>
+              </button>
+            </div>
+          )}
+          <span className="hidden lg:inline rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 whitespace-nowrap">
             {pageMode === 'infinite' ? 'Kanvas Infinite' : 'Mode Halaman A4'}
           </span>
         </div>
@@ -204,16 +229,16 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
           value={notebookTitle}
           onChange={(e) => onChangeTitle(e.target.value)}
           aria-label="Judul Notebook"
-          className="w-44 sm:w-64 truncate rounded-lg bg-transparent px-2 py-0.5 text-center text-xs font-bold text-slate-800 outline-none focus:bg-slate-100"
+          className="min-w-0 flex-1 max-w-[140px] sm:max-w-[260px] truncate rounded-lg bg-transparent px-1.5 py-0.5 text-center text-xs font-bold text-slate-800 outline-none focus:bg-slate-100"
         />
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 shrink-0">
           {onOpenMermaid && (
             <button
               type="button"
               data-testid="notes-open-mermaid-btn"
               onClick={onOpenMermaid}
-              className="hidden sm:inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+              className="hidden sm:inline-flex h-8 items-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 whitespace-nowrap"
             >
               🔀 Mermaid
             </button>
@@ -223,24 +248,43 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
               type="button"
               data-testid="notes-open-cmd-btn"
               onClick={onOpenCommandPalette}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-              title="Command Palette Excalidraw (Ctrl+K)"
+              className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+              title="Command Palette (Ctrl+K)"
             >
-              ⌘ Menu
+              <span>⌘</span>
+              <span className="hidden sm:inline ml-1">Menu</span>
             </button>
           )}
           <button
             type="button"
             onClick={onTogglePageMode}
             data-testid="toggle-notes-mode-btn"
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            title={pageMode === 'infinite' ? 'Ke Halaman A4' : 'Ke Kanvas Infinite'}
+            className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2 sm:px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap"
           >
-            {pageMode === 'infinite' ? 'Ke Halaman' : 'Ke Infinite'}
+            <span className="sm:hidden">{pageMode === 'infinite' ? 'A4' : '∞'}</span>
+            <span className="hidden sm:inline">{pageMode === 'infinite' ? 'Ke Halaman' : 'Ke Infinite'}</span>
+          </button>
+          <button
+            type="button"
+            data-testid="notes-fullscreen-btn"
+            title="Layar Penuh (Fullscreen)"
+            onClick={() => {
+              if (typeof document === 'undefined') return;
+              if (!document.fullscreenElement) {
+                void document.documentElement.requestFullscreen?.().catch(() => {});
+              } else {
+                void document.exitFullscreen?.().catch(() => {});
+              }
+            }}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50"
+          >
+            ⛶
           </button>
           <button
             type="button"
             onClick={() => handleToolClick('reading')}
-            className={`hidden md:inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+            className={`hidden md:inline-flex h-8 items-center rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap ${
               activeTool === 'reading'
                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -855,26 +899,76 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
         )}
       </div>
 
-      {/* MOBILE BOTTOM THUMB BAR (< 768px) */}
+      {/* MOBILE BOTTOM THUMB BAR (< 768px) — Full-Width Scrollable, Zero Overlap, All Tools Working */}
       <div
         data-testid="notes-mobile-pen-bar"
-        className="fixed bottom-3 left-1/2 z-30 flex md:hidden -translate-x-1/2 items-center gap-1 rounded-full border border-slate-200 bg-white/95 px-2.5 py-1.5 shadow-2xl backdrop-blur-md"
+        className="fixed inset-x-2.5 bottom-2.5 z-40 flex md:hidden items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200/95 bg-white/98 px-2 py-1.5 shadow-2xl backdrop-blur-md"
+        style={{ scrollbarWidth: 'none' }}
       >
+        <button
+          type="button"
+          onClick={() => handleToolClick('hand')}
+          title="Geser Kanvas"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base ${
+            activeTool === 'hand' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          ✋
+        </button>
+        <button
+          type="button"
+          onClick={() => handleToolClick('select')}
+          title="Seleksi & Geser Objek"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            activeTool === 'select' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 3l14 9-6.5 1.5L9 20 5 3z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleToolClick('fountain', 'pen')}
+          title="Pena (Ketuk lagi untuk warna & ukuran)"
+          className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base ${
+            activeTool === 'fountain' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <span>🖋️</span>
+          <span
+            className="absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border border-white"
+            style={{ backgroundColor: penSettings.color }}
+          />
+        </button>
         {([
-          ['fountain', '🖋️', 'pen'],
-          ['highlighter', '🖍️', 'highlighter'],
-          ['eraser', '⌫', 'eraser'],
-          ['lasso', '⭕', 'lasso'],
-          ['laser', '🔴', 'laser'],
-          ['tape', '🩹', undefined],
-          ['text', 'T', undefined],
-        ] as const).map(([t, icon, pop]) => (
+          ['highlighter', '🖍️', 'highlighter', 'Stabilo'],
+          ['eraser', '⌫', 'eraser', 'Penghapus'],
+          ['text', 'T', undefined, 'Teks'],
+          ['rect', '▭', undefined, 'Kotak'],
+          ['ellipse', '◯', undefined, 'Lingkaran'],
+          ['arrow', '→', undefined, 'Panah'],
+          ['lasso', '⭕', 'lasso', 'Lasso'],
+          ['laser', '🔴', 'laser', 'Laser'],
+          ['tape', '🩹', undefined, 'Pita Hafalan'],
+          ['sticker', '⭐', undefined, 'Stiker'],
+        ] as const).map(([t, icon, pop, lbl]) => (
           <button
             key={t}
             type="button"
+            title={lbl}
             onClick={() => handleToolClick(t, pop)}
-            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-              activeTool === t ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-100'
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+              activeTool === t ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
             {icon}
@@ -882,11 +976,42 @@ export const NotesToolbarPills: React.FC<NotesToolbarPillsProps> = ({
         ))}
         <button
           type="button"
+          title="Penggaris Virtual"
           onClick={onToggleRuler}
-          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm ${showRuler ? 'bg-slate-900 text-white' : 'text-slate-700'}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm ${
+            showRuler ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+          }`}
         >
           📏
         </button>
+        <button
+          type="button"
+          title="Sisipkan Gambar"
+          onClick={onImportImage}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm text-slate-700 hover:bg-slate-100"
+        >
+          🖼️
+        </button>
+        {onConvertHandwritingToLatex && (
+          <button
+            type="button"
+            title="Tulisan Tangan → LaTeX"
+            onClick={onConvertHandwritingToLatex}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 text-[11px] font-bold text-indigo-700 whitespace-nowrap"
+          >
+            ✍ LaTeX
+          </button>
+        )}
+        {onLaunchManimGx && (
+          <button
+            type="button"
+            title="Tambah Visual ManimGX"
+            onClick={onLaunchManimGx}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-2.5 text-[11px] font-bold text-white whitespace-nowrap"
+          >
+            🎬 ManimGX
+          </button>
+        )}
       </div>
     </>
   );

@@ -223,12 +223,8 @@ function VizSolidOverlay({
       if (containerRef.current) {
         const sx = wx * v.scale + v.x;
         const sy = wy * v.scale + v.y;
-        const scaledW = boxW * v.scale;
-        const scaledH = boxH * v.scale;
-        containerRef.current.style.left = `${sx}px`;
-        containerRef.current.style.top = `${sy}px`;
-        containerRef.current.style.width = `${scaledW}px`;
-        containerRef.current.style.height = `${scaledH}px`;
+        // GPU-accelerated 1:1 world-locked transform: prevents Three.js min-size clamping on zoom-out!
+        containerRef.current.style.transform = `translate3d(${sx}px, ${sy}px, 0) scale(${v.scale})`;
       }
 
       // Check distance to viewport (margin 800px in world coordinates)
@@ -291,10 +287,13 @@ function VizSolidOverlay({
       data-testid={`viz-solid-${obj.id}`}
       style={{
         position: "absolute",
-        left: initialSx,
-        top: initialSy,
-        width: initialW,
-        height: initialH,
+        left: 0,
+        top: 0,
+        width: boxW,
+        height: boxH,
+        transformOrigin: "0 0",
+        transform: `translate3d(${initialSx}px, ${initialSy}px, 0) scale(${initialScale})`,
+        willChange: "transform",
         zIndex: isSelected ? 20 : 6,
         pointerEvents: "auto",
         border: tongchuangMode ? "none" : "1px solid rgba(100,100,255,0.3)",

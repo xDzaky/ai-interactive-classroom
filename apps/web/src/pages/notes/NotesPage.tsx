@@ -6,7 +6,7 @@
  * - Multi-page Thumbnail Sidebar (reorder, bookmark, duplicate, delete) matching Screenshot 235043
  * - Dual Floating Pills + Pen Rack + Laser Pointer + Virtual Ruler + Layers + Study Timer + Audio Recorder + Feynman AI
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import type {
   NotebookDocument,
@@ -51,6 +51,12 @@ import {
 } from './NotesToolbarPills';
 import { NotesCanvas } from './NotesCanvas';
 
+const AffineWorkspaceShell = lazy(() =>
+  import('@/components/affine/AffineWorkspaceShell').then((m) => ({
+    default: m.AffineWorkspaceShell,
+  })),
+);
+
 export default function NotesPage() {
   const { notebookId } = useParams<{ notebookId?: string }>();
   const navigate = useNavigate();
@@ -60,6 +66,7 @@ export default function NotesPage() {
   const [activeNbId, setActiveNbId] = useState<string | null>(notebookId ?? null);
   const [activePageIdx, setActivePageIdx] = useState(0);
   const [viewMode, setViewMode] = useState<'editor' | 'library'>('editor');
+  const [notesEngine, setNotesEngine] = useState<'freenote' | 'affine'>('freenote');
   const [libraryFilter, setLibraryFilter] = useState<'unfiled' | 'trash' | string>('unfiled');
 
   // Tool states
@@ -478,6 +485,37 @@ export default function NotesPage() {
     }
   };
 
+  // ── AFFiNE DOC & BOARD VIEW (BlockSuite Page ↔ Edgeless Mode) ───────────────
+  if (notesEngine === 'affine') {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-screen w-screen items-center justify-center bg-white text-xs font-semibold text-slate-500">
+            Memuat Workspace AFFiNE (Doc & Board)...
+          </div>
+        }
+      >
+        <AffineWorkspaceShell
+          headerLeftSlot={
+            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px] font-bold">
+              <button
+                type="button"
+                data-testid="switch-to-freenote-mode-btn"
+                onClick={() => setNotesEngine('freenote')}
+                className="rounded-md px-2 py-0.5 text-slate-600 hover:text-indigo-700"
+              >
+                Freenote Ink
+              </button>
+              <span className="rounded-md bg-white px-2 py-0.5 text-indigo-700 shadow-2xs">
+                AFFiNE Doc & Board
+              </span>
+            </div>
+          }
+        />
+      </Suspense>
+    );
+  }
+
   // ── LIBRARY VIEW (Matches Freenote Screenshots 234924 & 234937) ─────────────
   if (viewMode === 'library' || !activeNotebook || !activePage) {
     const visibleNotebooks = notebooks.filter((nb) => {
@@ -703,6 +741,9 @@ export default function NotesPage() {
         onOpenMermaid={() => setShowMermaidModal(true)}
         onOpenCommandPalette={() => setShowCommandPalette(true)}
         onExportSvg={handleExportSvg}
+        onSwitchToAffine={() => setNotesEngine('affine')}
+        onConvertHandwritingToLatex={handleConvertPageHandwritingToLatex}
+        onLaunchManimGx={() => handleInsertManimGxInNotes(analyzeForManimGX({ latex: '(x - 2)^2 + (y - 1)^2 = 9' }))}
       />
 
       {/* Hidden File Inputs for Images & PDF */}
@@ -1026,8 +1067,8 @@ export default function NotesPage() {
         onClose={() => setShowMermaidModal(false)}
       />
 
-      {/* V6 Unified Handwriting-to-LaTeX Quick Action & Confirmation Chip */}
-      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+      {/* V6 Unified Handwriting-to-LaTeX Quick Action (Desktop only — mobile has these cleanly inside bottom dock!) */}
+      <div className="fixed bottom-4 right-4 z-40 hidden md:flex items-center gap-2">
         <button
           type="button"
           data-testid="notes-handwriting-latex-btn"

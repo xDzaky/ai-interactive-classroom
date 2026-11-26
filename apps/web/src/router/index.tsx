@@ -15,6 +15,7 @@ const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const ReplayViewer = lazy(() => import("@/pages/room/ReplayViewer"));
 const PersonalRoomPage = lazy(() => import("@/pages/room/PersonalRoomPage"));
 const NotesPage = lazy(() => import("@/pages/notes/NotesPage"));
+const AffineWorkspacePage = lazy(() => import("@/pages/workspace/AffineWorkspacePage"));
 
 function PageLoader() {
   return (
@@ -87,6 +88,8 @@ export const router = createBrowserRouter([
       { path: "whiteboard", element: withSuspense(PersonalRoomPage) },
       { path: "notes", element: withSuspense(NotesPage) },
       { path: "notes/:notebookId", element: withSuspense(NotesPage) },
+      { path: "workspace", element: withSuspense(AffineWorkspacePage) },
+      { path: "workspace/:docId", element: withSuspense(AffineWorkspacePage) },
       { path: "room/personal", element: withSuspense(PersonalRoomPage) },
       { path: "sandbox", element: withSuspense(PersonalRoomPage) },
       { path: "controller", element: withSuspense(ControllerPage) },
