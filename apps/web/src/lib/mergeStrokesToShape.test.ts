@@ -161,4 +161,48 @@ describe('mergeStrokesToShape — Broken Multi-Stroke Sketch Merger', () => {
     expect(createdRhombus.payload.props.cx).toBe(400);
     expect(createdRhombus.payload.props.cy).toBe(350);
   });
+
+  it('preserves existing regionFills when merging an already-colored object with a new divider line', () => {
+    // Rectangle split vertically: region 0 (left) = transparent, region 1 (right) = #93c5fd (blue)
+    const scene: SceneState = {
+      id: 's1',
+      name: 'Scene 1',
+      order: ['grp1', 'hLine'],
+      strokes: {},
+      objects: {
+        grp1: {
+          id: 'grp1',
+          object_type: 'polygon',
+          props: {
+            multiSegments: [
+              [100, 100, 300, 100, 300, 300, 100, 300, 100, 100],
+              [200, 100, 200, 300],
+            ],
+            regionFills: { '1': '#93c5fd' },
+            stroke: '#0f172a',
+            strokeWidth: 2,
+          },
+          created_at: 0,
+          updated_at: 0,
+        },
+        hLine: {
+          id: 'hLine',
+          object_type: 'line',
+          props: { x1: 100, y1: 250, x2: 300, y2: 250, stroke: '#0f172a', strokeWidth: 2 },
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+    };
+
+    const merged = mergeSelectionTo2DShape(['grp1', 'hLine'], scene);
+    expect(merged).not.toBeNull();
+    const fills = merged!.props.regionFills as Record<string, string>;
+    // 4 sub-regions: top-left(0), top-right(1), bottom-left(2), bottom-right(3)
+    // Both right-hand regions (1 and 3) MUST preserve #93c5fd!
+    expect(fills['0']).toBeUndefined();
+    expect(fills['1']).toBe('#93c5fd');
+    expect(fills['2']).toBeUndefined();
+    expect(fills['3']).toBe('#93c5fd');
+  });
 });

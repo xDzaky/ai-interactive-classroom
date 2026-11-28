@@ -13,7 +13,23 @@ import type {
   NotebookFolder,
   NotePage,
   PaperTemplateKind,
+  SmartTableProps,
+  SubjectHelperKind,
+  SubjectHelperProps,
+  TablePresetMode,
 } from '@ai-classroom/whiteboard-core';
+import {
+  createDefaultSmartTableProps,
+  createDefaultSubjectHelperProps,
+} from '@ai-classroom/whiteboard-core';
+import { getCachedPlanarRegions } from '@/lib/regionPartition';
+import { TableGridPicker } from '@/components/tables/TableGridPicker';
+const SmartTableWidget = lazy(() =>
+  import('@/components/tables/SmartTableWidget').then((m) => ({ default: m.SmartTableWidget })),
+);
+const SubjectHelperWidget = lazy(() =>
+  import('@/components/helpers/SubjectHelperWidget').then((m) => ({ default: m.SubjectHelperWidget })),
+);
 import {
   createDefaultNotebook,
   createNotePage,
@@ -435,7 +451,35 @@ export default function NotesPage() {
     showToast(`Tulisan diubah ke LaTeX: ${accepted.latex}`);
   }, [handwriting, activePage, handleUpdatePage, activeLayerId, handleInsertManimGxInNotes]);
 
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [selectedNoteObjIds, setSelectedNoteObjIds] = useState<string[]>([]);
+  const [noteTables, setNoteTables] = useState<Array<{ id: string; props: SmartTableProps }>>([]);
+  const [noteHelpers, setNoteHelpers] = useState<Array<{ id: string; props: SubjectHelperProps }>>([]);
+
+  const handleInsertNoteTable = useCallback((preset: TablePresetMode, opts?: { rows?: number; cols?: number }) => {
+    const id = `note-table-${Date.now()}`;
+    setNoteTables((prev) => [
+      ...prev,
+      { id, props: createDefaultSmartTableProps(preset, { x: 80, y: 90, rows: opts?.rows, cols: opts?.cols }) },
+    ]);
+    setShowTablePicker(false);
+    showToast('Tabel pintar ditambahkan ke catatan');
+  }, []);
+
+  const handleInsertNoteHelper = useCallback((kind: SubjectHelperKind) => {
+    const id = `note-helper-${Date.now()}`;
+    setNoteHelpers((prev) => [
+      ...prev,
+      { id, props: createDefaultSubjectHelperProps(kind, { x: 100, y: 100 }) },
+    ]);
+    setShowTablePicker(false);
+    showToast('Alat bantu materi ditambahkan ke catatan');
+  }, []);
+
   const notesCommandActions: CommandPaletteAction[] = [
+    { id: 'n-table-picker', label: 'Sisipkan Tabel Custom / Statistika & Alat Bantu (V9)', category: 'Tabel & Alat Bantu', run: () => setShowTablePicker(true) },
+    { id: 'n-stat-grouped', label: 'Tabel Statistika Data Kelompok (Mean/Median/Modus)', category: 'Tabel & Alat Bantu', run: () => handleInsertNoteTable('stat_grouped') },
+    { id: 'n-stat-ungrouped', label: 'Tabel Statistika Data Tunggal Berbobot', category: 'Tabel & Alat Bantu', run: () => handleInsertNoteTable('stat_ungrouped') },
     { id: 'n-h2l', label: 'Ubah Tulisan Tangan → Rumus LaTeX', category: 'ManimGX & AI', run: handleConvertPageHandwritingToLatex },
     {
       id: 'n-manim-circle',
@@ -795,14 +839,16 @@ export default function NotesPage() {
           toolLocked={toolLocked}
           onSelectTool={setActiveTool}
           onUpdatePage={handleUpdatePage}
+          onSelectedObjIdsChange={setSelectedNoteObjIds}
           onDropImageBlob={(blob, pos, name) => void handleInsertImageBlob(blob, pos, name)}
         />
 
-        {/* Shared Excalidraw Left Style Properties Panel in /notes (capability-filtered!) */}
+        {/* Shared Excalidraw Left Style Properties Panel in /notes (supports stroke, whole & per-region background fill!) */}
         <ExcalidrawPropertiesPanel
           open={
             showExProps &&
-            (activeTool === 'rect' ||
+            (selectedNoteObjIds.length > 0 ||
+              activeTool === 'rect' ||
               activeTool === 'rhombus' ||
               activeTool === 'ellipse' ||
               activeTool === 'arrow' ||
@@ -810,9 +856,57 @@ export default function NotesPage() {
               activeTool === 'frame')
           }
           style={excalidrawStyle}
-          selectedCount={0}
-          capabilities={getCapabilitiesForSelection([], activeTool)}
-          onChangeStyle={(patch) => setExcalidrawStyle((prev) => ({ ...prev, ...patch }))}
+          selectedCount={selectedNoteObjIds.length}
+          capabilities={getCapabilitiesForSelection(
+            activePage.objects
+              .filter((o) => selectedNoteObjIds.includes(o.id))
+              .map((o) => o.object_type),
+            activeTool,
+          )}
+          onChangeStyle={(patch) => {
+            setExcalidrawStyle((prev) => ({ ...prev, ...patch }));
+            if (selectedNoteObjIds.length === 0) return;
+            const selSet = new Set(selectedNoteObjIds);
+            handleUpdatePage((prev) => ({
+              ...prev,
+              objects: prev.objects.map((obj) => {
+                if (!selSet.has(obj.id)) return obj;
+                const op = { ...(obj.props as Record<string, unknown>) };
+                if (patch.strokeColor !== undefined) op.stroke = patch.strokeColor;
+                if (patch.strokeWidth !== undefined) op.strokeWidth = patch.strokeWidth;
+                if (patch.strokeStyle !== undefined) op.strokeStyle = patch.strokeStyle;
+                if (patch.roughness !== undefined) op.roughness = patch.roughness;
+                if (patch.opacity !== undefined) op.opacity = patch.opacity;
+                if (patch.fillStyle !== undefined) op.fillStyle = patch.fillStyle;
+                if (patch.backgroundColor !== undefined) {
+                  if (Array.isArray(op.multiSegments) && op.multiSegments.length > 0) {
+                    const activeIdx = typeof op.activeRegionIndex === 'number' ? op.activeRegionIndex : -1;
+                    if (activeIdx >= 0) {
+                      const prevFills =
+                        typeof op.regionFills === 'object' && op.regionFills !== null
+                          ? { ...(op.regionFills as Record<string, string>) }
+                          : {};
+                      if (patch.backgroundColor === 'transparent') delete prevFills[String(activeIdx)];
+                      else prevFills[String(activeIdx)] = patch.backgroundColor;
+                      op.regionFills = prevFills;
+                    } else if (patch.backgroundColor === 'transparent') {
+                      op.regionFills = {};
+                      op.fill = 'transparent';
+                    } else {
+                      const allRegs = getCachedPlanarRegions(op.multiSegments as number[][]);
+                      const allFills: Record<string, string> = {};
+                      for (const r of allRegs) allFills[String(r.index)] = patch.backgroundColor;
+                      op.regionFills = allFills;
+                      op.fill = patch.backgroundColor;
+                    }
+                  } else {
+                    op.fill = patch.backgroundColor;
+                  }
+                }
+                return { ...obj, props: op, updated_at: Date.now() };
+              }),
+            }));
+          }}
           onClose={() => setShowExProps(false)}
         />
 
@@ -1067,8 +1161,99 @@ export default function NotesPage() {
         onClose={() => setShowMermaidModal(false)}
       />
 
+      {/* V9 Floating Smart Tables & Subject Helpers in /notes */}
+      {noteTables.map((t) => (
+        <div
+          key={t.id}
+          className="fixed z-40"
+          style={{ left: t.props.x ?? 80, top: t.props.y ?? 90 }}
+        >
+          <Suspense fallback={null}>
+            <SmartTableWidget
+              id={t.id}
+              tableProps={t.props}
+              onUpdateProps={(patch) =>
+                setNoteTables((prev) =>
+                  prev.map((item) => (item.id === t.id ? { ...item, props: { ...item.props, ...patch } } : item)),
+                )
+              }
+              onMovePosition={(dx, dy) =>
+                setNoteTables((prev) =>
+                  prev.map((item) =>
+                    item.id === t.id
+                      ? { ...item, props: { ...item.props, x: (item.props.x ?? 80) + dx, y: (item.props.y ?? 90) + dy } }
+                      : item,
+                  ),
+                )
+              }
+              onDelete={() => setNoteTables((prev) => prev.filter((item) => item.id !== t.id))}
+            />
+          </Suspense>
+        </div>
+      ))}
+
+      {noteHelpers.map((h) => (
+        <div
+          key={h.id}
+          className="fixed z-40"
+          style={{ left: h.props.x ?? 100, top: h.props.y ?? 100 }}
+        >
+          <Suspense fallback={null}>
+            <SubjectHelperWidget
+              id={h.id}
+              helperProps={h.props}
+              onUpdateProps={(patch) =>
+                setNoteHelpers((prev) =>
+                  prev.map((item) => (item.id === h.id ? { ...item, props: { ...item.props, ...patch } } : item)),
+                )
+              }
+              onMovePosition={(dx, dy) =>
+                setNoteHelpers((prev) =>
+                  prev.map((item) =>
+                    item.id === h.id
+                      ? { ...item, props: { ...item.props, x: (item.props.x ?? 100) + dx, y: (item.props.y ?? 100) + dy } }
+                      : item,
+                  ),
+                )
+              }
+              onDelete={() => setNoteHelpers((prev) => prev.filter((item) => item.id !== h.id))}
+            />
+          </Suspense>
+        </div>
+      ))}
+
+      {showTablePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-xs">
+          <div className="max-h-[82vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">📊 Tabel Pintar & Alat Bantu</h3>
+              <button
+                type="button"
+                onClick={() => setShowTablePicker(false)}
+                className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100"
+              >
+                Tutup
+              </button>
+            </div>
+            <TableGridPicker
+              onInsertTable={handleInsertNoteTable}
+              onInsertHelper={handleInsertNoteHelper}
+            />
+          </div>
+        </div>
+      )}
+
       {/* V6 Unified Handwriting-to-LaTeX Quick Action (Desktop only — mobile has these cleanly inside bottom dock!) */}
       <div className="fixed bottom-4 right-4 z-40 hidden md:flex items-center gap-2">
+        <button
+          type="button"
+          data-testid="notes-smart-table-btn"
+          onClick={() => setShowTablePicker(true)}
+          className="rounded-full border border-emerald-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-lg hover:bg-emerald-50"
+          title="Sisipkan Tabel Custom, Statistika Mean/Median/Modus, atau Alat Bantu Materi"
+        >
+          📊 Tabel & Alat
+        </button>
         <button
           type="button"
           data-testid="notes-handwriting-latex-btn"

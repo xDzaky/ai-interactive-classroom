@@ -24,6 +24,7 @@ import {
   type RoughnessLevel,
   type StrokeStyleKind,
 } from "@/lib/excalidrawEngine";
+import { getCachedPlanarRegions } from "@/lib/regionPartition";
 
 export interface BoundingBox {
   x: number;
@@ -231,8 +232,38 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
   const rawProps = obj.props as Record<string, unknown>;
   if (Array.isArray(rawProps.multiSegments) && rawProps.multiSegments.length > 0) {
     const segs = rawProps.multiSegments as number[][];
+    const regionFills =
+      typeof rawProps.regionFills === "object" && rawProps.regionFills !== null
+        ? (rawProps.regionFills as Record<string, string>)
+        : null;
+    const activeRegionIdx =
+      typeof rawProps.activeRegionIndex === "number" ? rawProps.activeRegionIndex : -1;
+    const regions =
+      (regionFills && Object.keys(regionFills).length > 0) || activeRegionIdx >= 0
+        ? getCachedPlanarRegions(segs)
+        : [];
     return (
       <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening} {...lineRotProps}>
+        {/* Per-region background fills (e.g. 1/2, 2/4, 4/8 fraction slices!) */}
+        {regions.map((reg) => {
+          const fillCol = regionFills?.[String(reg.index)];
+          const isActive = reg.index === activeRegionIdx;
+          if (!fillCol && !isActive) return null;
+          return (
+            <Line
+              key={`reg-${reg.index}`}
+              points={reg.points}
+              closed
+              fill={fillCol && fillCol !== "transparent" ? fillCol : "rgba(79, 70, 229, 0.08)"}
+              stroke={isActive ? "rgba(79, 70, 229, 0.55)" : undefined}
+              strokeWidth={isActive ? 1.5 : 0}
+              listening={false}
+              perfectDrawEnabled={false}
+              shadowForStrokeEnabled={false}
+            />
+          );
+        })}
+        {/* Crisp vector outline & divider segments on top */}
         {segs.map((seg, idx) => (
           <Line
             key={idx}

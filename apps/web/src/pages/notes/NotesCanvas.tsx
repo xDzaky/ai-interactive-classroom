@@ -10,13 +10,15 @@
  * - Draggable & rotatable Virtual Ruler (Penggaris Virtual) with live degree dial 0°–360°
  * - Interactive Study Tape (Pita Perekat — click to hide/reveal), Stickers, Text, & Image Tracing Layer
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import getStroke from 'perfect-freehand';
 import type {
   NotePage,
   NoteStroke,
   PaperTemplateKind,
+  SceneState,
 } from '@ai-classroom/whiteboard-core';
+import type { SolidParams } from '@ai-classroom/geometry-core';
 import { LaserPointerEngine, type LaserConfig } from '@/lib/laserPointerEngine';
 import { InputRouter } from '@/lib/inputRouter';
 import { getMediaObjectUrl } from '@/lib/mediaStore';
@@ -37,6 +39,28 @@ import {
 import type { BoardObject } from '@ai-classroom/whiteboard-core';
 import type { ManimGxTemplateKind } from '@ai-classroom/math-core';
 import { ManimGxWidget } from '@/components/math/ManimGxWidget';
+import { ShapeToSolidMenu } from '@/components/whiteboard/ShapeToSolidMenu';
+import {
+  createConvertShapeToSolidEvent,
+  type Input2DShape,
+  type SolidProposal,
+} from '@/lib/shapeToSolid';
+import {
+  canMergeSelectionToShape,
+  mergeSelectionTo2DShape,
+  canUngroupSelection,
+  ungroupSelectedObject,
+} from '@/lib/mergeStrokesToShape';
+import {
+  findRegionAtPoint,
+  getCachedPlanarRegions,
+} from '@/lib/regionPartition';
+
+const TongchuangSolidWidget = lazy(() =>
+  import('@/components/math/TongchuangSolidWidget').then((m) => ({
+    default: m.TongchuangSolidWidget,
+  })),
+);
 import type {
   EraserSettings,
   LassoSettings,
@@ -57,6 +81,7 @@ export interface NotesCanvasProps {
   excalidrawStyle?: ExcalidrawStyleState;
   toolLocked?: boolean;
   onSelectTool?: (t: NotesToolId) => void;
+  onSelectedObjIdsChange?: (ids: string[]) => void;
   onUpdatePage: (updater: (prev: NotePage) => NotePage, pushUndo?: boolean) => void;
   onDropImageBlob: (blob: Blob, pos: { x: number; y: number }, name?: string) => void;
 }
@@ -188,6 +213,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   excalidrawStyle = DEFAULT_EXCALIDRAW_STYLE,
   toolLocked = false,
   onSelectTool,
+  onSelectedObjIdsChange,
   onUpdatePage,
   onDropImageBlob,
 }) => {
@@ -239,12 +265,66 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     return () => window.removeEventListener('resize', updateDims);
   }, [page.mode, page.pageSize]);
 
-  const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
+  const [selectedObjIds, setSelectedObjIdsRaw] = useState<string[]>([]);
+  const selectedObjId = selectedObjIds[0] ?? null;
+  const setSelectedObjIds = (next: string[]) => {
+    setSelectedObjIdsRaw(next);
+    onSelectedObjIdsChange?.(next);
+  };
+  const setSelectedObjId = (id: string | null) => {
+    setSelectedObjIds(id ? [id] : []);
+  };
+  const [convert3DTarget, setConvert3DTarget] = useState<Input2DShape | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [isSpacePanning, setIsSpacePanning] = useState(false);
   const isSpacePanRef = useRef(false);
   const panDragRef = useRef<{ startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
-  const draggingObjRef = useRef<{ id: string; lastX: number; lastY: number } | null>(null);
+  const draggingObjRef = useRef<{ ids: string[]; lastX: number; lastY: number } | null>(null);
+
+  const buildNoteSceneState = (pg: NotePage): SceneState => {
+    const objects: Record<string, BoardObject> = {};
+    const order: string[] = [];
+    for (const o of pg.objects) {
+      objects[o.id] = o;
+      order.push(o.id);
+    }
+    return { id: pg.id, name: 'Notes', objects, strokes: {}, order };
+  };
+
+  const getNoteObjectBBox = (obj: BoardObject): { x: number; y: number; w: number; h: number } | null => {
+    const p = obj.props as Record<string, unknown>;
+    if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const seg of p.multiSegments as number[][]) {
+        for (let i = 0; i < seg.length - 1; i += 2) {
+          if (seg[i] < minX) minX = seg[i];
+          if (seg[i] > maxX) maxX = seg[i];
+          if (seg[i + 1] < minY) minY = seg[i + 1];
+          if (seg[i + 1] > maxY) maxY = seg[i + 1];
+        }
+      }
+      if (isFinite(minX)) return { x: minX, y: minY, w: Math.max(12, maxX - minX), h: Math.max(12, maxY - minY) };
+    }
+    if (obj.object_type === 'rect' || obj.object_type === 'frame') {
+      return { x: Number(p.x ?? 0), y: Number(p.y ?? 0), w: Number(p.w ?? 100), h: Number(p.h ?? 60) };
+    }
+    if (obj.object_type === 'circle') {
+      const r = Number(p.r ?? 50);
+      return { x: Number(p.x ?? 0) - r, y: Number(p.y ?? 0) - r, w: r * 2, h: r * 2 };
+    }
+    if (obj.object_type === 'rhombus' || obj.object_type === 'ellipse') {
+      const rx = Number(p.rx ?? 50);
+      const ry = Number(p.ry ?? 35);
+      return { x: Number(p.cx ?? 0) - rx, y: Number(p.cy ?? 0) - ry, w: rx * 2, h: ry * 2 };
+    }
+    if (obj.object_type === 'arrow' || obj.object_type === 'line') {
+      const x1 = Number(p.x1 ?? 0), y1 = Number(p.y1 ?? 0), x2 = Number(p.x2 ?? 100), y2 = Number(p.y2 ?? 100);
+      return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.max(12, Math.abs(x2 - x1)), h: Math.max(12, Math.abs(y2 - y1)) };
+    }
+    return null;
+  };
   const copiedNoteItemRef = useRef<{
     kind: 'object' | 'text';
     data: Record<string, unknown>;
@@ -477,6 +557,43 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           ctx.textBaseline = 'middle';
           ctx.fillText(label, cx, cy);
         }
+      } else if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+        const segs = p.multiSegments as number[][];
+        const rf =
+          typeof p.regionFills === 'object' && p.regionFills !== null
+            ? (p.regionFills as Record<string, string>)
+            : null;
+        const activeIdx = typeof p.activeRegionIndex === 'number' ? p.activeRegionIndex : -1;
+        const regions = (rf && Object.keys(rf).length > 0) || activeIdx >= 0 ? getCachedPlanarRegions(segs) : [];
+        for (const reg of regions) {
+          const fillCol = rf?.[String(reg.index)];
+          const isActive = reg.index === activeIdx;
+          if (!fillCol && !isActive) continue;
+          ctx.beginPath();
+          ctx.moveTo(reg.points[0], reg.points[1]);
+          for (let i = 2; i < reg.points.length - 1; i += 2) {
+            ctx.lineTo(reg.points[i], reg.points[i + 1]);
+          }
+          ctx.closePath();
+          ctx.fillStyle = fillCol && fillCol !== 'transparent' ? fillCol : 'rgba(79, 70, 229, 0.08)';
+          ctx.fill();
+          if (isActive) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(79, 70, 229, 0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+        for (const seg of segs) {
+          if (seg.length < 4) continue;
+          ctx.beginPath();
+          ctx.moveTo(seg[0], seg[1]);
+          for (let i = 2; i < seg.length - 1; i += 2) {
+            ctx.lineTo(seg[i], seg[i + 1]);
+          }
+          ctx.stroke();
+        }
       } else if (obj.object_type === 'ellipse') {
         const cx = Number(p.cx ?? 100);
         const cy = Number(p.cy ?? 100);
@@ -526,46 +643,29 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
     page.objects.forEach(drawExcalidrawObject);
     page.strokes.forEach(drawSingleStroke);
 
-    // Selection highlight for selected vector object in /notes
-    if (selectedObjId) {
-      const selObj = page.objects.find((o) => o.id === selectedObjId);
-      if (selObj && selObj.object_type !== 'image' && selObj.object_type !== 'viz_manimgx') {
-        const sp = selObj.props as Record<string, unknown>;
-        let bx = 0;
-        let by = 0;
-        let bw = 0;
-        let bh = 0;
-        if (selObj.object_type === 'rect' || selObj.object_type === 'frame') {
-          bx = Number(sp.x ?? 0);
-          by = Number(sp.y ?? 0);
-          bw = Number(sp.w ?? 100);
-          bh = Number(sp.h ?? 60);
-        } else if (selObj.object_type === 'rhombus' || selObj.object_type === 'ellipse') {
-          const rx = Number(sp.rx ?? 50);
-          const ry = Number(sp.ry ?? 35);
-          bx = Number(sp.cx ?? 0) - rx;
-          by = Number(sp.cy ?? 0) - ry;
-          bw = rx * 2;
-          bh = ry * 2;
-        } else if (selObj.object_type === 'arrow' || selObj.object_type === 'line') {
-          const x1 = Number(sp.x1 ?? 0);
-          const y1 = Number(sp.y1 ?? 0);
-          const x2 = Number(sp.x2 ?? 100);
-          const y2 = Number(sp.y2 ?? 100);
-          bx = Math.min(x1, x2);
-          by = Math.min(y1, y2);
-          bw = Math.max(12, Math.abs(x2 - x1));
-          bh = Math.max(12, Math.abs(y2 - y1));
-        }
-        if (bw > 0 && bh > 0) {
+    // Selection highlight for ALL selected vector objects + Marquee box in /notes
+    for (const sid of selectedObjIds) {
+      const selObj = page.objects.find((o) => o.id === sid);
+      if (selObj && selObj.object_type !== 'image' && selObj.object_type !== 'viz_manimgx' && selObj.object_type !== 'viz_solid') {
+        const bbox = getNoteObjectBBox(selObj);
+        if (bbox && bbox.w > 0 && bbox.h > 0) {
           ctx.save();
           ctx.strokeStyle = '#2563eb';
           ctx.lineWidth = 1.6;
           ctx.setLineDash([5, 3]);
-          ctx.strokeRect(bx - 5, by - 5, bw + 10, bh + 10);
+          ctx.strokeRect(bbox.x - 5, bbox.y - 5, bbox.w + 10, bbox.h + 10);
           ctx.restore();
         }
       }
+    }
+    if (marqueeBox && (marqueeBox.w > 2 || marqueeBox.h > 2)) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.10)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(marqueeBox.x, marqueeBox.y, marqueeBox.w, marqueeBox.h);
+      ctx.strokeRect(marqueeBox.x, marqueeBox.y, marqueeBox.w, marqueeBox.h);
+      ctx.restore();
     }
 
     // Live Excalidraw Shape Drag Preview
@@ -650,7 +750,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   useEffect(() => {
     redrawCanvas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, canvasDims, selectedObjId]);
+  }, [page, canvasDims, selectedObjIds, marqueeBox]);
 
   const toLocalPt = (e: React.PointerEvent): [number, number] => {
     const rect = inkCanvasRef.current!.getBoundingClientRect();
@@ -684,30 +784,10 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
   const hitTestNoteObject = (x: number, y: number): BoardObject | null => {
     for (let i = page.objects.length - 1; i >= 0; i--) {
       const obj = page.objects[i];
-      if (obj.object_type === 'viz_manimgx' || obj.object_type === 'image') continue;
-      const p = obj.props as Record<string, unknown>;
-      if (obj.object_type === 'rect' || obj.object_type === 'frame') {
-        const ox = Number(p.x ?? 0);
-        const oy = Number(p.y ?? 0);
-        const ow = Number(p.w ?? 100);
-        const oh = Number(p.h ?? 60);
-        if (x >= ox - 8 && x <= ox + ow + 8 && y >= oy - 8 && y <= oy + oh + 8) return obj;
-      } else if (obj.object_type === 'rhombus' || obj.object_type === 'ellipse') {
-        const cx = Number(p.cx ?? 0);
-        const cy = Number(p.cy ?? 0);
-        const rx = Number(p.rx ?? 50);
-        const ry = Number(p.ry ?? 35);
-        if (x >= cx - rx - 8 && x <= cx + rx + 8 && y >= cy - ry - 8 && y <= cy + ry + 8) return obj;
-      } else if (obj.object_type === 'arrow' || obj.object_type === 'line') {
-        const x1 = Number(p.x1 ?? 0);
-        const y1 = Number(p.y1 ?? 0);
-        const x2 = Number(p.x2 ?? 100);
-        const y2 = Number(p.y2 ?? 100);
-        const minX = Math.min(x1, x2) - 10;
-        const maxX = Math.max(x1, x2) + 10;
-        const minY = Math.min(y1, y2) - 10;
-        const maxY = Math.max(y1, y2) + 10;
-        if (x >= minX && x <= maxX && y >= minY && y <= maxY) return obj;
+      if (obj.object_type === 'viz_manimgx' || obj.object_type === 'viz_solid' || obj.object_type === 'image') continue;
+      const bbox = getNoteObjectBBox(obj);
+      if (bbox && x >= bbox.x - 10 && x <= bbox.x + bbox.w + 10 && y >= bbox.y - 10 && y <= bbox.y + bbox.h + 10) {
+        return obj;
       }
     }
     return null;
@@ -934,13 +1014,59 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
 
     if (activeTool === 'select') {
       setSelectedTextId(null);
+      setConvert3DTarget(null);
       const hit = hitTestNoteObject(rawX, rawY);
       if (hit) {
-        setSelectedObjId(hit.id);
+        let nextIds: string[];
+        if (e.shiftKey) {
+          nextIds = selectedObjIds.includes(hit.id)
+            ? selectedObjIds.filter((id) => id !== hit.id)
+            : [...selectedObjIds, hit.id];
+        } else {
+          nextIds = selectedObjIds.includes(hit.id) && selectedObjIds.length > 1 ? selectedObjIds : [hit.id];
+        }
+        const wasAlreadySole = selectedObjIds.length === 1 && selectedObjIds[0] === hit.id;
+        setSelectedObjIds(nextIds);
+        // 1st click = whole object (-1); 2nd click inside multiSegments = drill into sub-region!
+        const hp = hit.props as Record<string, unknown>;
+        if (nextIds.length === 1 && Array.isArray(hp.multiSegments) && hp.multiSegments.length > 0) {
+          const targetRegion = wasAlreadySole
+            ? findRegionAtPoint(hp.multiSegments as number[][], { x: rawX, y: rawY })
+            : -1;
+          if (hp.activeRegionIndex !== targetRegion) {
+            onUpdatePage(
+              (prev) => ({
+                ...prev,
+                objects: prev.objects.map((o) =>
+                  o.id === hit.id ? { ...o, props: { ...hp, activeRegionIndex: targetRegion } } : o,
+                ),
+              }),
+              false,
+            );
+          }
+        }
         e.currentTarget.setPointerCapture?.(e.pointerId);
-        draggingObjRef.current = { id: hit.id, lastX: rawX, lastY: rawY };
+        draggingObjRef.current = { ids: nextIds, lastX: rawX, lastY: rawY };
       } else {
-        setSelectedObjId(null);
+        // Clear activeRegionIndex on deselected objects + start Marquee multi-select!
+        if (selectedObjIds.length > 0) {
+          onUpdatePage(
+            (prev) => ({
+              ...prev,
+              objects: prev.objects.map((o) => {
+                const op = o.props as Record<string, unknown>;
+                return typeof op.activeRegionIndex === 'number' && op.activeRegionIndex !== -1
+                  ? { ...o, props: { ...op, activeRegionIndex: -1 } }
+                  : o;
+              }),
+            }),
+            false,
+          );
+        }
+        setSelectedObjIds([]);
+        marqueeStartRef.current = { x: rawX, y: rawY };
+        setMarqueeBox({ x: rawX, y: rawY, w: 0, h: 0 });
+        e.currentTarget.setPointerCapture?.(e.pointerId);
       }
       return;
     }
@@ -998,20 +1124,38 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
       return;
     }
 
+    if (marqueeStartRef.current) {
+      const [rawX, rawY] = toLocalPt(e);
+      const sx = marqueeStartRef.current.x;
+      const sy = marqueeStartRef.current.y;
+      setMarqueeBox({
+        x: Math.min(sx, rawX),
+        y: Math.min(sy, rawY),
+        w: Math.abs(rawX - sx),
+        h: Math.abs(rawY - sy),
+      });
+      return;
+    }
+
     if (draggingObjRef.current) {
       const [rawX, rawY] = toLocalPt(e);
       const dx = rawX - draggingObjRef.current.lastX;
       const dy = rawY - draggingObjRef.current.lastY;
       draggingObjRef.current.lastX = rawX;
       draggingObjRef.current.lastY = rawY;
-      const dragId = draggingObjRef.current.id;
+      const dragSet = new Set(draggingObjRef.current.ids);
       if (dx !== 0 || dy !== 0) {
         onUpdatePage(
           (prev) => ({
             ...prev,
             objects: prev.objects.map((o) => {
-              if (o.id !== dragId) return o;
+              if (!dragSet.has(o.id)) return o;
               const p = { ...(o.props as Record<string, unknown>) };
+              if (Array.isArray(p.multiSegments)) {
+                p.multiSegments = (p.multiSegments as number[][]).map((seg) =>
+                  seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)),
+                );
+              }
               if (typeof p.x === 'number') p.x += dx;
               if (typeof p.y === 'number') p.y += dy;
               if (typeof p.cx === 'number') p.cx += dx;
@@ -1097,6 +1241,28 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
       draggingObjRef.current = null;
       return;
     }
+    if (marqueeStartRef.current) {
+      marqueeStartRef.current = null;
+      if (marqueeBox && (marqueeBox.w > 6 || marqueeBox.h > 6)) {
+        const hits: string[] = [];
+        for (const o of page.objects) {
+          if (o.object_type === 'viz_manimgx' || o.object_type === 'viz_solid' || o.object_type === 'image') continue;
+          const b = getNoteObjectBBox(o);
+          if (!b) continue;
+          const overlaps = !(
+            b.x > marqueeBox.x + marqueeBox.w ||
+            b.x + b.w < marqueeBox.x ||
+            b.y > marqueeBox.y + marqueeBox.h ||
+            b.y + b.h < marqueeBox.y
+          );
+          if (overlaps) hits.push(o.id);
+        }
+        setSelectedObjIds(hits);
+      }
+      setMarqueeBox(null);
+      return;
+    }
+
     inputRouterRef.current.onPointerUp(e);
     if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
@@ -1580,6 +1746,263 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
             </div>
           );
         })}
+
+        {/* Whiteboard-Parity Floating Selection Action Bar (Gabung, Pisah, Ubah 3D, Duplikat, Hapus) */}
+        {selectedObjIds.length > 0 && (() => {
+          const noteScene = buildNoteSceneState(page);
+          const canMerge = canMergeSelectionToShape(selectedObjIds, noteScene);
+          const canUngroup = canUngroupSelection(selectedObjIds, noteScene);
+          const primaryObj = selectedObjIds.length === 1 ? page.objects.find((o) => o.id === selectedObjIds[0]) : null;
+          const can3D = Boolean(
+            primaryObj &&
+              primaryObj.object_type !== 'viz_solid' &&
+              primaryObj.object_type !== 'viz_manimgx' &&
+              primaryObj.object_type !== 'image' &&
+              primaryObj.object_type !== 'line' &&
+              primaryObj.object_type !== 'arrow',
+          );
+          let minX = Infinity, minY = Infinity, maxX = -Infinity;
+          for (const sid of selectedObjIds) {
+            const o = page.objects.find((item) => item.id === sid);
+            const b = o ? getNoteObjectBBox(o) : null;
+            if (b) {
+              minX = Math.min(minX, b.x);
+              minY = Math.min(minY, b.y);
+              maxX = Math.max(maxX, b.x + b.w);
+            }
+          }
+          if (!isFinite(minX)) return null;
+          const barLeft = ((minX + maxX) / 2) * pan.scale;
+          const barTop = Math.max(12, minY * pan.scale - 52);
+
+          return (
+            <div
+              data-testid="notes-selection-toolbar"
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ left: barLeft, top: barTop, transform: 'translateX(-50%)' }}
+              className="absolute z-40 flex items-center gap-1 rounded-2xl border border-slate-200 bg-white/98 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-xl backdrop-blur-md"
+            >
+              {canMerge && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const merged = mergeSelectionTo2DShape(selectedObjIds, noteScene);
+                    if (!merged) return;
+                    const newId = `note-grp-${Date.now()}`;
+                    const srcSet = new Set(merged.sourceIds);
+                    onUpdatePage((prev) => ({
+                      ...prev,
+                      objects: [
+                        ...prev.objects.filter((o) => !srcSet.has(o.id)),
+                        {
+                          id: newId,
+                          object_type: merged.objectType,
+                          props: merged.props,
+                          created_at: Date.now(),
+                          updated_at: Date.now(),
+                        },
+                      ],
+                    }));
+                    setSelectedObjIds([newId]);
+                  }}
+                  className="rounded-xl bg-emerald-50 px-2.5 py-1 text-emerald-700 hover:bg-emerald-100"
+                >
+                  🔗 Gabung
+                </button>
+              )}
+              {canUngroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = ungroupSelectedObject(selectedObjIds, noteScene);
+                    if (!res) return;
+                    const created: BoardObject[] = [];
+                    for (const ev of res.events) {
+                      if (ev.event_type === 'object.created') {
+                        const pl = ev.payload as { id: string; object_type: BoardObject['object_type']; props: Record<string, unknown> };
+                        created.push({
+                          id: pl.id,
+                          object_type: pl.object_type,
+                          props: pl.props,
+                          created_at: Date.now(),
+                          updated_at: Date.now(),
+                        });
+                      }
+                    }
+                    onUpdatePage((prev) => ({
+                      ...prev,
+                      objects: [...prev.objects.filter((o) => o.id !== res.sourceId), ...created],
+                    }));
+                    setSelectedObjIds(res.newIds);
+                  }}
+                  className="rounded-xl bg-amber-50 px-2.5 py-1 text-amber-700 hover:bg-amber-100"
+                >
+                  ✂️ Pisah
+                </button>
+              )}
+              {can3D && primaryObj && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConvert3DTarget({
+                      id: primaryObj.id,
+                      object_type: primaryObj.object_type,
+                      props: primaryObj.props as Record<string, unknown>,
+                    })
+                  }
+                  className="rounded-xl bg-indigo-50 px-2.5 py-1 text-indigo-700 hover:bg-indigo-100"
+                >
+                  📦 Ubah 3D
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const now = Date.now();
+                  const copies: BoardObject[] = [];
+                  for (const sid of selectedObjIds) {
+                    const o = page.objects.find((item) => item.id === sid);
+                    if (!o) continue;
+                    const p = JSON.parse(JSON.stringify(o.props)) as Record<string, unknown>;
+                    if (Array.isArray(p.multiSegments)) {
+                      p.multiSegments = (p.multiSegments as number[][]).map((s) => s.map((v) => v + 24));
+                    }
+                    if (typeof p.x === 'number') p.x += 24;
+                    if (typeof p.y === 'number') p.y += 24;
+                    if (typeof p.cx === 'number') p.cx += 24;
+                    if (typeof p.cy === 'number') p.cy += 24;
+                    if (typeof p.x1 === 'number') { p.x1 += 24; p.y1 = Number(p.y1) + 24; p.x2 = Number(p.x2) + 24; p.y2 = Number(p.y2) + 24; }
+                    copies.push({ ...o, id: `note-dup-${now}-${Math.random().toString(36).slice(2, 5)}`, props: p, created_at: now, updated_at: now });
+                  }
+                  if (copies.length > 0) {
+                    onUpdatePage((prev) => ({ ...prev, objects: [...prev.objects, ...copies] }));
+                    setSelectedObjIds(copies.map((c) => c.id));
+                  }
+                }}
+                className="rounded-xl px-2 py-1 hover:bg-slate-100"
+              >
+                📋 Duplikat
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const delSet = new Set(selectedObjIds);
+                  onUpdatePage((prev) => ({ ...prev, objects: prev.objects.filter((o) => !delSet.has(o.id)) }));
+                  setSelectedObjIds([]);
+                }}
+                className="rounded-xl px-2 py-1 text-red-600 hover:bg-red-50"
+              >
+                🗑️ Hapus
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* 2D -> 3D Conversion Menu in /notes (identical to Whiteboard!) */}
+        {convert3DTarget && (
+          <div onPointerDown={(e) => e.stopPropagation()} className="fixed inset-0 z-50 pointer-events-none">
+            <div className="pointer-events-auto">
+              <ShapeToSolidMenu
+                shape={convert3DTarget}
+                screenPos={{ x: 260, y: 140 }}
+                containerWidth={typeof window !== 'undefined' ? window.innerWidth : 1024}
+                containerHeight={typeof window !== 'undefined' ? window.innerHeight : 768}
+                onSelectProposal={(proposal: SolidProposal) => {
+                  const solidId = `note-solid-${Date.now()}`;
+                  const ev = createConvertShapeToSolidEvent(convert3DTarget, proposal, undefined, undefined, solidId);
+                  const pl = ev.payload as { id: string; object_type: BoardObject['object_type']; props: Record<string, unknown> };
+                  onUpdatePage((prev) => ({
+                    ...prev,
+                    objects: [
+                      ...prev.objects.filter((o) => o.id !== convert3DTarget.id),
+                      {
+                        id: pl.id,
+                        object_type: pl.object_type,
+                        props: pl.props,
+                        created_at: Date.now(),
+                        updated_at: Date.now(),
+                      },
+                    ],
+                  }));
+                  setConvert3DTarget(null);
+                  setSelectedObjIds([pl.id]);
+                }}
+                onDismiss={() => setConvert3DTarget(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Embedded Interactive 3D Solids directly on the Note Page (Colored 3D, 360° Orbit, Smooth Drag!) */}
+        {page.objects
+          .filter((o) => o.object_type === 'viz_solid')
+          .map((obj) => {
+            const p = obj.props as Record<string, unknown>;
+            const x = Number(p.x ?? 120);
+            const y = Number(p.y ?? 100);
+            const w = Number(p.w ?? 320);
+            const h = Number(p.h ?? 320);
+            const solidType = String(p.solid_type ?? 'cube');
+            const solidParams = {
+              type: solidType,
+              ...((p.params as Record<string, unknown>) ?? {}),
+            } as unknown as SolidParams;
+            return (
+              <div
+                key={obj.id}
+                data-testid={`notes-solid-obj-${obj.id}`}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: w,
+                  height: h,
+                  transformOrigin: '0 0',
+                  transform: `translate3d(${x * pan.scale}px, ${y * pan.scale}px, 0) scale(${pan.scale})`,
+                  zIndex: selectedObjIds.includes(obj.id) ? 28 : 24,
+                }}
+              >
+                <Suspense fallback={null}>
+                  <TongchuangSolidWidget
+                    id={obj.id}
+                    params={solidParams}
+                    extendedKind={typeof p.extended_kind === 'string' ? p.extended_kind : undefined}
+                    profilePointsCm={Array.isArray(p.profile_points_cm) ? (p.profile_points_cm as [number, number][]) : undefined}
+                    extraParams={typeof p.extra_params === 'object' && p.extra_params !== null ? (p.extra_params as Record<string, unknown>) : undefined}
+                    selected={selectedObjIds.includes(obj.id)}
+                    compact={true}
+                    onSelect={() => setSelectedObjIds([obj.id])}
+                    onCloseToolbar={() => setSelectedObjIds([])}
+                    onDelete={() => {
+                      onUpdatePage((prev) => ({ ...prev, objects: prev.objects.filter((o) => o.id !== obj.id) }));
+                      setSelectedObjIds([]);
+                    }}
+                    onMovePosition={(dx, dy) =>
+                      onUpdatePage(
+                        (prev) => ({
+                          ...prev,
+                          objects: prev.objects.map((o) => {
+                            if (o.id !== obj.id) return o;
+                            const op = o.props as Record<string, unknown>;
+                            return {
+                              ...o,
+                              props: {
+                                ...op,
+                                x: Number(op.x ?? 120) + dx / (pan.scale || 1),
+                                y: Number(op.y ?? 100) + dy / (pan.scale || 1),
+                              },
+                              updated_at: Date.now(),
+                            };
+                          }),
+                        }),
+                        false,
+                      )
+                    }
+                  />
+                </Suspense>
+              </div>
+            );
+          })}
 
         {/* Embedded ManimGX Visuals directly on the Note Page */}
         {page.objects

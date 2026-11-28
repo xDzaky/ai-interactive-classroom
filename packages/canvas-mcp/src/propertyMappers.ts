@@ -76,6 +76,8 @@ export const McpUpsertElementInputSchema = z.object({
     "math_block",
     "viz_manimgx",
     "viz_activity",
+    "smart_table",
+    "subject_helper",
   ]),
   props: z.record(z.unknown()),
 });
@@ -95,6 +97,8 @@ export const McpCanvasToolRegistry = {
   "canvas.apply_layout_delta": "Menggeser, merapikan grid/alignment, atau mengubah ukuran batch objek",
   "canvas.create_activity": "Membuat salah satu dari 7 game kelas interaktif dengan soal tervalidasi Zod",
   "canvas.trigger_manimgx": "Memicu animasi/visualisasi 3D ManimGX dari ekspresi/topik tertentu",
+  "canvas.create_smart_table": "Membuat tabel custom/statistika (Mean/Median/Modus) terisi data siap hitung di kanvas",
+  "canvas.create_subject_helper": "Membuat alat bantu visual terstruktur (Horner, Matriks, Pohon Faktor, Garis Bilangan, Venn, Ruang Sampel, Tangga Satuan)",
 } as const;
 
 export type McpCanvasToolName = keyof typeof McpCanvasToolRegistry;

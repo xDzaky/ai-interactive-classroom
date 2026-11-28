@@ -9,6 +9,7 @@
  */
 import type { BoardObject, SceneState, WhiteboardEvent } from '@ai-classroom/whiteboard-core';
 import { recognizeShape } from '@ai-classroom/sketch-core';
+import { computePlanarRegions, isPointInPolygon } from './regionPartition';
 
 export interface GroupedItemSnapshot {
   kind: 'object' | 'stroke';
@@ -370,6 +371,7 @@ export function mergeSelectionTo2DShape(
   const segments: Array<Array<[number, number]>> = [];
   const sourceIds: string[] = [];
   const groupedItems: GroupedItemSnapshot[] = [];
+  const coloredSourcePolys: Array<{ points: number[]; color: string }> = [];
   let strokeColor = '#0f172a';
   let strokeWidth = 3;
   let hasExistingShape = false;
@@ -395,6 +397,27 @@ export function mergeSelectionTo2DShape(
       const p = obj.props as Record<string, unknown>;
       const extracted = extractObjectSegments(obj);
       if (extracted.length > 0) {
+        // Preserve existing per-region colors OR solid shape fill before merging!
+        if (
+          Array.isArray(p.multiSegments) &&
+          typeof p.regionFills === 'object' &&
+          p.regionFills !== null
+        ) {
+          const rf = p.regionFills as Record<string, string>;
+          const oldRegions = computePlanarRegions(p.multiSegments as number[][]);
+          for (const reg of oldRegions) {
+            const col = rf[String(reg.index)];
+            if (col && col !== 'transparent') {
+              coloredSourcePolys.push({ points: reg.points, color: col });
+            }
+          }
+        } else if (typeof p.fill === 'string' && p.fill !== '' && p.fill !== 'transparent') {
+          const flat = extracted[0].flatMap(([x, y]) => [x, y]);
+          if (flat.length >= 6) {
+            coloredSourcePolys.push({ points: flat, color: p.fill });
+          }
+        }
+
         segments.push(...extracted);
         sourceIds.push(id);
         groupedItems.push({
@@ -441,10 +464,28 @@ export function mergeSelectionTo2DShape(
     fill: 'transparent',
   };
 
+  const flatMultiSegments = segments.map((seg) =>
+    seg.flatMap(([x, y]) => [Math.round(x), Math.round(y)]),
+  );
+
+  // Map previously colored polygons onto the newly partitioned regions so colors are NEVER lost!
+  const preservedRegionFills: Record<string, string> = {};
+  if (coloredSourcePolys.length > 0) {
+    const newRegions = computePlanarRegions(flatMultiSegments);
+    for (const reg of newRegions) {
+      for (let i = coloredSourcePolys.length - 1; i >= 0; i--) {
+        if (isPointInPolygon({ x: reg.cx, y: reg.cy }, coloredSourcePolys[i].points)) {
+          preservedRegionFills[String(reg.index)] = coloredSourcePolys[i].color;
+          break;
+        }
+      }
+    }
+  }
+
   const compositeGroupProps = {
-    multiSegments: segments.map((seg) =>
-      seg.flatMap(([x, y]) => [Math.round(x), Math.round(y)]),
-    ),
+    multiSegments: flatMultiSegments,
+    ...(Object.keys(preservedRegionFills).length > 0 ? { regionFills: preservedRegionFills } : {}),
+    activeRegionIndex: -1,
     groupedOrigin: { x: Math.round(minX), y: Math.round(minY), w, h },
     groupedItems,
     x: Math.round(minX),

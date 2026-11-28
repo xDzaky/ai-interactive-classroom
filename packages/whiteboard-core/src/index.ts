@@ -54,6 +54,9 @@ export const BoardObjectSchema = z.object({
     "frame",
     "viz_manimgx",
     "viz_activity",
+    // --- V9 Smart Custom Tables & Subject Helpers ---
+    "smart_table",
+    "subject_helper",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)
@@ -296,3 +299,4 @@ export * from "./reducer.js";
 export * from "./transform.js";
 export * from "./aiCommands.js";
 export * from "./notesTypes.js";
+export * from "./tableTypes.js";

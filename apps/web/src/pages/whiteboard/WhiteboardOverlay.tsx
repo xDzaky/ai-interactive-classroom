@@ -9,7 +9,7 @@
  * - Unmounts live canvases when far outside the viewport (> 800px margin).
  */
 import React, { lazy, Suspense, useMemo, useRef, useEffect, useState, useCallback } from "react";
-import type { BoardState, BoardObject } from "@ai-classroom/whiteboard-core";
+import type { BoardState, BoardObject, SmartTableProps, SubjectHelperProps } from "@ai-classroom/whiteboard-core";
 import { getActiveScene } from "@ai-classroom/whiteboard-core";
 // Lazy-load heavy 3D/graph components — keeps initial bundle lean (P07-T06)
 const SolidViewer = lazy(() =>
@@ -18,6 +18,16 @@ const SolidViewer = lazy(() =>
 const TongchuangSolidWidget = lazy(() =>
   import("../../components/math/TongchuangSolidWidget.js").then((m) => ({
     default: m.TongchuangSolidWidget,
+  })),
+);
+const SmartTableWidget = lazy(() =>
+  import("../../components/tables/SmartTableWidget.js").then((m) => ({
+    default: m.SmartTableWidget,
+  })),
+);
+const SubjectHelperWidget = lazy(() =>
+  import("../../components/helpers/SubjectHelperWidget.js").then((m) => ({
+    default: m.SubjectHelperWidget,
   })),
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
@@ -78,6 +88,7 @@ export interface WhiteboardOverlayProps {
   onAnimateMathBlock?: (mathBlockObj: BoardObject, analysis: ManimGxAnalysis) => void;
   onConvertManimTo3D?: (manimObj: BoardObject) => void;
   onOpenInspector?: (obj: BoardObject) => void;
+  onCreateObject?: (objectType: BoardObject["object_type"], props: Record<string, unknown>) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -788,6 +799,7 @@ export function WhiteboardOverlay({
   onSynthesizeMathBlock,
   onAnimateMathBlock,
   onConvertManimTo3D,
+  onCreateObject,
 }: WhiteboardOverlayProps) {
   const scene = getActiveScene(boardState);
 
@@ -806,7 +818,9 @@ export function WhiteboardOverlay({
               obj.object_type === "textbook_graph" ||
               obj.object_type === "stat_chart" ||
               obj.object_type === "trig_proof" ||
-              obj.object_type === "viz_manimgx")
+              obj.object_type === "viz_manimgx" ||
+              obj.object_type === "smart_table" ||
+              obj.object_type === "subject_helper")
         ),
     [scene]
   );
@@ -1076,6 +1090,106 @@ export function WhiteboardOverlay({
                   : undefined
               }
             />
+          </ViewportSyncedOverlayBox>
+        ) : obj.object_type === "smart_table" ? (
+          <ViewportSyncedOverlayBox
+            key={obj.id}
+            testId={`viz-smart-table-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 180)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 100)}
+            w={Number((obj.props as Record<string, unknown>).w ?? (obj.props as Record<string, unknown>).width ?? 520)}
+            h={Number((obj.props as Record<string, unknown>).h ?? (obj.props as Record<string, unknown>).height ?? 360)}
+            zIndex={Boolean(selectedIds?.includes(obj.id)) ? 26 : 19}
+            view={view}
+            viewportController={viewportController}
+          >
+            <Suspense fallback={<div className="h-40 w-80 rounded-2xl bg-white/80 shadow" />}>
+              <SmartTableWidget
+                id={obj.id}
+                tableProps={obj.props as unknown as SmartTableProps}
+                selected={Boolean(selectedIds?.includes(obj.id))}
+                onSelect={() => setSelectedSolid(obj.id)}
+                onUpdateProps={(patch) => onUpdateObjectProps?.(obj.id, patch as Record<string, unknown>)}
+                onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+                onMovePosition={
+                  onMoveObject
+                    ? (dx, dy) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const s = viewportController?.getState().scale ?? view.scale;
+                        onMoveObject(obj.id, Number(p.x ?? 180) + dx / (s || 1), Number(p.y ?? 100) + dy / (s || 1));
+                      }
+                    : undefined
+                }
+                onSpawnStatChart={
+                  onCreateObject
+                    ? (chartKind, title, series) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const baseX = Number(p.x ?? 180) + Number(p.w ?? p.width ?? 520) + 32;
+                        const baseY = Number(p.y ?? 100);
+                        onCreateObject("stat_chart", {
+                          x: baseX,
+                          y: baseY,
+                          w: 440,
+                          h: 310,
+                          title,
+                          chartType: chartKind === "histogram" ? "bar" : "line",
+                          data: series,
+                          linkedTableId: obj.id,
+                        });
+                      }
+                    : undefined
+                }
+                onSpawnFunctionGraph={
+                  onCreateObject
+                    ? (expr) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const baseX = Number(p.x ?? 180) + Number(p.w ?? p.width ?? 440) + 32;
+                        const baseY = Number(p.y ?? 100);
+                        onCreateObject("textbook_graph", {
+                          x: baseX,
+                          y: baseY,
+                          w: 440,
+                          h: 320,
+                          title: `Grafik f(x) = ${expr}`,
+                          expressions: [{ id: "fn-1", latex: expr, color: "#4f46e5" }],
+                        });
+                      }
+                    : undefined
+                }
+              />
+            </Suspense>
+          </ViewportSyncedOverlayBox>
+        ) : obj.object_type === "subject_helper" ? (
+          <ViewportSyncedOverlayBox
+            key={obj.id}
+            testId={`viz-subject-helper-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 200)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 110)}
+            w={Number((obj.props as Record<string, unknown>).w ?? (obj.props as Record<string, unknown>).width ?? 460)}
+            h={Number((obj.props as Record<string, unknown>).h ?? (obj.props as Record<string, unknown>).height ?? 320)}
+            zIndex={Boolean(selectedIds?.includes(obj.id)) ? 26 : 19}
+            view={view}
+            viewportController={viewportController}
+          >
+            <Suspense fallback={<div className="h-40 w-80 rounded-2xl bg-white/80 shadow" />}>
+              <SubjectHelperWidget
+                id={obj.id}
+                helperProps={obj.props as unknown as SubjectHelperProps}
+                selected={Boolean(selectedIds?.includes(obj.id))}
+                onSelect={() => setSelectedSolid(obj.id)}
+                onUpdateProps={(patch) => onUpdateObjectProps?.(obj.id, patch as Record<string, unknown>)}
+                onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+                onMovePosition={
+                  onMoveObject
+                    ? (dx, dy) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const s = viewportController?.getState().scale ?? view.scale;
+                        onMoveObject(obj.id, Number(p.x ?? 200) + dx / (s || 1), Number(p.y ?? 110) + dy / (s || 1));
+                      }
+                    : undefined
+                }
+              />
+            </Suspense>
           </ViewportSyncedOverlayBox>
         ) : obj.object_type === "simulation" ? (
           <ViewportSyncedOverlayBox

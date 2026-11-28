@@ -14,6 +14,12 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+  buildCustom3DCanvasTexture,
+  buildCustomExtruded3DGroup,
+  buildCustomSphere3DGroup,
+  isCustom3DSurfaceSpec,
+} from '@/lib/custom3DSurface';
 import type { SolidParams, Polyhedron, Vec3, SectionPolygon, CompoundSolidPart } from '@ai-classroom/geometry-core';
 import {
   buildPolyhedron,
@@ -784,7 +790,27 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     compoundMeshesRef.current = [];
     needsSnapshotRef.current = true;
 
-    if (polyhedron) {
+    const customSurface = isCustom3DSurfaceSpec(extraParams?.customSurface)
+      ? extraParams!.customSurface
+      : null;
+
+    if (extendedKind === 'custom_colored_extrude' && customSurface) {
+      // Multi-region extruded 3D solid preserving 100% of user's custom colors & divider lines!
+      centerRef.current = [0, 0, 0];
+      const normScale = 1.02;
+      baseScaleRef.current = normScale;
+      solidGroup.scale.setScalar(normScale);
+      const depthW = typeof extraParams?.depthWorld === 'number' ? extraParams.depthWorld : 2.1;
+      const extrudeGroup = buildCustomExtruded3DGroup(customSurface, depthW);
+      solidGroup.add(extrudeGroup);
+    } else if (localParams.type === 'sphere' && customSurface && customSurface.regions.length > 0) {
+      // Exact distortion-free 3D colored sphere with projected meridian divider lines!
+      centerRef.current = [0, 0, 0];
+      const normScale = 1.05;
+      baseScaleRef.current = normScale;
+      solidGroup.scale.setScalar(normScale);
+      solidGroup.add(buildCustomSphere3DGroup(customSurface, 1.85));
+    } else if (polyhedron) {
       const threeVerts = polyhedron.vertices.map((v) => toThree(v));
       const cSum = threeVerts.reduce(
         (acc, v) => [acc[0] + v[0], acc[1] + v[1], acc[2] + v[2]],
@@ -857,6 +883,10 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
         geom.computeVertexNormals();
 
         const tex = texturePreset ? createFaceTexture(texturePreset, fIdx, faceCustom) : null;
+        const customFillHex =
+          customSurface?.fillColor && customSurface.fillColor !== 'transparent'
+            ? new THREE.Color(customSurface.fillColor).getHex()
+            : null;
         const mat = tex
           ? new THREE.MeshPhysicalMaterial({
               map: tex,
@@ -871,7 +901,19 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
               polygonOffsetFactor: 2,
               polygonOffsetUnits: 2,
             })
-          : createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.22, THREE.DoubleSide);
+          : customFillHex !== null
+            ? new THREE.MeshStandardMaterial({
+                color: customFillHex,
+                emissive: customFillHex,
+                emissiveIntensity: 0.3,
+                roughness: 0.42,
+                metalness: 0.0,
+                side: THREE.DoubleSide,
+                polygonOffset: true,
+                polygonOffsetFactor: 2,
+                polygonOffsetUnits: 2,
+              })
+            : createGlassFaceMaterial(SOLID_THEMES[theme].faceHex, 0.22, THREE.DoubleSide);
 
         const mesh = new THREE.Mesh(geom, mat);
         // Attach crisp face border so hinged faces stay sharply outlined while unfolding!
@@ -1048,19 +1090,20 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
           )
         );
       } else {
-        const curvedTex = texturePreset ? createFaceTexture(texturePreset, 0, faceCustom) : null;
+        const customTex = customSurface ? buildCustom3DCanvasTexture(customSurface) : null;
+        const curvedTex = customTex ?? (texturePreset ? createFaceTexture(texturePreset, 0, faceCustom) : null);
         if (curvedTex) {
           solidGroup.add(
             new THREE.Mesh(
               geometry,
-              new THREE.MeshPhysicalMaterial({
+              new THREE.MeshStandardMaterial({
                 map: curvedTex,
-                transparent: true,
-                opacity: 1,
-                roughness: 0.25,
-                clearcoat: 0.35,
+                emissiveMap: curvedTex,
+                emissive: new THREE.Color(0xffffff),
+                emissiveIntensity: 0.3,
+                roughness: 0.38,
+                metalness: 0.0,
                 side: THREE.DoubleSide,
-                depthWrite: false,
               })
             )
           );

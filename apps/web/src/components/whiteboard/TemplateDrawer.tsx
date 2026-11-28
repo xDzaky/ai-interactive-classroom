@@ -11,15 +11,20 @@ import {
   type VisualTemplateItem,
 } from '@/lib/realWorldTemplates';
 import { TemplateCardThumb } from './TemplateCardThumb';
+import { TableGridPicker } from '@/components/tables/TableGridPicker';
+import type { SubjectHelperKind, TablePresetMode } from '@ai-classroom/whiteboard-core';
 
 export interface TemplateDrawerProps {
   open: boolean;
   onClose: () => void;
   /** Called on 1-click insert (centered) OR drag-and-drop at exact client coordinates */
   onInsertTemplate: (item: VisualTemplateItem, dropClientPos?: { x: number; y: number }) => void;
+  onInsertSmartTable?: (preset: TablePresetMode, opts?: { rows?: number; cols?: number }) => void;
+  onInsertSubjectHelper?: (helperKind: SubjectHelperKind) => void;
 }
 
-const CATEGORIES: Array<'Semua' | TemplateCategory> = [
+const CATEGORIES: Array<'Semua' | 'Tabel & Alat Bantu' | TemplateCategory> = [
+  'Tabel & Alat Bantu',
   'Semua',
   'Benda Sehari-hari',
   'Bangun Ruang',
@@ -30,8 +35,10 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
   open,
   onClose,
   onInsertTemplate,
+  onInsertSmartTable,
+  onInsertSubjectHelper,
 }) => {
-  const [tab, setTab] = useState<'Semua' | TemplateCategory>('Benda Sehari-hari');
+  const [tab, setTab] = useState<'Semua' | 'Tabel & Alat Bantu' | TemplateCategory>('Tabel & Alat Bantu');
   const [query, setQuery] = useState('');
   const [dragging, setDragging] = useState<{
     item: VisualTemplateItem;
@@ -156,7 +163,21 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
           ))}
         </div>
 
-        {/* Visual Card Grid */}
+        {/* Visual Card Grid OR V9 Smart Tables & Subject Helpers */}
+        {tab === 'Tabel & Alat Bantu' ? (
+          <div className="flex-1 overflow-y-auto px-4 pb-6">
+            <TableGridPicker
+              onInsertTable={(preset, opts) => {
+                onInsertSmartTable?.(preset, opts);
+                onClose();
+              }}
+              onInsertHelper={(kind) => {
+                onInsertSubjectHelper?.(kind);
+                onClose();
+              }}
+            />
+          </div>
+        ) : (
         <div className="grid flex-1 grid-cols-2 gap-2.5 overflow-y-auto px-4 pb-6 content-start">
           {filtered.map((item) => (
             <div
@@ -197,6 +218,7 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
             </div>
           ))}
         </div>
+        )}
       </aside>
 
       {/* Floating Drag Ghost while dragging a card onto the canvas */}

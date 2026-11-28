@@ -75,6 +75,27 @@ export async function exportBoardStateToPptx(
           h,
           line: { color: String(p.stroke ?? '1E293B').replace('#', ''), width: 1.5 },
         });
+      } else if (obj.object_type === 'smart_table' && Array.isArray(p.cells)) {
+        const rawCells = p.cells as Array<Array<{ raw?: string; bold?: boolean }>>;
+        const tableRows = rawCells.map((row, ri) =>
+          row.map((cell) => ({
+            text: String(cell?.raw ?? ''),
+            options: {
+              bold: Boolean(cell?.bold || ri === 0),
+              fill: ri === 0 ? { color: 'EEF2FF' } : undefined,
+              fontSize: 12,
+              color: '0F172A',
+            },
+          })),
+        );
+        if (tableRows.length > 0) {
+          slide.addTable(tableRows, {
+            x,
+            y,
+            w: Math.max(3.5, w),
+            border: { type: 'solid', color: 'CBD5E1', pt: 1 },
+          });
+        }
       }
     }
   });

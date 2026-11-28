@@ -25,6 +25,8 @@ import {
   undo as historyUndo,
   redo as historyRedo,
   pushHistory,
+  createDefaultSmartTableProps,
+  createDefaultSubjectHelperProps,
 } from "@ai-classroom/whiteboard-core";
 import type {
   BoardState,
@@ -41,6 +43,7 @@ import { WhiteboardCanvas } from "@/pages/whiteboard/WhiteboardCanvas";
 import { FormulaToGraphModal } from "@/components/whiteboard/FormulaToGraphModal";
 import { VoiceCommandBar } from "@/components/whiteboard/VoiceCommandBar";
 import { LessonSummaryModal } from "@/components/whiteboard/LessonSummaryModal";
+import { getCachedPlanarRegions } from "@/lib/regionPartition";
 import { TemplateDrawer } from "@/components/whiteboard/TemplateDrawer";
 import type { VisualTemplateItem } from "@/lib/realWorldTemplates";
 import { AITeachingDrawer } from "@/components/whiteboard/AITeachingDrawer";
@@ -1016,7 +1019,41 @@ export default function PersonalRoomPage() {
               propsPatch.fill = patch.strokeColor;
             }
           }
-          if (patch.backgroundColor !== undefined) propsPatch.fill = patch.backgroundColor;
+          if (patch.backgroundColor !== undefined) {
+            const op = obj.props as Record<string, unknown>;
+            if (Array.isArray(op.multiSegments) && op.multiSegments.length > 0) {
+              const activeIdx = typeof op.activeRegionIndex === "number" ? op.activeRegionIndex : -1;
+              if (activeIdx >= 0) {
+                // Sub-region drilled-in: paint or clear ONLY that specific region
+                const prevFills =
+                  typeof op.regionFills === "object" && op.regionFills !== null
+                    ? { ...(op.regionFills as Record<string, string>) }
+                    : {};
+                if (patch.backgroundColor === "transparent") {
+                  delete prevFills[String(activeIdx)];
+                } else {
+                  prevFills[String(activeIdx)] = patch.backgroundColor;
+                }
+                propsPatch.regionFills = prevFills;
+              } else {
+                // Whole object selected: fill ALL regions with the chosen color OR clear ALL regions at once!
+                if (patch.backgroundColor === "transparent") {
+                  propsPatch.regionFills = {};
+                  propsPatch.fill = "transparent";
+                } else {
+                  const allRegions = getCachedPlanarRegions(op.multiSegments as number[][]);
+                  const allFills: Record<string, string> = {};
+                  for (const reg of allRegions) {
+                    allFills[String(reg.index)] = patch.backgroundColor;
+                  }
+                  propsPatch.regionFills = allFills;
+                  propsPatch.fill = patch.backgroundColor;
+                }
+              }
+            } else {
+              propsPatch.fill = patch.backgroundColor;
+            }
+          }
           if (patch.fillStyle !== undefined) propsPatch.fillStyle = patch.fillStyle;
           if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
           if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
@@ -1908,6 +1945,30 @@ export default function PersonalRoomPage() {
         open={showCatalogPopover}
         onClose={() => setShowCatalogPopover(false)}
         onInsertTemplate={handleInsertVisualTemplate}
+        onInsertSmartTable={(preset, opts) => {
+          const id = `smart-table-${Date.now()}`;
+          const props = createDefaultSmartTableProps(preset, {
+            x: 160 + Math.round(Math.random() * 60),
+            y: 90 + Math.round(Math.random() * 40),
+            rows: opts?.rows,
+            cols: opts?.cols,
+          });
+          handleEvent({
+            event_type: "object.created",
+            payload: { id, object_type: "smart_table", props: props as unknown as Record<string, unknown> },
+          });
+        }}
+        onInsertSubjectHelper={(helperKind) => {
+          const id = `subject-helper-${Date.now()}`;
+          const props = createDefaultSubjectHelperProps(helperKind, {
+            x: 180 + Math.round(Math.random() * 60),
+            y: 100 + Math.round(Math.random() * 40),
+          });
+          handleEvent({
+            event_type: "object.created",
+            payload: { id, object_type: "subject_helper", props: props as unknown as Record<string, unknown> },
+          });
+        }}
       />
 
       {/* AI Teaching Assistant Slide-Over Drawer (OpenMAIC Drawing, Problem-Chain, Socratic, RPP) */}

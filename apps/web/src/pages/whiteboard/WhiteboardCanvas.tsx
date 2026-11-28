@@ -64,6 +64,7 @@ import {
 } from "@/lib/excalidrawEngine";
 import { LaserPointerEngine } from "@/lib/laserPointerEngine";
 import { canMergeSelectionToShape, canUngroupSelection } from "@/lib/mergeStrokesToShape";
+import { findRegionAtPoint } from "@/lib/regionPartition";
 import {
   resolveActions,
   WHITEBOARD_ACTIONS,
@@ -1395,7 +1396,9 @@ export function WhiteboardCanvas({
           } else if (
             obj.object_type === "viz_solid" ||
             obj.object_type === "viz_graph" ||
-            obj.object_type === "math_block"
+            obj.object_type === "math_block" ||
+            obj.object_type === "smart_table" ||
+            obj.object_type === "subject_helper"
           ) {
             // DOM overlay widgets render their own crisp frame & contextual toolbar
           } else {
@@ -1424,7 +1427,9 @@ export function WhiteboardCanvas({
             selectedIds.length === 1 &&
             obj.object_type !== "viz_solid" &&
             obj.object_type !== "viz_graph" &&
-            obj.object_type !== "math_block"
+            obj.object_type !== "math_block" &&
+            obj.object_type !== "smart_table" &&
+            obj.object_type !== "subject_helper"
           ) {
             const handles = getShapeHandles(obj, bbox, viewportController.getState().scale);
             const rotHandle = handles.find((h) => h.kind === "rotate");
@@ -1799,10 +1804,35 @@ export function WhiteboardCanvas({
         const hitId = findHitItem(pos, curScene);
         if (hitId) {
           const nextIds = curSelected.includes(hitId) && curSelected.length > 1 ? curSelected : [hitId];
+          const wasAlreadySoleSelected = curSelected.length === 1 && curSelected[0] === nextIds[0];
           selectedIdsRef.current = nextIds;
           setSelectedIds(nextIds);
+          // 1st click on a merged multiSegments object -> select WHOLE object (activeRegionIndex = -1)
+          // so Isian (Background) fills or clears ALL regions at once.
+          // 2nd click inside a slice while already selected -> drill into that specific sub-region!
+          if (nextIds.length === 1) {
+            const hitObj = curScene.objects[nextIds[0]];
+            const hp = hitObj?.props as Record<string, unknown> | undefined;
+            if (hitObj && Array.isArray(hp?.multiSegments) && hp.multiSegments.length > 0) {
+              const targetRegion = wasAlreadySoleSelected
+                ? findRegionAtPoint(hp.multiSegments as number[][], pos)
+                : -1;
+              if (hp.activeRegionIndex !== targetRegion) {
+                commitEvent({
+                  event_type: "object.updated",
+                  payload: { id: hitObj.id, props_patch: { activeRegionIndex: targetRegion } },
+                } as unknown as WhiteboardEvent);
+              }
+            }
+          }
           beginSelectionDrag(nextIds, pos);
         } else {
+          for (const prevId of curSelected) {
+            const po = curScene.objects[prevId];
+            if (po && typeof (po.props as Record<string, unknown>)?.activeRegionIndex === "number" && (po.props as Record<string, unknown>).activeRegionIndex !== -1) {
+              commitEvent({ event_type: "object.updated", payload: { id: prevId, props_patch: { activeRegionIndex: -1 } } } as unknown as WhiteboardEvent);
+            }
+          }
           selectedIdsRef.current = [];
           setSelectedIds([]);
           isHandPanning.current = true;
@@ -1822,11 +1852,36 @@ export function WhiteboardCanvas({
           } else {
             nextIds = curSelected.includes(hitId) && curSelected.length > 1 ? curSelected : [hitId];
           }
+          const wasAlreadySoleSelected = curSelected.length === 1 && curSelected[0] === nextIds[0];
           selectedIdsRef.current = nextIds;
           setSelectedIds(nextIds);
+          // 1st click on a merged multiSegments object -> select WHOLE object (activeRegionIndex = -1)
+          // so Isian (Background) fills or clears ALL regions at once.
+          // 2nd click inside a slice while already selected -> drill into that specific sub-region!
+          if (nextIds.length === 1) {
+            const hitObj = curScene.objects[nextIds[0]];
+            const hp = hitObj?.props as Record<string, unknown> | undefined;
+            if (hitObj && Array.isArray(hp?.multiSegments) && hp.multiSegments.length > 0) {
+              const targetRegion = wasAlreadySoleSelected
+                ? findRegionAtPoint(hp.multiSegments as number[][], pos)
+                : -1;
+              if (hp.activeRegionIndex !== targetRegion) {
+                commitEvent({
+                  event_type: "object.updated",
+                  payload: { id: hitObj.id, props_patch: { activeRegionIndex: targetRegion } },
+                } as unknown as WhiteboardEvent);
+              }
+            }
+          }
           beginSelectionDrag(nextIds, pos);
         } else {
           if (!e.evt.shiftKey) {
+            for (const prevId of curSelected) {
+              const po = curScene.objects[prevId];
+              if (po && typeof (po.props as Record<string, unknown>)?.activeRegionIndex === "number" && (po.props as Record<string, unknown>).activeRegionIndex !== -1) {
+                commitEvent({ event_type: "object.updated", payload: { id: prevId, props_patch: { activeRegionIndex: -1 } } } as unknown as WhiteboardEvent);
+              }
+            }
             selectedIdsRef.current = [];
             setSelectedIds([]);
           }
@@ -2722,6 +2777,14 @@ export function WhiteboardCanvas({
         onDeleteObject={(id) =>
           commitEvent({ event_type: "object.deleted", payload: { id } })
         }
+        onCreateObject={(objectType, props) => {
+          const newId = `${objectType}-${uid()}`;
+          commitEvent({
+            event_type: "object.created",
+            payload: { id: newId, object_type: objectType, props },
+          });
+          setSelectedIds([newId]);
+        }}
         onExplainObject={(obj) => setExplainTarget(obj)}
         onDuplicateObject={(obj) => {
           const p = obj.props as Record<string, unknown>;

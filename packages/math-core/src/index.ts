@@ -455,4 +455,6 @@ export * from "./trigIdentities.js";
 export * from "./diagramSynthesizer.js";
 export * from "./manimgxTemplates.js";
 export * from "./manimgxRouter.js";
+export * from "./statisticsEngine.js";
+export * from "./subjectHelpersEngine.js";
 

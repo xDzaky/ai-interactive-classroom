@@ -67,6 +67,30 @@ describe("packages/canvas-mcp — Seewo EasiNote MCP Bridge (V8)", () => {
       sampleScene,
     );
     expect(invalid.ok).toBe(false);
-    expect(Object.keys(McpCanvasToolRegistry)).toHaveLength(5);
+    expect(Object.keys(McpCanvasToolRegistry)).toHaveLength(7);
+  });
+
+  it("creates V9 smart_table and subject_helper via MCP tools", () => {
+    const tbl = executeCanvasMcpTool(
+      "canvas.create_smart_table",
+      {
+        presetMode: "stat_grouped",
+        title: "Nilai Matematika 40 Siswa",
+      },
+      sampleScene,
+    );
+    expect(tbl.ok).toBe(true);
+    expect(tbl.batchEvent?.event_type).toBe("batch");
+
+    const hlp = executeCanvasMcpTool(
+      "canvas.create_subject_helper",
+      {
+        helperKind: "horner_scheme",
+        title: "Skema Horner Polinomial",
+        config: { k: 2, coeffs: [1, -3, 2, -5] },
+      },
+      sampleScene,
+    );
+    expect(hlp.ok).toBe(true);
   });
 });

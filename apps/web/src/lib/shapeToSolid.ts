@@ -7,6 +7,8 @@
 import type { SolidType, SolidParams } from '@ai-classroom/geometry-core';
 import { normalizeProfile2D } from '@ai-classroom/geometry-core';
 import { getShapeVertices } from './resizeHandles';
+import { getCachedPlanarRegions } from './regionPartition';
+import type { Custom3DSurfaceSpec } from './custom3DSurface';
 import type { BoardObject } from '@ai-classroom/whiteboard-core';
 
 export const WORLD_UNITS_PER_CM = 20;
@@ -23,6 +25,7 @@ export type ExtendedSolidKind =
   | 'hemisphere'
   | 'custom_prism'
   | 'custom_pyramid'
+  | 'custom_colored_extrude'
   | 'surface_3d';
 
 export interface SolidProposal {
@@ -51,12 +54,154 @@ function round1(n: number): number {
 }
 
 /**
+ * Extracts a serializable Custom3DSurfaceSpec from a merged multiSegments object OR a colored 2D shape
+ * so its exact per-region colors and divider lines are preserved on the generated 3D solid.
+ */
+export function extractCustom3DSurface(shape: Input2DShape): Custom3DSurfaceSpec | null {
+  const { props } = shape;
+  const strokeColor = typeof props.stroke === 'string' ? props.stroke : '#0f172a';
+  const strokeWidth = typeof props.strokeWidth === 'number' ? props.strokeWidth : 3;
+
+  if (Array.isArray(props.multiSegments) && props.multiSegments.length > 0) {
+    const segs = props.multiSegments as number[][];
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const seg of segs) {
+      for (let i = 0; i < seg.length - 1; i += 2) {
+        if (seg[i] < minX) minX = seg[i];
+        if (seg[i] > maxX) maxX = seg[i];
+        if (seg[i + 1] < minY) minY = seg[i + 1];
+        if (seg[i + 1] > maxY) maxY = seg[i + 1];
+      }
+    }
+    if (!isFinite(minX)) return null;
+    const w = Math.max(20, maxX - minX);
+    const h = Math.max(20, maxY - minY);
+    const rf =
+      typeof props.regionFills === 'object' && props.regionFills !== null
+        ? (props.regionFills as Record<string, string>)
+        : {};
+    const regions = getCachedPlanarRegions(segs).map((r) => ({
+      points: r.points,
+      color: rf[String(r.index)] ?? '#f8fafc',
+    }));
+    // Detect whether the merged composite silhouette is circular/elliptical vs polygonal
+    const groupedItems = Array.isArray(props.groupedItems)
+      ? (props.groupedItems as Array<{ kind?: string; object_type?: string }>)
+      : [];
+    const hasCircleSource = groupedItems.some(
+      (it) => it.kind === 'object' && (it.object_type === 'circle' || it.object_type === 'ellipse'),
+    );
+    const hasCirclePolyline = segs.some((s) => s.length >= 48);
+    const isCircular = hasCircleSource || hasCirclePolyline;
+
+    return {
+      bbox: { x: minX, y: minY, w, h },
+      strokeColor,
+      strokeWidth,
+      isCircular,
+      segments: segs,
+      regions,
+    };
+  }
+
+  const fillColor = typeof props.fill === 'string' && props.fill !== '' && props.fill !== 'transparent'
+    ? props.fill
+    : undefined;
+  if (!fillColor) return null;
+
+  const size = computeShape2DBBoxSize(shape);
+  const bx = Number(props.x ?? (typeof props.cx === 'number' ? props.cx - size.w / 2 : 0));
+  const by = Number(props.y ?? (typeof props.cy === 'number' ? props.cy - size.h / 2 : 0));
+  return {
+    bbox: { x: bx, y: by, w: size.w, h: size.h },
+    strokeColor,
+    strokeWidth,
+    fillColor,
+    segments: [],
+    regions: [],
+  };
+}
+
+/**
  * Proposes 3D solids derived from ANY recognized 2D shape.
- * Zero errors for polygons, ellipses, trapezoids, kites, stars, or custom vertex shapes.
+ * Zero errors for polygons, ellipses, trapezoids, kites, stars, multiSegments colored shapes, or custom vertex shapes.
  */
 export function proposeSolidsFromShape(shape: Input2DShape): SolidProposal[] {
   const { object_type, props } = shape;
   const proposals: SolidProposal[] = [];
+
+  // 0. Merged / Divided Colored 2D Object (multiSegments — e.g. 1/2, 2/4, 4/8 colored circle OR split square/rect!)
+  if (Array.isArray(props.multiSegments) && (props.multiSegments as number[][]).length > 0) {
+    const customSurface = extractCustom3DSurface(shape);
+    if (customSurface) {
+      const cx = customSurface.bbox.x + customSurface.bbox.w / 2;
+      const cy = customSurface.bbox.y + customSurface.bbox.h / 2;
+      const wCm = round1(customSurface.bbox.w / WORLD_UNITS_PER_CM);
+      const hCm = round1(customSurface.bbox.h / WORLD_UNITS_PER_CM);
+      const rCm = round1(Math.max(wCm, hCm) / 2);
+
+      if (customSurface.isCircular) {
+        proposals.push(
+          {
+            id: 'colored_cylinder_3d',
+            solidType: 'prism',
+            extendedKind: 'custom_colored_extrude',
+            extraParams: { customSurface, height: round1(rCm * 1.4), depthWorld: 1.8 },
+            title: 'Tabung 3D Berwarna (Sesuai Potongan)',
+            description: `Tabung 3D mempertahankan ${customSurface.regions.length} bagian warna & garis pembagi`,
+            params: { type: 'prism', a: rCm, b: rCm, c: rCm, h: round1(rCm * 1.4) },
+            position: { x: cx, y: cy },
+          },
+          {
+            id: 'colored_sphere_3d',
+            solidType: 'sphere',
+            extendedKind: 'sphere',
+            extraParams: { customSurface },
+            title: 'Bola 3D Berwarna',
+            description: `Bola jari-jari ${rCm} cm dengan belahan warna & garis custom`,
+            params: { type: 'sphere', r: rCm },
+            position: { x: cx, y: cy },
+          },
+          {
+            id: 'colored_cone_3d',
+            solidType: 'cone',
+            extendedKind: 'cone',
+            extraParams: { customSurface },
+            title: 'Kerucut 3D Berwarna',
+            description: `Kerucut jari-jari ${rCm} cm dengan warna & garis custom`,
+            params: { type: 'cone', r: rCm, h: round1(rCm * 2) },
+            position: { x: cx, y: cy },
+          },
+        );
+      } else {
+        // Polygonal / Square / Rectangle composite -> ONLY matching cuboid/prism 3D solids (NEVER Bola/Kerucut!)
+        const isSquareLike = Math.abs(wCm - hCm) <= Math.max(wCm, hCm) * 0.2;
+        proposals.push(
+          {
+            id: 'colored_cuboid_3d',
+            solidType: 'prism',
+            extendedKind: 'custom_colored_extrude',
+            extraParams: { customSurface, height: hCm, depthWorld: isSquareLike ? 2.6 : 1.9 },
+            title: isSquareLike ? 'Kubus 3D Berwarna (Sesuai Garis & Warna)' : 'Balok 3D Berwarna (Sesuai Garis & Warna)',
+            description: `Mempertahankan ${customSurface.regions.length} bagian warna & garis pembagi custom`,
+            params: { type: 'prism', a: wCm, b: hCm, c: wCm, h: hCm },
+            position: { x: cx, y: cy },
+          },
+          {
+            id: 'colored_prism_thin_3d',
+            solidType: 'prism',
+            extendedKind: 'custom_colored_extrude',
+            extraParams: { customSurface, height: round1(hCm * 0.5), depthWorld: 1.1 },
+            title: 'Prisma / Lempeng 3D Berwarna',
+            description: `Prisma tipis mempertahankan ${customSurface.regions.length} bidang warna & garis`,
+            params: { type: 'prism', a: wCm, b: hCm, c: wCm, h: round1(hCm * 0.5) },
+            position: { x: cx, y: cy },
+          },
+        );
+      }
+      return proposals;
+    }
+  }
 
   // 1. Custom-vertex edited shapes or arbitrary polygons (trapezoid, parallelogram, kite, rhombus, pentagon, hexagon, polygon, star)
   const hasCustomPoints = Array.isArray(props.customPoints) && (props.customPoints as number[]).length >= 6;
@@ -290,6 +435,15 @@ export function proposeSolidsFromShape(shape: Input2DShape): SolidProposal[] {
     );
   }
 
+  // Attach custom fill/stroke surface spec for single colored 2D shapes so their color carries into 3D!
+  const singleCustomSurface = extractCustom3DSurface(shape);
+  if (singleCustomSurface) {
+    return proposals.map((p) => ({
+      ...p,
+      extraParams: { ...(p.extraParams ?? {}), customSurface: singleCustomSurface },
+    }));
+  }
+
   return proposals;
 }
 
@@ -298,6 +452,20 @@ export function proposeSolidsFromShape(shape: Input2DShape): SolidProposal[] {
  */
 function computeShape2DBBoxSize(shape: Input2DShape): { w: number; h: number } {
   const { object_type, props } = shape;
+  if (Array.isArray(props.multiSegments) && props.multiSegments.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const seg of props.multiSegments as number[][]) {
+      for (let i = 0; i < seg.length - 1; i += 2) {
+        if (seg[i] < minX) minX = seg[i];
+        if (seg[i] > maxX) maxX = seg[i];
+        if (seg[i + 1] < minY) minY = seg[i + 1];
+        if (seg[i + 1] > maxY) maxY = seg[i + 1];
+      }
+    }
+    if (isFinite(minX)) {
+      return { w: Math.max(40, maxX - minX), h: Math.max(40, maxY - minY) };
+    }
+  }
   if (object_type === 'rect') {
     return {
       w: Math.max(40, typeof props.w === 'number' ? Math.abs(props.w) : 160),

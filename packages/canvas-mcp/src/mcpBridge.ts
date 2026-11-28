@@ -191,6 +191,117 @@ export function executeCanvasMcpTool(
       };
     }
 
+    if (tool === "canvas.create_smart_table") {
+      const obj = (rawArgs ?? {}) as Record<string, unknown>;
+      const presetMode = String(obj.presetMode ?? "stat_grouped");
+      const title = String(obj.title ?? "Tabel Statistika Pintar");
+      const tableId = `mcp-table-${Date.now()}`;
+      const rawRows = Array.isArray(obj.rows) ? (obj.rows as string[][]) : [
+        ["Nilai (Interval)", "Frekuensi (f)"],
+        ["31 - 40", "3"],
+        ["41 - 50", "5"],
+        ["51 - 60", "10"],
+        ["61 - 70", "11"],
+        ["71 - 80", "8"],
+        ["81 - 90", "3"],
+      ];
+      const cells = rawRows.map((row, ri) =>
+        row.map((val) => ({ raw: String(val), bold: ri === 0, align: "center" })),
+      );
+      const cols = Math.max(2, cells[0]?.length ?? 2);
+      return {
+        ok: true,
+        tool,
+        summary: `Tabel "${title}" (${cells.length}×${cols}) ditambahkan ke papan tulis.`,
+        data: { id: tableId, presetMode, rows: cells.length, cols },
+        batchEvent: {
+          event_type: "batch",
+          payload: {
+            events: [
+              {
+                event_type: "object.created",
+                payload: {
+                  id: tableId,
+                  object_type: "smart_table",
+                  props: {
+                    x: Number(obj.x ?? 180),
+                    y: Number(obj.y ?? 100),
+                    cx: Number(obj.x ?? 180) + 270,
+                    cy: Number(obj.y ?? 100) + 190,
+                    width: 540,
+                    height: 380,
+                    w: 540,
+                    h: 380,
+                    rotation: 0,
+                    presetMode,
+                    title,
+                    rows: cells.length,
+                    cols,
+                    colWidthsPx: Array.from({ length: cols }, () => 120),
+                    cells,
+                    headerRowCount: 1,
+                    zebraStriping: true,
+                    borderStyle: "textbook",
+                    statConfig: {
+                      showMidpointCol: presetMode === "stat_grouped",
+                      showFxCol: true,
+                      showCumFreqCol: true,
+                      showTotalRow: true,
+                      highlightMedianClass: true,
+                      highlightModalClass: true,
+                      showFormulaCallouts: true,
+                      showSolverCard: true,
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+    }
+
+    if (tool === "canvas.create_subject_helper") {
+      const obj = (rawArgs ?? {}) as Record<string, unknown>;
+      const helperKind = String(obj.helperKind ?? "horner_scheme");
+      const title = String(obj.title ?? "Alat Bantu Materi");
+      const helperId = `mcp-helper-${Date.now()}`;
+      return {
+        ok: true,
+        tool,
+        summary: `Alat bantu "${title}" (${helperKind}) ditambahkan ke papan tulis.`,
+        data: { id: helperId, helperKind },
+        batchEvent: {
+          event_type: "batch",
+          payload: {
+            events: [
+              {
+                event_type: "object.created",
+                payload: {
+                  id: helperId,
+                  object_type: "subject_helper",
+                  props: {
+                    x: Number(obj.x ?? 200),
+                    y: Number(obj.y ?? 110),
+                    cx: Number(obj.x ?? 200) + 230,
+                    cy: Number(obj.y ?? 110) + 160,
+                    width: 460,
+                    height: 320,
+                    w: 460,
+                    h: 320,
+                    rotation: 0,
+                    helperKind,
+                    title,
+                    config: (obj.config as Record<string, unknown>) ?? {},
+                  },
+                },
+              },
+            ],
+          },
+        },
+      };
+    }
+
     return { ok: false, tool, summary: "Tool tidak dikenal.", error: `Unknown tool: ${tool}` };
   } catch (err) {
     return {
