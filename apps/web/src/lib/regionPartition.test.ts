@@ -100,4 +100,31 @@ describe('regionPartition — Per-Region Background Fill for Merged 2D Objects',
     expect(proposals.every((p) => p.solidType !== 'sphere' && p.solidType !== 'cone')).toBe(true);
     expect(proposals[0].title).toContain('Kubus');
   });
+
+  it('keeps region indices 100% invariant when translating a 6-slice hexagon anywhere on canvas', () => {
+    const cx = 300, cy = 300, r = 90;
+    const hex: number[] = [];
+    for (let i = 0; i <= 6; i++) {
+      const a = ((i % 6) * 2 * Math.PI) / 6 - Math.PI / 2;
+      hex.push(Math.round(cx + r * Math.cos(a)), Math.round(cy + r * Math.sin(a)));
+    }
+    // 3 main diagonals through the center -> 6 exact triangular slices
+    const diag1 = [hex[0], hex[1], hex[6], hex[7]];
+    const diag2 = [hex[2], hex[3], hex[8], hex[9]];
+    const diag3 = [hex[4], hex[5], hex[10], hex[11]];
+    const baseSegs = [hex, diag1, diag2, diag3];
+    const baseRegions = computePlanarRegions(baseSegs);
+    expect(baseRegions.length).toBe(6);
+
+    // Test 6 different translations (dx, dy) — relative order of all 6 slices MUST stay identical!
+    for (const [dx, dy] of [[7, 13], [-43, 8], [115, -29], [3, 5], [-19, -11], [200, 150]]) {
+      const shifted = baseSegs.map((seg) => seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)));
+      const shiftedRegions = computePlanarRegions(shifted);
+      expect(shiftedRegions.length).toBe(6);
+      for (let i = 0; i < 6; i++) {
+        expect(shiftedRegions[i].cx).toBeCloseTo(baseRegions[i].cx + dx, 0);
+        expect(shiftedRegions[i].cy).toBeCloseTo(baseRegions[i].cy + dy, 0);
+      }
+    }
+  });
 });

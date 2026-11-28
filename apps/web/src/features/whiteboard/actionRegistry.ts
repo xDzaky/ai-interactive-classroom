@@ -11,6 +11,8 @@ import {
   mergeSelectionTo2DShape,
   canUngroupSelection,
   ungroupSelectedObject,
+  canSplitRegions,
+  splitObjectIntoRegions,
 } from '@/lib/mergeStrokesToShape';
 
 export type ActionCategory = 'math' | 'ai' | 'edit' | 'arrange' | 'style';
@@ -113,6 +115,20 @@ export const WHITEBOARD_ACTIONS: ActionItem[] = [
     appliesTo: (ctx) => canUngroupSelection(ctx.selectedIds, ctx.scene),
     run: (ctx) => {
       const res = ungroupSelectedObject(ctx.selectedIds, ctx.scene);
+      if (!res) return;
+      ctx.onEvent({ event_type: 'batch', payload: { events: res.events } });
+      ctx.onSelectIds?.(res.newIds);
+    },
+  },
+  {
+    id: 'split_regions',
+    label: 'Pecah Potongan',
+    icon: '🍰',
+    category: 'edit',
+    shortcut: 'P',
+    appliesTo: (ctx) => canSplitRegions(ctx.selectedIds, ctx.scene),
+    run: (ctx) => {
+      const res = splitObjectIntoRegions(ctx.selectedIds, ctx.scene);
       if (!res) return;
       ctx.onEvent({ event_type: 'batch', payload: { events: res.events } });
       ctx.onSelectIds?.(res.newIds);

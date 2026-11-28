@@ -25,7 +25,7 @@ export function SelectionToolbar({
   if (actionContext.selectedIds.length === 0) return null;
 
   // Primary fast-access actions
-  const primaryActionIds = ['merge_to_2d', 'ungroup_2d', 'convert_3d', 'explain_ai', 'duplicate', 'delete'];
+  const primaryActionIds = ['merge_to_2d', 'split_regions', 'ungroup_2d', 'convert_3d', 'explain_ai', 'duplicate', 'delete'];
   const quickActions = actions.filter((a) => primaryActionIds.includes(a.id));
 
   return (
@@ -53,6 +53,8 @@ export function SelectionToolbar({
               ? 'text-slate-600 hover:bg-red-50 hover:text-red-600'
               : action.id === 'merge_to_2d'
               ? 'text-emerald-700 bg-emerald-50/90 hover:bg-emerald-100'
+              : action.id === 'split_regions'
+              ? 'text-orange-700 bg-orange-50/90 hover:bg-orange-100'
               : action.id === 'ungroup_2d'
               ? 'text-amber-700 bg-amber-50/90 hover:bg-amber-100'
               : action.id === 'convert_3d'

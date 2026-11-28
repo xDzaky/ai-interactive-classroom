@@ -50,6 +50,8 @@ import {
   mergeSelectionTo2DShape,
   canUngroupSelection,
   ungroupSelectedObject,
+  canSplitRegions,
+  splitObjectIntoRegions,
 } from '@/lib/mergeStrokesToShape';
 import {
   findRegionAtPoint,
@@ -304,6 +306,17 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           if (seg[i + 1] < minY) minY = seg[i + 1];
           if (seg[i + 1] > maxY) maxY = seg[i + 1];
         }
+      }
+      if (isFinite(minX)) return { x: minX, y: minY, w: Math.max(12, maxX - minX), h: Math.max(12, maxY - minY) };
+    }
+    if (Array.isArray(p.customPoints) && p.customPoints.length >= 4) {
+      const pts = p.customPoints as number[];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let i = 0; i < pts.length - 1; i += 2) {
+        if (pts[i] < minX) minX = pts[i];
+        if (pts[i] > maxX) maxX = pts[i];
+        if (pts[i + 1] < minY) minY = pts[i + 1];
+        if (pts[i + 1] > maxY) maxY = pts[i + 1];
       }
       if (isFinite(minX)) return { x: minX, y: minY, w: Math.max(12, maxX - minX), h: Math.max(12, maxY - minY) };
     }
@@ -594,6 +607,19 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           }
           ctx.stroke();
         }
+      } else if (Array.isArray(p.customPoints) && (p.customPoints as number[]).length >= 6) {
+        const pts = p.customPoints as number[];
+        ctx.beginPath();
+        ctx.moveTo(pts[0], pts[1]);
+        for (let i = 2; i < pts.length - 1; i += 2) {
+          ctx.lineTo(pts[i], pts[i + 1]);
+        }
+        ctx.closePath();
+        if (fill !== 'transparent') {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        ctx.stroke();
       } else if (obj.object_type === 'ellipse') {
         const cx = Number(p.cx ?? 100);
         const cy = Number(p.cy ?? 100);
@@ -1155,6 +1181,9 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
                 p.multiSegments = (p.multiSegments as number[][]).map((seg) =>
                   seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)),
                 );
+              }
+              if (Array.isArray(p.customPoints)) {
+                p.customPoints = (p.customPoints as number[]).map((v, i) => (i % 2 === 0 ? v + dx : v + dy));
               }
               if (typeof p.x === 'number') p.x += dx;
               if (typeof p.y === 'number') p.y += dy;
@@ -1752,6 +1781,7 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
           const noteScene = buildNoteSceneState(page);
           const canMerge = canMergeSelectionToShape(selectedObjIds, noteScene);
           const canUngroup = canUngroupSelection(selectedObjIds, noteScene);
+          const canSplit = canSplitRegions(selectedObjIds, noteScene);
           const primaryObj = selectedObjIds.length === 1 ? page.objects.find((o) => o.id === selectedObjIds[0]) : null;
           const can3D = Boolean(
             primaryObj &&
@@ -1810,6 +1840,36 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
                   🔗 Gabung
                 </button>
               )}
+              {canSplit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = splitObjectIntoRegions(selectedObjIds, noteScene);
+                    if (!res) return;
+                    const created: BoardObject[] = [];
+                    for (const ev of res.events) {
+                      if (ev.event_type === 'object.created') {
+                        const pl = ev.payload as { id: string; object_type: BoardObject['object_type']; props: Record<string, unknown> };
+                        created.push({
+                          id: pl.id,
+                          object_type: pl.object_type,
+                          props: pl.props,
+                          created_at: Date.now(),
+                          updated_at: Date.now(),
+                        });
+                      }
+                    }
+                    onUpdatePage((prev) => ({
+                      ...prev,
+                      objects: [...prev.objects.filter((o) => o.id !== res.sourceId), ...created],
+                    }));
+                    setSelectedObjIds(res.newIds);
+                  }}
+                  className="rounded-xl bg-orange-50 px-2.5 py-1 text-orange-700 hover:bg-orange-100"
+                >
+                  🍰 Pecah
+                </button>
+              )}
               {canUngroup && (
                 <button
                   type="button"
@@ -1866,6 +1926,9 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
                     const p = JSON.parse(JSON.stringify(o.props)) as Record<string, unknown>;
                     if (Array.isArray(p.multiSegments)) {
                       p.multiSegments = (p.multiSegments as number[][]).map((s) => s.map((v) => v + 24));
+                    }
+                    if (Array.isArray(p.customPoints)) {
+                      p.customPoints = (p.customPoints as number[]).map((v) => v + 24);
                     }
                     if (typeof p.x === 'number') p.x += 24;
                     if (typeof p.y === 'number') p.y += 24;

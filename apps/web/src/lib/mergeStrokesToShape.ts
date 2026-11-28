@@ -794,3 +794,86 @@ export function ungroupSelectedObject(
 
   return newIds.length > 0 ? { sourceId, events, newIds } : null;
 }
+
+/**
+ * Checks whether the current selection is a divided multiSegments object with 2+ enclosed regions
+ * that can be split into independent movable/deletable colored slices (e.g. 1/8, 3/4 fraction slices!).
+ */
+export function canSplitRegions(selectedIds: string[], scene: SceneState): boolean {
+  if (selectedIds.length !== 1) return false;
+  const obj = scene.objects[selectedIds[0]];
+  if (!obj) return false;
+  const p = obj.props as Record<string, unknown>;
+  if (!Array.isArray(p.multiSegments) || p.multiSegments.length < 2) return false;
+  return computePlanarRegions(p.multiSegments as number[][]).length >= 2;
+}
+
+/**
+ * Splits a divided multiSegments object into independent standalone colored `polygon` slices
+ * so individual slices can be dragged apart, deleted (e.g. 3/4), or re-merged with Gabung!
+ * If a specific sub-region was active (`activeRegionIndex >= 0`), gently pops that slice outward.
+ */
+export function splitObjectIntoRegions(
+  selectedIds: string[],
+  scene: SceneState,
+): { sourceId: string; events: WhiteboardEvent[]; newIds: string[] } | null {
+  if (!canSplitRegions(selectedIds, scene)) return null;
+  const sourceId = selectedIds[0];
+  const obj = scene.objects[sourceId];
+  if (!obj) return null;
+
+  const p = obj.props as Record<string, unknown>;
+  const segs = p.multiSegments as number[][];
+  const regions = computePlanarRegions(segs);
+  if (regions.length < 2) return null;
+
+  const rf =
+    typeof p.regionFills === 'object' && p.regionFills !== null
+      ? (p.regionFills as Record<string, string>)
+      : {};
+  const activeIdx = typeof p.activeRegionIndex === 'number' ? p.activeRegionIndex : -1;
+  const stroke = typeof p.stroke === 'string' ? p.stroke : '#0f172a';
+  const strokeWidth = typeof p.strokeWidth === 'number' ? p.strokeWidth : 2;
+
+  const groupCx = regions.reduce((s, r) => s + r.cx, 0) / regions.length;
+  const groupCy = regions.reduce((s, r) => s + r.cy, 0) / regions.length;
+
+  const events: WhiteboardEvent[] = [
+    { event_type: 'object.deleted', payload: { id: sourceId } },
+  ];
+  const newIds: string[] = [];
+  const ts = Date.now();
+
+  regions.forEach((reg, idx) => {
+    const nid = `slice-${ts}-${idx}-${Math.random().toString(36).slice(2, 5)}`;
+    let pts = reg.points;
+    // Gently pop out the active slice radially (just like pulling a 1/8 pizza slice out!)
+    if (reg.index === activeIdx) {
+      const vx = reg.cx - groupCx;
+      const vy = reg.cy - groupCy;
+      const len = Math.hypot(vx, vy) || 1;
+      const popX = Math.round((vx / len) * 22);
+      const popY = Math.round((vy / len) * 22);
+      pts = reg.points.map((v, i) => (i % 2 === 0 ? v + popX : v + popY));
+    }
+    const fill = rf[String(reg.index)] ?? 'transparent';
+    newIds.push(nid);
+    events.push({
+      event_type: 'object.created',
+      payload: {
+        id: nid,
+        object_type: 'polygon',
+        props: {
+          customPoints: pts,
+          stroke,
+          strokeWidth,
+          fill,
+        },
+      },
+    } as unknown as WhiteboardEvent);
+  });
+
+  // If a specific slice was popped out, select JUST that popped slice so user can immediately drag or delete it!
+  const focusIds = activeIdx >= 0 && newIds[activeIdx] ? [newIds[activeIdx]] : newIds;
+  return { sourceId, events, newIds: focusIds };
+}

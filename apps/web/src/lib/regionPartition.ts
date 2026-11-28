@@ -290,7 +290,8 @@ export function computePlanarRegions(multiSegments: number[][]): PlanarRegion[] 
     bounded = sortedByArea.length > 1 ? sortedByArea.slice(0, -1) : sortedByArea;
   }
 
-  // 7. Compute centroids & sort deterministically (top-to-bottom, left-to-right)
+  // 7. Compute centroids & sort deterministically using TRANSLATION-INVARIANT relative coordinates
+  //    around the overall group center (so dragging the object NEVER swaps region indices!).
   const regions: PlanarRegion[] = bounded.map((f) => {
     let sx = 0;
     let sy = 0;
@@ -309,10 +310,21 @@ export function computePlanarRegions(multiSegments: number[][]): PlanarRegion[] 
     };
   });
 
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const r of regions) {
+    if (r.cx < minX) minX = r.cx;
+    if (r.cx > maxX) maxX = r.cx;
+    if (r.cy < minY) minY = r.cy;
+    if (r.cy > maxY) maxY = r.cy;
+  }
+  const groupCx = (minX + maxX) / 2;
+  const groupCy = (minY + maxY) / 2;
+
   regions.sort((a, b) => {
-    const dy = Math.round(a.cy / 16) - Math.round(b.cy / 16);
-    if (dy !== 0) return dy;
-    return a.cx - b.cx;
+    const relRowA = Math.round((a.cy - groupCy) / 16);
+    const relRowB = Math.round((b.cy - groupCy) / 16);
+    if (relRowA !== relRowB) return relRowA - relRowB;
+    return (a.cx - groupCx) - (b.cx - groupCx);
   });
 
   return regions.map((r, idx) => ({ ...r, index: idx }));
