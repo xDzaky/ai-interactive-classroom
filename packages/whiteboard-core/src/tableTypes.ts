@@ -41,6 +41,14 @@ export const SmartTableStatConfigSchema = z.object({
 });
 export type SmartTableStatConfig = z.infer<typeof SmartTableStatConfigSchema>;
 
+export const TableCellRangeSchema = z.object({
+  r1: z.number().int().min(0),
+  c1: z.number().int().min(0),
+  r2: z.number().int().min(0),
+  c2: z.number().int().min(0),
+});
+export type TableCellRange = z.infer<typeof TableCellRangeSchema>;
+
 export const SmartTablePropsSchema = z.object({
   x: z.number().optional(),
   y: z.number().optional(),
@@ -57,6 +65,7 @@ export const SmartTablePropsSchema = z.object({
   cols: z.number().int().positive(),
   colWidthsPx: z.array(z.number().positive()),
   cells: z.array(z.array(TableCellSchema)),
+  selectedRange: TableCellRangeSchema.nullable().optional(),
   headerRowCount: z.number().int().min(0).default(1),
   zebraStriping: z.boolean().default(true),
   borderStyle: z.enum(["classic", "textbook", "minimal", "blackboard"]).default("textbook"),
@@ -66,6 +75,45 @@ export const SmartTablePropsSchema = z.object({
   truthExpr: z.string().optional(),
 });
 export type SmartTableProps = z.infer<typeof SmartTablePropsSchema>;
+
+/**
+ * Pure helper to apply background or text color to a selected cell range (multi-cell,
+ * multi-row, multi-column) or to the entire table when `selectedRange` is null/undefined.
+ */
+export function applyStyleToSmartTableCells(
+  cells: TableCell[][],
+  selectedRange: TableCellRange | null | undefined,
+  stylePatch: { bgColor?: string | null; textColor?: string | null },
+): TableCell[][] {
+  if (!Array.isArray(cells) || cells.length === 0) return cells;
+  const minR = selectedRange ? Math.min(selectedRange.r1, selectedRange.r2) : 0;
+  const maxR = selectedRange ? Math.max(selectedRange.r1, selectedRange.r2) : cells.length - 1;
+  const minC = selectedRange ? Math.min(selectedRange.c1, selectedRange.c2) : 0;
+  const maxC = selectedRange ? Math.max(selectedRange.c1, selectedRange.c2) : Number.MAX_SAFE_INTEGER;
+
+  return cells.map((row, ri) => {
+    if (ri < minR || ri > maxR) return row;
+    return row.map((c, ci) => {
+      if (ci < minC || ci > maxC) return c;
+      const next: TableCell = { ...c };
+      if (stylePatch.bgColor !== undefined) {
+        if (!stylePatch.bgColor || stylePatch.bgColor === "transparent") {
+          delete next.bgColor;
+        } else {
+          next.bgColor = stylePatch.bgColor;
+        }
+      }
+      if (stylePatch.textColor !== undefined) {
+        if (!stylePatch.textColor || stylePatch.textColor === "transparent") {
+          delete next.textColor;
+        } else {
+          next.textColor = stylePatch.textColor;
+        }
+      }
+      return next;
+    });
+  });
+}
 
 export const SubjectHelperKindSchema = z.enum([
   "horner_scheme",

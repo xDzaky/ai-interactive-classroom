@@ -43,6 +43,8 @@ const MERGEABLE_2D_TYPES = new Set<BoardObject['object_type']>([
   'parallelogram',
   'kite',
   'star',
+  'text',
+  'annotation',
 ]);
 
 function dist(a: [number, number], b: [number, number]): number {
@@ -364,22 +366,57 @@ function stitchSegments(segments: Array<Array<[number, number]>>): StitchResult 
  * - Otherwise (any mix of shapes + lines, or open lines) -> merges ALL selected geometry into ONE unified
  *   composite `polygon` object (`multiSegments`) so every shape and line stays together as 1 object!
  */
+export interface GroupedTextLabel {
+  x: number;
+  y: number;
+  text: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fill?: string;
+  stroke?: string;
+}
+
 export function mergeSelectionTo2DShape(
   selectedIds: string[],
   scene: SceneState,
 ): MergedShapeResult | null {
   const segments: Array<Array<[number, number]>> = [];
+  const segmentStyles: Array<{ strokeStyle?: string; stroke?: string; strokeWidth?: number }> = [];
+  const groupedLabels: GroupedTextLabel[] = [];
   const sourceIds: string[] = [];
   const groupedItems: GroupedItemSnapshot[] = [];
   const coloredSourcePolys: Array<{ points: number[]; color: string }> = [];
   let strokeColor = '#0f172a';
-  let strokeWidth = 3;
+  let strokeWidth = 2;
   let hasExistingShape = false;
+
+  const pushPolyWithEdgeSplit = (
+    poly: Array<[number, number]>,
+    styleMeta: { strokeStyle?: string; stroke?: string; strokeWidth?: number },
+  ) => {
+    // Split straight-edged polylines (3..11 pts, e.g. squares, triangles, hexagons, cube walls)
+    // into individual 2-point elementary edges so EVERY edge can be selected & styled dashed/solid independently!
+    // Keep smooth curved polygons (e.g. circles with >=12 pts) as a single segment.
+    if (poly.length >= 3 && poly.length <= 11) {
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = poly[i];
+        const b = poly[i + 1];
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 0.5) {
+          segments.push([a, b]);
+          segmentStyles.push({ ...styleMeta });
+        }
+      }
+    } else if (poly.length >= 2) {
+      segments.push(poly);
+      segmentStyles.push({ ...styleMeta });
+    }
+  };
 
   for (const id of selectedIds) {
     const st = scene.strokes[id];
     if (st && st.points.length >= 2) {
       segments.push(st.points.map(([x, y]) => [x, y]));
+      segmentStyles.push({ strokeStyle: 'solid', stroke: st.color || '#0f172a', strokeWidth: st.width || 2 });
       sourceIds.push(id);
       groupedItems.push({
         kind: 'stroke',
@@ -393,8 +430,39 @@ export function mergeSelectionTo2DShape(
       continue;
     }
     const obj = scene.objects[id];
+    if (obj && (obj.object_type === 'text' || obj.object_type === 'annotation')) {
+      const p = obj.props as Record<string, unknown>;
+      const txt = String(p.text ?? '');
+      if (txt.trim().length > 0) {
+        groupedLabels.push({
+          x: Number(p.x ?? 0),
+          y: Number(p.y ?? 0),
+          text: txt,
+          fontSize: typeof p.fontSize === 'number' ? p.fontSize : 16,
+          fontFamily: typeof p.fontFamily === 'string' ? p.fontFamily : undefined,
+          fill: typeof p.fill === 'string' ? p.fill : undefined,
+          stroke: typeof p.stroke === 'string' ? p.stroke : undefined,
+        });
+        sourceIds.push(id);
+        groupedItems.push({
+          kind: 'object',
+          object_type: obj.object_type,
+          props: JSON.parse(JSON.stringify(p)) as Record<string, unknown>,
+        });
+        hasExistingShape = true;
+      }
+      continue;
+    }
     if (obj && MERGEABLE_2D_TYPES.has(obj.object_type)) {
       const p = obj.props as Record<string, unknown>;
+      // Preserve any nested groupedLabels from an existing composite group
+      if (Array.isArray(p.groupedLabels)) {
+        for (const lbl of p.groupedLabels as GroupedTextLabel[]) {
+          if (lbl && typeof lbl.text === 'string') {
+            groupedLabels.push({ ...lbl });
+          }
+        }
+      }
       const extracted = extractObjectSegments(obj);
       if (extracted.length > 0) {
         // Preserve existing per-region colors OR solid shape fill before merging!
@@ -418,7 +486,33 @@ export function mergeSelectionTo2DShape(
           }
         }
 
-        segments.push(...extracted);
+        // Preserve exact per-segment strokeStyle (e.g. dashed hidden cube edges!), stroke, and strokeWidth
+        const existingSegStyles = Array.isArray(p.multiSegmentStyles)
+          ? (p.multiSegmentStyles as Array<{ strokeStyle?: string; stroke?: string; strokeWidth?: number }>)
+          : null;
+        const objStrokeStyle =
+          typeof p.strokeStyle === 'string'
+            ? p.strokeStyle
+            : Array.isArray(p.dash) && (p.dash as number[]).length > 0
+              ? 'dashed'
+              : 'solid';
+        const objStroke = typeof p.stroke === 'string' ? p.stroke : undefined;
+        const objStrokeWidth = typeof p.strokeWidth === 'number' ? p.strokeWidth : undefined;
+        extracted.forEach((seg, idx) => {
+          const nested = existingSegStyles?.[idx];
+          const meta = {
+            strokeStyle: nested?.strokeStyle ?? objStrokeStyle,
+            stroke: nested?.stroke ?? objStroke,
+            strokeWidth: nested?.strokeWidth ?? objStrokeWidth,
+          };
+          if (obj.object_type === 'line' || obj.object_type === 'arrow') {
+            segments.push(seg);
+            segmentStyles.push(meta);
+          } else {
+            pushPolyWithEdgeSplit(seg, meta);
+          }
+        });
+
         sourceIds.push(id);
         groupedItems.push({
           kind: 'object',
@@ -460,7 +554,7 @@ export function mergeSelectionTo2DShape(
 
   const baseStyle = {
     stroke: strokeColor,
-    strokeWidth: Math.max(2, strokeWidth),
+    strokeWidth: Math.max(1.5, strokeWidth),
     fill: 'transparent',
   };
 
@@ -484,8 +578,11 @@ export function mergeSelectionTo2DShape(
 
   const compositeGroupProps = {
     multiSegments: flatMultiSegments,
+    multiSegmentStyles: segmentStyles,
+    ...(groupedLabels.length > 0 ? { groupedLabels } : {}),
     ...(Object.keys(preservedRegionFills).length > 0 ? { regionFills: preservedRegionFills } : {}),
     activeRegionIndex: -1,
+    activeSegmentIndex: -1,
     groupedOrigin: { x: Math.round(minX), y: Math.round(minY), w, h },
     groupedItems,
     x: Math.round(minX),

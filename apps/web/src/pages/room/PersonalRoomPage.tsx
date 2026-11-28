@@ -27,12 +27,17 @@ import {
   pushHistory,
   createDefaultSmartTableProps,
   createDefaultSubjectHelperProps,
+  createDefaultIntegerOpsProps,
+  createDefaultInequalityGraphProps,
+  applyStyleToSmartTableCells,
 } from "@ai-classroom/whiteboard-core";
 import type {
   BoardState,
   WhiteboardEvent,
   WhiteboardHistory,
   AIWhiteboardStep,
+  TableCell,
+  TableCellRange,
   SimulationTemplateId,
 } from "@ai-classroom/whiteboard-core";
 import type { SolidParams, SolidType } from "@ai-classroom/geometry-core";
@@ -295,6 +300,7 @@ export default function PersonalRoomPage() {
       else if (k === "5" || k === "a") setActiveTool("arrow");
       else if (k === "6" || k === "l") setActiveTool("line");
       else if (k === "7" || k === "p") setActiveTool("pen");
+      else if (k === "w") setActiveTool("write_pen");
       else if (k === "8" || k === "t") setActiveTool("text");
       else if (k === "9") imageFileInputRef.current?.click();
       else if (k === "0" || k === "e") setActiveTool("eraser");
@@ -974,6 +980,7 @@ export default function PersonalRoomPage() {
         roughness: p.roughness === 0 || p.roughness === 1 || p.roughness === 2 ? p.roughness : 0,
         roundness: p.roundness === "sharp" || p.roundness === "round" ? p.roundness : "round",
         fontFamily: p.fontFamily === "hand" || p.fontFamily === "sans" || p.fontFamily === "mono" ? p.fontFamily : prev.fontFamily,
+        fontSize: typeof p.fontSize === "number" ? p.fontSize : prev.fontSize,
         opacity: typeof p.opacity === "number" ? (p.opacity <= 1 ? Math.round(p.opacity * 100) : Math.round(p.opacity)) : 100,
       }));
       return;
@@ -1013,15 +1020,73 @@ export default function PersonalRoomPage() {
           const obj = scene?.objects[id];
           if (!obj) continue;
           const propsPatch: Record<string, unknown> = {};
-          if (patch.strokeColor !== undefined) {
-            propsPatch.stroke = patch.strokeColor;
-            if (obj.object_type === "text" || obj.object_type === "annotation") {
-              propsPatch.fill = patch.strokeColor;
+          if (obj.object_type === "smart_table") {
+            const op = obj.props as Record<string, unknown>;
+            const rawCells = Array.isArray(op.cells) ? (op.cells as TableCell[][]) : null;
+            if (rawCells) {
+              const range = (op.selectedRange as TableCellRange | null | undefined) ?? null;
+              const stylePatch: { bgColor?: string | null; textColor?: string | null } = {};
+              if (patch.backgroundColor !== undefined) stylePatch.bgColor = patch.backgroundColor;
+              if (patch.strokeColor !== undefined) stylePatch.textColor = patch.strokeColor;
+              if (stylePatch.bgColor !== undefined || stylePatch.textColor !== undefined) {
+                propsPatch.cells = applyStyleToSmartTableCells(rawCells, range, stylePatch);
+              }
+            }
+          } else {
+          const op = obj.props as Record<string, unknown>;
+          const isMultiSeg = Array.isArray(op.multiSegments) && op.multiSegments.length > 0;
+          const activeSegIdx = typeof op.activeSegmentIndex === "number" ? op.activeSegmentIndex : -1;
+
+          if (
+            isMultiSeg &&
+            activeSegIdx >= 0 &&
+            (patch.strokeColor !== undefined || patch.strokeWidth !== undefined || patch.strokeStyle !== undefined)
+          ) {
+            // Individual edge drilled-in: update ONLY that specific edge's style/color/thickness!
+            const segCount = (op.multiSegments as number[][]).length;
+            const prevStyles = Array.isArray(op.multiSegmentStyles)
+              ? (op.multiSegmentStyles as Array<{ strokeStyle?: string; stroke?: string; strokeWidth?: number }>)
+              : [];
+            const nextStyles = Array.from({ length: segCount }, (_, idx) => ({
+              ...(prevStyles[idx] ?? {
+                strokeStyle: typeof op.strokeStyle === "string" ? op.strokeStyle : "solid",
+                stroke: typeof op.stroke === "string" ? op.stroke : "#0f172a",
+                strokeWidth: typeof op.strokeWidth === "number" ? op.strokeWidth : 2,
+              }),
+            }));
+            if (activeSegIdx < nextStyles.length) {
+              if (patch.strokeColor !== undefined) nextStyles[activeSegIdx].stroke = patch.strokeColor;
+              if (patch.strokeWidth !== undefined) nextStyles[activeSegIdx].strokeWidth = patch.strokeWidth;
+              if (patch.strokeStyle !== undefined) nextStyles[activeSegIdx].strokeStyle = patch.strokeStyle;
+            }
+            propsPatch.multiSegmentStyles = nextStyles;
+          } else {
+            if (patch.strokeColor !== undefined) {
+              propsPatch.stroke = patch.strokeColor;
+              if (obj.object_type === "text" || obj.object_type === "annotation") {
+                propsPatch.fill = patch.strokeColor;
+              }
+            }
+            if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
+            if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
+            if (
+              isMultiSeg &&
+              Array.isArray(op.multiSegmentStyles) &&
+              (patch.strokeColor !== undefined || patch.strokeWidth !== undefined || patch.strokeStyle !== undefined)
+            ) {
+              // Whole group selected: apply explicit change across segments while preserving untouched properties
+              propsPatch.multiSegmentStyles = (
+                op.multiSegmentStyles as Array<{ strokeStyle?: string; stroke?: string; strokeWidth?: number }>
+              ).map((s) => ({
+                ...s,
+                ...(patch.strokeColor !== undefined ? { stroke: patch.strokeColor } : {}),
+                ...(patch.strokeWidth !== undefined ? { strokeWidth: patch.strokeWidth } : {}),
+                ...(patch.strokeStyle !== undefined ? { strokeStyle: patch.strokeStyle } : {}),
+              }));
             }
           }
           if (patch.backgroundColor !== undefined) {
-            const op = obj.props as Record<string, unknown>;
-            if (Array.isArray(op.multiSegments) && op.multiSegments.length > 0) {
+            if (isMultiSeg) {
               const activeIdx = typeof op.activeRegionIndex === "number" ? op.activeRegionIndex : -1;
               if (activeIdx >= 0) {
                 // Sub-region drilled-in: paint or clear ONLY that specific region
@@ -1054,13 +1119,13 @@ export default function PersonalRoomPage() {
               propsPatch.fill = patch.backgroundColor;
             }
           }
+          }
           if (patch.fillStyle !== undefined) propsPatch.fillStyle = patch.fillStyle;
-          if (patch.strokeWidth !== undefined) propsPatch.strokeWidth = patch.strokeWidth;
-          if (patch.strokeStyle !== undefined) propsPatch.strokeStyle = patch.strokeStyle;
           if (patch.roughness !== undefined) propsPatch.roughness = patch.roughness;
           if (patch.roundness !== undefined) propsPatch.roundness = patch.roundness;
           if (patch.opacity !== undefined) propsPatch.opacity = patch.opacity;
           if (patch.fontFamily !== undefined) propsPatch.fontFamily = patch.fontFamily;
+          if (patch.fontSize !== undefined) propsPatch.fontSize = patch.fontSize;
           if (Object.keys(propsPatch).length > 0) {
             events.push({ event_type: "object.updated", payload: { id, props_patch: propsPatch } });
           }
@@ -1967,6 +2032,28 @@ export default function PersonalRoomPage() {
           handleEvent({
             event_type: "object.created",
             payload: { id, object_type: "subject_helper", props: props as unknown as Record<string, unknown> },
+          });
+        }}
+        onInsertIntegerOps={(mode) => {
+          const id = `integer-ops-${Date.now()}`;
+          const props = createDefaultIntegerOpsProps(mode, {
+            x: 150 + Math.round(Math.random() * 50),
+            y: 95 + Math.round(Math.random() * 35),
+          });
+          handleEvent({
+            event_type: "object.created",
+            payload: { id, object_type: "viz_integer_ops", props: props as unknown as Record<string, unknown> },
+          });
+        }}
+        onInsertInequalityGraph={() => {
+          const id = `ineq-graph-${Date.now()}`;
+          const props = createDefaultInequalityGraphProps({
+            x: 170 + Math.round(Math.random() * 50),
+            y: 85 + Math.round(Math.random() * 35),
+          });
+          handleEvent({
+            event_type: "object.created",
+            payload: { id, object_type: "viz_inequality_graph", props: props as unknown as Record<string, unknown> },
           });
         }}
       />

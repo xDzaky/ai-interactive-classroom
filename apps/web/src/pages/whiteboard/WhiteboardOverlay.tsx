@@ -9,7 +9,14 @@
  * - Unmounts live canvases when far outside the viewport (> 800px margin).
  */
 import React, { lazy, Suspense, useMemo, useRef, useEffect, useState, useCallback } from "react";
-import type { BoardState, BoardObject, SmartTableProps, SubjectHelperProps } from "@ai-classroom/whiteboard-core";
+import type {
+  BoardState,
+  BoardObject,
+  SmartTableProps,
+  SubjectHelperProps,
+  IntegerOpsWidgetProps,
+  InequalityGraphProps,
+} from "@ai-classroom/whiteboard-core";
 import { getActiveScene } from "@ai-classroom/whiteboard-core";
 // Lazy-load heavy 3D/graph components — keeps initial bundle lean (P07-T06)
 const SolidViewer = lazy(() =>
@@ -28,6 +35,16 @@ const SmartTableWidget = lazy(() =>
 const SubjectHelperWidget = lazy(() =>
   import("../../components/helpers/SubjectHelperWidget.js").then((m) => ({
     default: m.SubjectHelperWidget,
+  })),
+);
+const IntegerOpsWidget = lazy(() =>
+  import("../../components/helpers/IntegerOpsWidget.js").then((m) => ({
+    default: m.IntegerOpsWidget,
+  })),
+);
+const LinearInequalityGraphWidget = lazy(() =>
+  import("../../components/math/LinearInequalityGraphWidget.js").then((m) => ({
+    default: m.LinearInequalityGraphWidget,
   })),
 );
 import { GraphViewer, type ExpressionEntry } from "../../components/math/GraphViewer.js";
@@ -820,7 +837,9 @@ export function WhiteboardOverlay({
               obj.object_type === "trig_proof" ||
               obj.object_type === "viz_manimgx" ||
               obj.object_type === "smart_table" ||
-              obj.object_type === "subject_helper")
+              obj.object_type === "subject_helper" ||
+              obj.object_type === "viz_integer_ops" ||
+              obj.object_type === "viz_inequality_graph")
         ),
     [scene]
   );
@@ -1185,6 +1204,70 @@ export function WhiteboardOverlay({
                         const p = obj.props as Record<string, unknown>;
                         const s = viewportController?.getState().scale ?? view.scale;
                         onMoveObject(obj.id, Number(p.x ?? 200) + dx / (s || 1), Number(p.y ?? 110) + dy / (s || 1));
+                      }
+                    : undefined
+                }
+              />
+            </Suspense>
+          </ViewportSyncedOverlayBox>
+        ) : obj.object_type === "viz_integer_ops" ? (
+          <ViewportSyncedOverlayBox
+            key={obj.id}
+            testId={`viz-integer-ops-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 140)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 100)}
+            w={Number((obj.props as Record<string, unknown>).w ?? (obj.props as Record<string, unknown>).width ?? 600)}
+            h={Number((obj.props as Record<string, unknown>).h ?? (obj.props as Record<string, unknown>).height ?? 320)}
+            zIndex={Boolean(selectedIds?.includes(obj.id)) ? 26 : 19}
+            view={view}
+            viewportController={viewportController}
+          >
+            <Suspense fallback={<div className="h-40 w-96 rounded-2xl bg-white/80 shadow" />}>
+              <IntegerOpsWidget
+                id={obj.id}
+                widgetProps={obj.props as unknown as IntegerOpsWidgetProps}
+                selected={Boolean(selectedIds?.includes(obj.id))}
+                onSelect={() => setSelectedSolid(obj.id)}
+                onUpdateProps={(patch) => onUpdateObjectProps?.(obj.id, patch as Record<string, unknown>)}
+                onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+                onMovePosition={
+                  onMoveObject
+                    ? (dx, dy) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const s = viewportController?.getState().scale ?? view.scale;
+                        onMoveObject(obj.id, Number(p.x ?? 140) + dx / (s || 1), Number(p.y ?? 100) + dy / (s || 1));
+                      }
+                    : undefined
+                }
+              />
+            </Suspense>
+          </ViewportSyncedOverlayBox>
+        ) : obj.object_type === "viz_inequality_graph" ? (
+          <ViewportSyncedOverlayBox
+            key={obj.id}
+            testId={`viz-inequality-graph-${obj.id}`}
+            wx={Number((obj.props as Record<string, unknown>).x ?? 160)}
+            wy={Number((obj.props as Record<string, unknown>).y ?? 90)}
+            w={Number((obj.props as Record<string, unknown>).w ?? (obj.props as Record<string, unknown>).width ?? 560)}
+            h={Number((obj.props as Record<string, unknown>).h ?? (obj.props as Record<string, unknown>).height ?? 440)}
+            zIndex={Boolean(selectedIds?.includes(obj.id)) ? 26 : 19}
+            view={view}
+            viewportController={viewportController}
+          >
+            <Suspense fallback={<div className="h-64 w-96 rounded-2xl bg-white/80 shadow" />}>
+              <LinearInequalityGraphWidget
+                id={obj.id}
+                graphProps={obj.props as unknown as InequalityGraphProps}
+                selected={Boolean(selectedIds?.includes(obj.id))}
+                onSelect={() => setSelectedSolid(obj.id)}
+                onUpdateProps={(patch) => onUpdateObjectProps?.(obj.id, patch as Record<string, unknown>)}
+                onDelete={onDeleteObject ? () => onDeleteObject(obj.id) : undefined}
+                onMovePosition={
+                  onMoveObject
+                    ? (dx, dy) => {
+                        const p = obj.props as Record<string, unknown>;
+                        const s = viewportController?.getState().scale ?? view.scale;
+                        onMoveObject(obj.id, Number(p.x ?? 160) + dx / (s || 1), Number(p.y ?? 90) + dy / (s || 1));
                       }
                     : undefined
                 }

@@ -127,4 +127,44 @@ describe('regionPartition — Per-Region Background Fill for Merged 2D Objects',
       }
     }
   });
+
+  it('partitions a 2D wireframe cube with slight endpoint jitter into distinct left, bottom, right, top & center faces', () => {
+    const frontSquare = [100, 150, 300, 150, 300, 350, 100, 350, 100, 150];
+    const topBack = [160, 100, 360, 100];
+    const rightBack = [360, 100, 360, 300];
+    const leftBackDashed = [162, 102, 160, 298];
+    const bottomBackDashed = [161, 300, 358, 301];
+    const diagTL = [101, 149, 159, 101];
+    const diagTR = [301, 150, 359, 101];
+    const diagBR = [300, 349, 358, 302];
+    const diagBLDashed = [102, 348, 158, 302];
+
+    const segs = [
+      frontSquare,
+      topBack,
+      rightBack,
+      leftBackDashed,
+      bottomBackDashed,
+      diagTL,
+      diagTR,
+      diagBR,
+      diagBLDashed,
+    ];
+    const regions = computePlanarRegions(segs);
+    const leftIdx = findRegionAtPoint(segs, { x: 130, y: 240 });
+    const bottomIdx = findRegionAtPoint(segs, { x: 220, y: 325 });
+    const rightIdx = findRegionAtPoint(segs, { x: 330, y: 220 });
+    const centerIdx = findRegionAtPoint(segs, { x: 230, y: 225 });
+    const topIdx = findRegionAtPoint(segs, { x: 230, y: 125 });
+
+    expect(regions.length).toBeGreaterThanOrEqual(6);
+    expect(leftIdx).toBeGreaterThanOrEqual(0);
+    expect(bottomIdx).toBeGreaterThanOrEqual(0);
+    expect(rightIdx).toBeGreaterThanOrEqual(0);
+    expect(centerIdx).toBeGreaterThanOrEqual(0);
+    expect(topIdx).toBeGreaterThanOrEqual(0);
+    expect(leftIdx).not.toBe(bottomIdx);
+    expect(rightIdx).not.toBe(centerIdx);
+    expect(rightIdx).not.toBe(bottomIdx);
+  });
 });

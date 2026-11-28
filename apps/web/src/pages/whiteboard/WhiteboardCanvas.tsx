@@ -21,7 +21,14 @@ import type {
   BoardStroke,
   WhiteboardEvent,
 } from "@ai-classroom/whiteboard-core";
-import { getActiveScene, applyEvent } from "@ai-classroom/whiteboard-core";
+import {
+  getActiveScene,
+  applyEvent,
+  createDefaultInequalityGraphProps,
+  createDefaultIntegerOpsProps,
+  createDefaultSubjectHelperProps,
+} from "@ai-classroom/whiteboard-core";
+import { analyzeSelectionContent, type SelectionContentItem } from "@ai-classroom/math-core";
 import type { ToolType } from "@/hooks/useWhiteboardTool";
 import { ViewportController } from "@/lib/viewport";
 import { GridBackground } from "@/components/whiteboard/GridBackground";
@@ -57,6 +64,12 @@ import {
   getItemBBox,
 } from "@/lib/selectionHitTest";
 import {
+  beautifyFreehandToSnappedPolyline,
+  buildAutoConnectedPolylineEvent,
+  extractSceneSnapTargets,
+  snapPointToScene,
+} from "@/lib/smartSnapPolyline";
+import {
   DEFAULT_EXCALIDRAW_STYLE,
   findNearestBindTarget,
   snapToGrid,
@@ -64,7 +77,7 @@ import {
 } from "@/lib/excalidrawEngine";
 import { LaserPointerEngine } from "@/lib/laserPointerEngine";
 import { canMergeSelectionToShape, canUngroupSelection } from "@/lib/mergeStrokesToShape";
-import { findRegionAtPoint } from "@/lib/regionPartition";
+import { findRegionAtPoint, findSegmentAtPoint } from "@/lib/regionPartition";
 import {
   resolveActions,
   WHITEBOARD_ACTIONS,
@@ -817,6 +830,11 @@ export function WhiteboardCanvas({
           props.multiSegments = (props.multiSegments as number[][]).map((seg) =>
             seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)),
           );
+          if (Array.isArray(props.groupedLabels)) {
+            props.groupedLabels = (props.groupedLabels as Array<{ x: number; y: number } & Record<string, unknown>>).map(
+              (lbl) => ({ ...lbl, x: lbl.x + dx, y: lbl.y + dy }),
+            );
+          }
           if (typeof props.x === "number") props.x += dx;
           if (typeof props.y === "number") props.y += dy;
           if (typeof props.cx === "number") props.cx += dx;
@@ -971,19 +989,55 @@ export function WhiteboardCanvas({
     [actionContext]
   );
 
-  // Auto-detect mergeable 2D shape group: either 2+ selected 2D shapes OR 1 selected 2D shape touching/near adjacent 2D shapes (<= 24px)
+  // V10 Selection-to-Visual Analyzer (detects SPtLDV, SPLDV, Quadratic Ineq, SPtLSV, Integer Ops)
+  const selectionAnalysis = useMemo(() => {
+    if (selectedIds.length === 0) return null;
+    const items: SelectionContentItem[] = [];
+    for (const sid of selectedIds) {
+      const obj = scene.objects[sid];
+      if (!obj) continue;
+      const p = obj.props as Record<string, unknown>;
+      if (obj.object_type === "math_block") {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          latex: typeof p.latex === "string" ? p.latex : undefined,
+          text: typeof p.text === "string" ? p.text : undefined,
+        });
+      } else if (obj.object_type === "text" || obj.object_type === "annotation") {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          text: typeof p.text === "string" ? p.text : typeof p.label === "string" ? p.label : undefined,
+        });
+      } else if (obj.object_type === "smart_table" && Array.isArray(p.cells)) {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          tableCells: p.cells as Array<Array<{ raw: string }>>,
+        });
+      }
+    }
+    if (items.length === 0) return null;
+    const res = analyzeSelectionContent(items);
+    return res.kind === "none" ? null : res;
+  }, [selectedIds, scene]);
+
+  // Auto-detect mergeable 2D shape group: either 2+ selected 2D geometric shapes OR 1 selected 2D shape touching/near adjacent 2D shapes (<= 24px)
   const mergeable2DIds = useMemo(() => {
+    const MERGEABLE_2D_PROFILE_TYPES = new Set([
+      "rect",
+      "circle",
+      "ellipse",
+      "triangle",
+      "rhombus",
+      "polygon",
+      "parallelogram",
+      "trapezoid",
+    ]);
     const is2D = (sid: string) => {
       const o = scene.objects[sid];
-      return Boolean(
-        o &&
-          o.object_type !== "viz_solid" &&
-          o.object_type !== "viz_graph" &&
-          o.object_type !== "math_block" &&
-          o.object_type !== "text" &&
-          o.object_type !== "line" &&
-          o.object_type !== "arrow",
-      );
+      return Boolean(o && MERGEABLE_2D_PROFILE_TYPES.has(o.object_type));
     };
     const sel2D = selectedIds.filter(is2D);
     if (sel2D.length >= 2) return sel2D;
@@ -1398,7 +1452,9 @@ export function WhiteboardCanvas({
             obj.object_type === "viz_graph" ||
             obj.object_type === "math_block" ||
             obj.object_type === "smart_table" ||
-            obj.object_type === "subject_helper"
+            obj.object_type === "subject_helper" ||
+            obj.object_type === "viz_integer_ops" ||
+            obj.object_type === "viz_inequality_graph"
           ) {
             // DOM overlay widgets render their own crisp frame & contextual toolbar
           } else {
@@ -1423,13 +1479,18 @@ export function WhiteboardCanvas({
           }
 
           // Shape-matched corner / vertex / rotate handles for single selected 2D object
+          // (Skip for text/annotation so tiny labels like "A" are NEVER obscured and remain 1-click editable!)
           if (
             selectedIds.length === 1 &&
+            obj.object_type !== "text" &&
+            obj.object_type !== "annotation" &&
             obj.object_type !== "viz_solid" &&
             obj.object_type !== "viz_graph" &&
             obj.object_type !== "math_block" &&
             obj.object_type !== "smart_table" &&
-            obj.object_type !== "subject_helper"
+            obj.object_type !== "subject_helper" &&
+            obj.object_type !== "viz_integer_ops" &&
+            obj.object_type !== "viz_inequality_graph"
           ) {
             const handles = getShapeHandles(obj, bbox, viewportController.getState().scale);
             const rotHandle = handles.find((h) => h.kind === "rotate");
@@ -1509,7 +1570,7 @@ export function WhiteboardCanvas({
     const start = shapeStartRef.current;
 
     if (
-      (tool === "pen" || tool === "highlighter" || tool === "eraser") &&
+      (tool === "pen" || tool === "write_pen" || tool === "highlighter" || tool === "eraser") &&
       pts.length >= 2
     ) {
       const konvaPoints = getSvgPathPoints(pts, sw);
@@ -1814,13 +1875,26 @@ export function WhiteboardCanvas({
             const hitObj = curScene.objects[nextIds[0]];
             const hp = hitObj?.props as Record<string, unknown> | undefined;
             if (hitObj && Array.isArray(hp?.multiSegments) && hp.multiSegments.length > 0) {
-              const targetRegion = wasAlreadySoleSelected
-                ? findRegionAtPoint(hp.multiSegments as number[][], pos)
-                : -1;
-              if (hp.activeRegionIndex !== targetRegion) {
+              const segs = hp.multiSegments as number[][];
+              const hitTol = 9 / Math.max(0.4, viewportController.getState().scale || 1);
+              let targetSegment = -1;
+              let targetRegion = -1;
+              if (wasAlreadySoleSelected) {
+                targetSegment = findSegmentAtPoint(segs, pos, hitTol);
+                if (targetSegment < 0) {
+                  targetRegion = findRegionAtPoint(segs, pos);
+                }
+              }
+              if (hp.activeRegionIndex !== targetRegion || hp.activeSegmentIndex !== targetSegment) {
                 commitEvent({
                   event_type: "object.updated",
-                  payload: { id: hitObj.id, props_patch: { activeRegionIndex: targetRegion } },
+                  payload: {
+                    id: hitObj.id,
+                    props_patch: {
+                      activeRegionIndex: targetRegion,
+                      activeSegmentIndex: targetSegment,
+                    },
+                  },
                 } as unknown as WhiteboardEvent);
               }
             }
@@ -1829,8 +1903,16 @@ export function WhiteboardCanvas({
         } else {
           for (const prevId of curSelected) {
             const po = curScene.objects[prevId];
-            if (po && typeof (po.props as Record<string, unknown>)?.activeRegionIndex === "number" && (po.props as Record<string, unknown>).activeRegionIndex !== -1) {
-              commitEvent({ event_type: "object.updated", payload: { id: prevId, props_patch: { activeRegionIndex: -1 } } } as unknown as WhiteboardEvent);
+            const pop = po?.props as Record<string, unknown> | undefined;
+            if (
+              po &&
+              ((typeof pop?.activeRegionIndex === "number" && pop.activeRegionIndex !== -1) ||
+                (typeof pop?.activeSegmentIndex === "number" && pop.activeSegmentIndex !== -1))
+            ) {
+              commitEvent({
+                event_type: "object.updated",
+                payload: { id: prevId, props_patch: { activeRegionIndex: -1, activeSegmentIndex: -1 } },
+              } as unknown as WhiteboardEvent);
             }
           }
           selectedIdsRef.current = [];
@@ -1862,13 +1944,26 @@ export function WhiteboardCanvas({
             const hitObj = curScene.objects[nextIds[0]];
             const hp = hitObj?.props as Record<string, unknown> | undefined;
             if (hitObj && Array.isArray(hp?.multiSegments) && hp.multiSegments.length > 0) {
-              const targetRegion = wasAlreadySoleSelected
-                ? findRegionAtPoint(hp.multiSegments as number[][], pos)
-                : -1;
-              if (hp.activeRegionIndex !== targetRegion) {
+              const segs = hp.multiSegments as number[][];
+              const hitTol = 9 / Math.max(0.4, viewportController.getState().scale || 1);
+              let targetSegment = -1;
+              let targetRegion = -1;
+              if (wasAlreadySoleSelected) {
+                targetSegment = findSegmentAtPoint(segs, pos, hitTol);
+                if (targetSegment < 0) {
+                  targetRegion = findRegionAtPoint(segs, pos);
+                }
+              }
+              if (hp.activeRegionIndex !== targetRegion || hp.activeSegmentIndex !== targetSegment) {
                 commitEvent({
                   event_type: "object.updated",
-                  payload: { id: hitObj.id, props_patch: { activeRegionIndex: targetRegion } },
+                  payload: {
+                    id: hitObj.id,
+                    props_patch: {
+                      activeRegionIndex: targetRegion,
+                      activeSegmentIndex: targetSegment,
+                    },
+                  },
                 } as unknown as WhiteboardEvent);
               }
             }
@@ -1916,7 +2011,7 @@ export function WhiteboardCanvas({
       const pressure = e.evt.pressure || 0.5;
       pointerHoldRef.current = { startPos: { x: pos.x, y: pos.y }, startTime: Date.now() };
 
-      if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
+      if (tool === "pen" || tool === "write_pen" || tool === "highlighter" || tool === "eraser") {
         livePointsRef.current = [[pos.x, pos.y, pressure]];
       } else if (
         tool === "line" ||
@@ -2306,6 +2401,20 @@ export function WhiteboardCanvas({
             const result = recognizeShapeV2(v2Points, { scale: currentScale });
 
             if (result.decision === "snap" && result.best) {
+              // If recognized as a straight line, magnetically snap endpoints to existing shape vertices & auto-connect!
+              if (result.best.kind === "line") {
+                const polyRes = beautifyFreehandToSnappedPolyline(pts, sceneRef.current);
+                if (polyRes) {
+                  const built = buildAutoConnectedPolylineEvent(id, polyRes, sceneRef.current, {
+                    stroke: col,
+                    strokeWidth: Math.max(1.5, exStyleRef.current.strokeWidth || sw),
+                    strokeStyle: exStyleRef.current.strokeStyle,
+                  });
+                  setSuggestionChip((prev) => ({ ...prev, visible: false }));
+                  commitEvent(built.event);
+                  return;
+                }
+              }
               const shapeEvent = candidateToShapeEvent(id, result.best, col, sw);
               lastSnappedRef.current = {
                 shapeId: id,
@@ -2321,30 +2430,45 @@ export function WhiteboardCanvas({
               setSuggestionChip((prev) => ({ ...prev, visible: false }));
               commitEvent(shapeEvent);
               return;
-            } else if (result.decision === "suggest" && result.best) {
-              const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
-              const reducedPts = reducePoints(allPts);
-              commitEvent({
-                event_type: "stroke.committed",
-                payload: {
-                  id,
-                  points: reducedPts,
+            } else {
+              // Smart Auto-Straighten + Magnetic Vertex-Snap + Auto-Connect for multi-segment geometry
+              // sketches (e.g. cube outer walls, L-corners, prisms, pyramids drawn with Pen tool!)
+              const polyRes = beautifyFreehandToSnappedPolyline(pts, sceneRef.current);
+              if (polyRes && (polyRes.touchedObjectIds.length > 0 || polyRes.segmentCount >= 2)) {
+                const built = buildAutoConnectedPolylineEvent(id, polyRes, sceneRef.current, {
+                  stroke: col,
+                  strokeWidth: Math.max(1.5, exStyleRef.current.strokeWidth || sw),
+                  strokeStyle: exStyleRef.current.strokeStyle,
+                });
+                setSuggestionChip((prev) => ({ ...prev, visible: false }));
+                commitEvent(built.event);
+                return;
+              }
+              if (result.decision === "suggest" && result.best) {
+                const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
+                const reducedPts = reducePoints(allPts);
+                commitEvent({
+                  event_type: "stroke.committed",
+                  payload: {
+                    id,
+                    points: reducedPts,
+                    color: col,
+                    width: sw,
+                    tool,
+                  },
+                });
+                const bbox = computeBBox(v2Points);
+                const screenPos = viewportController.toScreen(bbox.centerX, bbox.minY);
+                setSuggestionChip({
+                  visible: true,
+                  strokeId: id,
+                  candidate: result.best,
+                  position: screenPos,
                   color: col,
                   width: sw,
-                  tool,
-                },
-              });
-              const bbox = computeBBox(v2Points);
-              const screenPos = viewportController.toScreen(bbox.centerX, bbox.minY);
-              setSuggestionChip({
-                visible: true,
-                strokeId: id,
-                candidate: result.best,
-                position: screenPos,
-                color: col,
-                width: sw,
-              });
-              return;
+                });
+                return;
+              }
             }
             // If decision is 'keep', fall through to freehand stroke below
           }
@@ -2353,7 +2477,7 @@ export function WhiteboardCanvas({
 
       // Freehand stroke
       if (
-        (tool === "pen" || tool === "highlighter" || tool === "eraser") &&
+        (tool === "pen" || tool === "write_pen" || tool === "highlighter" || tool === "eraser") &&
         pts.length >= 2
       ) {
         const allPts = [...pts, [pos.x, pos.y, 0.5] as [number, number, number]];
@@ -2365,7 +2489,7 @@ export function WhiteboardCanvas({
             points: reducedPts,
             color: tool === "eraser" ? "#ffffff" : col,
             width: sw,
-            tool,
+            tool: tool === "write_pen" ? "pen" : tool,
           },
         });
 
@@ -2426,15 +2550,60 @@ export function WhiteboardCanvas({
           if (bindStart) { ax1 = bindStart.anchorX; ay1 = bindStart.anchorY; }
           if (bindEnd) { ax2 = bindEnd.anchorX; ay2 = bindEnd.anchorY; }
         }
-        commitEvent({
-          event_type: "object.created",
-          payload: {
-            id,
-            object_type: tool,
-            props: { x1: ax1, y1: ay1, x2: ax2, y2: ay2, ...styleMeta },
-          },
-        });
-        createdShape = true;
+        if (tool === "line") {
+          // Magnetic vertex/edge snapping + automatic connection when drawing straight lines on a shape/cube!
+          const targets = extractSceneSnapTargets(sceneRef.current);
+          const s1 = snapPointToScene({ x: ax1, y: ay1 }, targets, 22, 12);
+          const s2 = snapPointToScene({ x: ax2, y: ay2 }, targets, 22, 12);
+          ax1 = Math.round(s1.pt.x);
+          ay1 = Math.round(s1.pt.y);
+          ax2 = Math.round(s2.pt.x);
+          ay2 = Math.round(s2.pt.y);
+          const touched = Array.from(
+            new Set([s1.touchedObjectId, s2.touchedObjectId].filter((v): v is string => Boolean(v))),
+          );
+          if (touched.length > 0 && Math.hypot(ax2 - ax1, ay2 - ay1) > 4) {
+            const built = buildAutoConnectedPolylineEvent(
+              id,
+              {
+                vertices: [
+                  { x: ax1, y: ay1 },
+                  { x: ax2, y: ay2 },
+                ],
+                segmentCount: 1,
+                touchedObjectIds: touched,
+              },
+              sceneRef.current,
+              {
+                stroke: styleMeta.stroke,
+                strokeWidth: styleMeta.strokeWidth,
+                strokeStyle: styleMeta.strokeStyle,
+              },
+            );
+            commitEvent(built.event);
+            createdShape = true;
+          } else {
+            commitEvent({
+              event_type: "object.created",
+              payload: {
+                id,
+                object_type: tool,
+                props: { x1: ax1, y1: ay1, x2: ax2, y2: ay2, ...styleMeta },
+              },
+            });
+            createdShape = true;
+          }
+        } else {
+          commitEvent({
+            event_type: "object.created",
+            payload: {
+              id,
+              object_type: tool,
+              props: { x1: ax1, y1: ay1, x2: ax2, y2: ay2, ...styleMeta },
+            },
+          });
+          createdShape = true;
+        }
       } else if (tool === "rect" || tool === "frame") {
         const x = Math.min(sx0, sx1);
         const y = Math.min(sy0, sy1);
@@ -2661,6 +2830,7 @@ export function WhiteboardCanvas({
     select: "default",
     hand: "grab",
     pen: "crosshair",
+    write_pen: "crosshair",
     highlighter: "crosshair",
     eraser: "cell",
     line: "crosshair",
@@ -3122,11 +3292,97 @@ export function WhiteboardCanvas({
         >↪</button>
       </div>
 
-      {/* Multi-Shape Merge to 3D Action Bar (works for 2+ selected 2D shapes OR 1 selected shape touching adjacent shapes!) */}
+      {/* V10 Selection-to-Visual Analyzer Pill (SPtLDV / SPLDV / Integer Ops) — positioned below top toolbar */}
+      {selectionAnalysis && (
+        <div
+          data-testid="selection-analyzer-bar"
+          className="absolute top-[74px] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-emerald-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
+        >
+          <span className="font-semibold text-slate-700">
+            {selectionAnalysis.kind === "integer_ops"
+              ? "Operasi Bilangan Bulat terdeteksi"
+              : selectionAnalysis.kind === "spldv"
+                ? "Sistem Persamaan Linear (SPLDV)"
+                : selectionAnalysis.kind === "sptlsv"
+                  ? "Pertidaksamaan 1 Variabel"
+                  : `${selectionAnalysis.detectedCount} pertidaksamaan SPtLDV terdeteksi`}
+          </span>
+          <button
+            type="button"
+            data-testid="selection-analyzer-visualize-btn"
+            onClick={() => {
+              // Place generated visual cleanly to the right of the selected items
+              let maxX = 240;
+              let minY = 90;
+              for (const sid of selectedIds) {
+                const o = scene.objects[sid];
+                if (!o) continue;
+                const op = o.props as Record<string, unknown>;
+                const ox = Number(op.x ?? op.cx ?? 160);
+                const oy = Number(op.y ?? op.cy ?? 90);
+                const ow = Number(op.w ?? op.width ?? 220);
+                maxX = Math.max(maxX, ox + ow);
+                minY = Math.min(minY, oy);
+              }
+              const spawnX = Math.round(maxX + 36);
+              const spawnY = Math.max(60, Math.round(minY));
+              const newId = `v10-viz-${Date.now()}`;
+
+              if (selectionAnalysis.kind === "integer_ops") {
+                const props = createDefaultIntegerOpsProps("operations", {
+                  x: spawnX,
+                  y: spawnY,
+                  expression: selectionAnalysis.integerExpression ?? "-1 + 3",
+                });
+                commitEvent({
+                  event_type: "object.created",
+                  payload: { id: newId, object_type: "viz_integer_ops", props: props as unknown as Record<string, unknown> },
+                });
+              } else if (selectionAnalysis.kind === "sptlsv") {
+                const props = createDefaultSubjectHelperProps("number_line", {
+                  x: spawnX,
+                  y: spawnY,
+                });
+                commitEvent({
+                  event_type: "object.created",
+                  payload: { id: newId, object_type: "subject_helper", props: props as unknown as Record<string, unknown> },
+                });
+              } else {
+                const props = createDefaultInequalityGraphProps({
+                  x: spawnX,
+                  y: spawnY,
+                  rawExpressions: selectionAnalysis.rawExpressions,
+                  objectiveExpr: selectionAnalysis.objectiveExpr,
+                  studentTablePoints:
+                    selectionAnalysis.studentTablePoints.length > 0
+                      ? selectionAnalysis.studentTablePoints
+                      : undefined,
+                  analysisKind:
+                    selectionAnalysis.kind === "spldv"
+                      ? "spldv"
+                      : selectionAnalysis.kind === "quadratic_ineq"
+                        ? "quadratic_ineq"
+                        : "sptldv",
+                });
+                commitEvent({
+                  event_type: "object.created",
+                  payload: { id: newId, object_type: "viz_inequality_graph", props: props as unknown as Record<string, unknown> },
+                });
+              }
+              setSelectedIds([newId]);
+            }}
+            className="rounded-xl bg-emerald-600 px-3 py-1 font-bold text-white shadow-xs transition hover:bg-emerald-700"
+          >
+            {selectionAnalysis.actionLabel}
+          </button>
+        </div>
+      )}
+
+      {/* Multi-Shape Merge to 3D Action Bar (positioned below top toolbar so it never overlaps) */}
       {mergeable2DIds.length >= 2 && (
           <div
             data-testid="merge-shapes-bar"
-            className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
+            className="absolute top-[74px] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-indigo-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
           >
             <span className="font-semibold text-slate-700">
               {mergeable2DIds.length} bentuk 2D dapat digabung

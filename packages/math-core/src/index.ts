@@ -457,4 +457,7 @@ export * from "./manimgxTemplates.js";
 export * from "./manimgxRouter.js";
 export * from "./statisticsEngine.js";
 export * from "./subjectHelpersEngine.js";
+export * from "./integerOpsEngine.js";
+export * from "./linearInequalityEngine.js";
+export * from "./selectionAnalyzer.js";
 

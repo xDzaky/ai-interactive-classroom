@@ -12,8 +12,13 @@
  * - Function Values live evaluator + 1-Click Plot Graph
  * - Truth Table live evaluator + Tautologi/Kontradiksi badge
  */
-import React, { useMemo, useRef, useState } from "react";
-import type { SmartTableProps, TableCell } from "@ai-classroom/whiteboard-core";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  applyStyleToSmartTableCells,
+  type SmartTableProps,
+  type TableCell,
+  type TableCellRange,
+} from "@ai-classroom/whiteboard-core";
 import {
   computeGroupedStats,
   computeUngroupedStats,
@@ -40,6 +45,18 @@ export interface SmartTableWidgetProps {
   onSpawnFunctionGraph?: (expr: string) => void;
 }
 
+const TABLE_BG_SWATCHES: Array<{ hex: string; label: string }> = [
+  { hex: "transparent", label: "Hapus Warna" },
+  { hex: "#facc15", label: "Kuning Terang" },
+  { hex: "#fef08a", label: "Kuning Lembut" },
+  { hex: "#bbf7d0", label: "Hijau" },
+  { hex: "#bfdbfe", label: "Biru" },
+  { hex: "#fecaca", label: "Merah Muda" },
+  { hex: "#e9d5ff", label: "Ungu" },
+  { hex: "#fed7aa", label: "Oranye" },
+  { hex: "#e2e8f0", label: "Abu-abu" },
+];
+
 export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
   id,
   tableProps,
@@ -53,13 +70,72 @@ export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const [showChartMenu, setShowChartMenu] = useState(false);
-  const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(null);
+  const [showColorBar, setShowColorBar] = useState(false);
+  const [selectionRange, setSelectionRange] = useState<TableCellRange | null>(
+    tableProps.selectedRange ?? null,
+  );
   const [isFocusedLocal, setIsFocusedLocal] = useState(false);
+  const dragSelectRef = useRef<
+    | { kind: "cell"; anchorR: number; anchorC: number }
+    | { kind: "row"; anchorR: number }
+    | { kind: "col"; anchorC: number }
+    | null
+  >(null);
+  const latestRangeRef = useRef<TableCellRange | null>(tableProps.selectedRange ?? null);
+
+  useEffect(() => {
+    if (!selected) {
+      setIsFocusedLocal(false);
+      setShowColorBar(false);
+      setSelectionRange(null);
+      latestRangeRef.current = null;
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    const onGlobalPointerUp = () => {
+      if (dragSelectRef.current) {
+        dragSelectRef.current = null;
+        onUpdateProps?.({ selectedRange: latestRangeRef.current });
+      }
+    };
+    window.addEventListener("pointerup", onGlobalPointerUp);
+    return () => window.removeEventListener("pointerup", onGlobalPointerUp);
+  }, [onUpdateProps]);
+
+  const commitSelectionRange = (range: TableCellRange | null, syncNow = true) => {
+    setSelectionRange(range);
+    latestRangeRef.current = range;
+    if (syncNow) {
+      onUpdateProps?.({ selectedRange: range });
+    }
+  };
+
+  const applyQuickBgColor = (hex: string) => {
+    const nextCells = applyStyleToSmartTableCells(cells, selectionRange, { bgColor: hex });
+    onUpdateProps?.({ cells: nextCells, selectedRange: selectionRange });
+  };
 
   const isCustom = tableProps.presetMode === "custom";
-  const showCanvaHandles = selected || isFocusedLocal || activeCell !== null;
+  const showCanvaHandles = selected || isFocusedLocal || selectionRange !== null;
   const cells = tableProps.cells ?? [];
+  const colCount = Math.max(1, tableProps.cols ?? cells[0]?.length ?? 1);
   const headerRows = tableProps.headerRowCount ?? (isCustom ? 0 : 1);
+
+  const normRange = useMemo(() => {
+    if (!selectionRange) return null;
+    return {
+      minR: Math.min(selectionRange.r1, selectionRange.r2),
+      maxR: Math.max(selectionRange.r1, selectionRange.r2),
+      minC: Math.min(selectionRange.c1, selectionRange.c2),
+      maxC: Math.max(selectionRange.c1, selectionRange.c2),
+    };
+  }, [selectionRange]);
+
+  const anchorBgColor = useMemo(() => {
+    if (!normRange) return undefined;
+    return cells[normRange.minR]?.[normRange.minC]?.bgColor;
+  }, [cells, normRange]);
   const statCfg = tableProps.statConfig ?? {
     showMidpointCol: tableProps.presetMode === "stat_grouped",
     showFxCol: true,
@@ -305,7 +381,6 @@ export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
       onBlur={(e) => {
         if (!rootRef.current?.contains(e.relatedTarget as Node | null)) {
           setIsFocusedLocal(false);
-          setActiveCell(null);
         }
       }}
       onPointerDown={(e) => {
@@ -468,119 +543,329 @@ export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
       )}
 
       {/* Main Editable Table Grid — 100% Pure Borderless Table Directly on Canvas */}
-      <div className="p-0" onPointerDown={(e) => e.stopPropagation()}>
-        <table className="border-collapse bg-white text-xs">
-          <tbody>
-            {cells.map((row, ri) => {
-              const isHeader = ri < headerRows;
-              const dataIdx = ri - headerRows;
-              const gRow = !isHeader && groupedStats?.valid ? groupedStats.rows[dataIdx] : undefined;
-              const uRow = !isHeader && ungroupedStats?.valid ? ungroupedStats.entries[dataIdx] : undefined;
-
-              const isMedClass =
-                !isHeader &&
-                statCfg.highlightMedianClass &&
-                tableProps.presetMode === "stat_grouped" &&
-                groupedStats?.medianClassIndex === dataIdx;
-              const isModClass =
-                !isHeader &&
-                statCfg.highlightModalClass &&
-                tableProps.presetMode === "stat_grouped" &&
-                Boolean(groupedStats?.modalClassIndices.includes(dataIdx));
-
-              const rowBg = isHeader
-                ? isDarkBoard
-                  ? "bg-slate-800 text-slate-100"
-                  : "bg-slate-100/90 text-slate-800"
-                : isMedClass && isModClass
-                  ? "bg-gradient-to-r from-amber-50 to-sky-50"
-                  : isMedClass
-                    ? "bg-amber-50/90"
-                    : isModClass
-                      ? "bg-sky-50/90"
-                      : tableProps.zebraStriping && ri % 2 === 0
-                        ? "bg-slate-50/60"
-                        : "";
-
+      <div className="relative p-0" onPointerDown={(e) => e.stopPropagation()}>
+        {/* Slim Excel/Canva Column Selector Strips (top edge, visible only when table is active) */}
+        {showCanvaHandles && (
+          <div className="mb-1 flex items-center" style={{ paddingLeft: 14 }}>
+            {Array.from({ length: colCount }, (_, ci) => {
+              const isWholeColSelected =
+                normRange !== null &&
+                normRange.minR === 0 &&
+                normRange.maxR === cells.length - 1 &&
+                ci >= normRange.minC &&
+                ci <= normRange.maxC;
               return (
-                <tr key={ri} className={rowBg}>
-                  {row.map((cell, ci) => {
-                    const isCellActive = activeCell?.r === ri && activeCell?.c === ci;
-                    return (
-                      <td
-                        key={ci}
-                        className={`border border-slate-400/80 px-1.5 py-1 transition-shadow ${
-                          isCellActive ? "ring-2 ring-inset ring-indigo-500 bg-indigo-50/15" : ""
-                        }`}
-                        style={{
-                          width: tableProps.colWidthsPx[ci] ?? (isCustom ? 84 : 96),
-                          minWidth: isCustom ? 64 : 80,
-                          height: 34,
-                        }}
-                      >
-                        <input
-                          type="text"
-                          value={cell.raw}
-                          onFocus={() => setActiveCell({ r: ri, c: ci })}
-                          onChange={(e) => updateCell(ri, ci, e.target.value)}
-                          onPaste={(e) => handlePaste(ri, ci, e)}
-                          style={{
-                            textAlign: cell.align ?? (isHeader || isCustom ? "center" : "left"),
-                            color: cell.textColor,
-                          }}
-                          className={`w-full bg-transparent outline-none text-base sm:text-xs ${
-                            cell.bold || isHeader ? "font-bold" : "font-medium"
-                          }`}
-                        />
-                      </td>
-                    );
-                  })}
-
-                  {/* Auto-computed Statistics Helper Columns */}
-                  {showXi && (
-                    <td className="border border-slate-400/80 bg-indigo-50/30 px-2 py-1 text-center font-mono text-[11px] font-semibold text-indigo-800">
-                      {isHeader ? "xᵢ" : gRow ? formatIdNumber(gRow.xi, 1) : "-"}
-                    </td>
-                  )}
-                  {showFx && (
-                    <td className="border border-slate-400/80 bg-indigo-50/40 px-2 py-1 text-center font-mono text-[11px] font-semibold text-indigo-900">
-                      {isHeader ? "fᵢ·xᵢ" : gRow ? formatIdNumber(gRow.fxi, 1) : uRow ? formatIdNumber(uRow.fx, 1) : "-"}
-                    </td>
-                  )}
-                  {showFk && (
-                    <td className="border border-slate-400/80 bg-amber-50/40 px-2 py-1 text-center font-mono text-[11px] font-semibold text-amber-900">
-                      {isHeader ? "f_k" : gRow ? gRow.fk : uRow ? uRow.fk : "-"}
-                    </td>
-                  )}
-                </tr>
+                <button
+                  key={`col-sel-${ci}`}
+                  type="button"
+                  title={`Pilih Kolom ${ci + 1} (seret / Shift+klik untuk banyak kolom)`}
+                  aria-label={`Pilih Kolom ${ci + 1}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onSelect?.();
+                    if (e.shiftKey && selectionRange) {
+                      commitSelectionRange({
+                        r1: 0,
+                        c1: selectionRange.c1,
+                        r2: Math.max(0, cells.length - 1),
+                        c2: ci,
+                      });
+                    } else {
+                      dragSelectRef.current = { kind: "col", anchorC: ci };
+                      commitSelectionRange(
+                        { r1: 0, c1: ci, r2: Math.max(0, cells.length - 1), c2: ci },
+                        false,
+                      );
+                    }
+                  }}
+                  onPointerEnter={(e) => {
+                    if (dragSelectRef.current?.kind === "col" && e.buttons === 1) {
+                      commitSelectionRange(
+                        {
+                          r1: 0,
+                          c1: dragSelectRef.current.anchorC,
+                          r2: Math.max(0, cells.length - 1),
+                          c2: ci,
+                        },
+                        false,
+                      );
+                    }
+                  }}
+                  style={{
+                    width: tableProps.colWidthsPx[ci] ?? (isCustom ? 84 : 96),
+                    minWidth: isCustom ? 64 : 80,
+                  }}
+                  className="flex h-3 items-center justify-center px-1 cursor-pointer group"
+                >
+                  <span
+                    className={`h-1.5 w-full rounded-full transition-colors ${
+                      isWholeColSelected
+                        ? "bg-indigo-500"
+                        : "bg-slate-300/75 group-hover:bg-indigo-400"
+                    }`}
+                  />
+                </button>
               );
             })}
+          </div>
+        )}
 
-            {/* Auto Total Row for Statistics */}
-            {isStatMode && statCfg.showTotalRow && (
-              <tr className="bg-slate-100 font-bold text-slate-900">
-                <td className="border border-slate-300 px-2 py-1 text-center">Jumlah (Σ)</td>
-                <td className="border border-slate-300 px-2 py-1 text-center font-mono">
-                  {tableProps.presetMode === "stat_grouped"
-                    ? groupedStats?.n ?? 0
-                    : ungroupedStats?.n ?? 0}
-                </td>
-                {showXi && <td className="border border-slate-300 px-2 py-1 text-center">—</td>}
-                {showFx && (
-                  <td className="border border-slate-300 px-2 py-1 text-center font-mono text-indigo-800">
-                    {formatIdNumber(
-                      tableProps.presetMode === "stat_grouped"
-                        ? groupedStats?.sumFx ?? 0
-                        : ungroupedStats?.sumFx ?? 0,
-                      1,
+        <div className="flex items-stretch">
+          {/* Slim Excel/Canva Row Selector Strips (left edge, visible only when table is active) */}
+          {showCanvaHandles && (
+            <div className="mr-1 flex flex-col">
+              {/* Tiny Top-Left Select-All Dot */}
+              <button
+                type="button"
+                title="Pilih Semua Sel Tabel"
+                aria-label="Pilih Semua Sel"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect?.();
+                  commitSelectionRange({
+                    r1: 0,
+                    c1: 0,
+                    r2: Math.max(0, cells.length - 1),
+                    c2: Math.max(0, colCount - 1),
+                  });
+                }}
+                className="absolute -top-0.5 left-0 flex h-3 w-3 items-center justify-center rounded-full hover:bg-indigo-100"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full transition-colors ${
+                    normRange &&
+                    normRange.minR === 0 &&
+                    normRange.maxR === cells.length - 1 &&
+                    normRange.minC === 0 &&
+                    normRange.maxC === colCount - 1
+                      ? "bg-indigo-600"
+                      : "bg-slate-300 hover:bg-indigo-400"
+                  }`}
+                />
+              </button>
+              {cells.map((_, ri) => {
+                const isWholeRowSelected =
+                  normRange !== null &&
+                  normRange.minC === 0 &&
+                  normRange.maxC === colCount - 1 &&
+                  ri >= normRange.minR &&
+                  ri <= normRange.maxR;
+                return (
+                  <button
+                    key={`row-sel-${ri}`}
+                    type="button"
+                    title={`Pilih Baris ${ri + 1} (seret / Shift+klik untuk banyak baris)`}
+                    aria-label={`Pilih Baris ${ri + 1}`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onSelect?.();
+                      if (e.shiftKey && selectionRange) {
+                        commitSelectionRange({
+                          r1: selectionRange.r1,
+                          c1: 0,
+                          r2: ri,
+                          c2: Math.max(0, colCount - 1),
+                        });
+                      } else {
+                        dragSelectRef.current = { kind: "row", anchorR: ri };
+                        commitSelectionRange(
+                          { r1: ri, c1: 0, r2: ri, c2: Math.max(0, colCount - 1) },
+                          false,
+                        );
+                      }
+                    }}
+                    onPointerEnter={(e) => {
+                      if (dragSelectRef.current?.kind === "row" && e.buttons === 1) {
+                        commitSelectionRange(
+                          {
+                            r1: dragSelectRef.current.anchorR,
+                            c1: 0,
+                            r2: ri,
+                            c2: Math.max(0, colCount - 1),
+                          },
+                          false,
+                        );
+                      }
+                    }}
+                    style={{ height: 35 }}
+                    className="flex w-2.5 items-center justify-center py-0.5 cursor-pointer group"
+                  >
+                    <span
+                      className={`w-1.5 h-full rounded-full transition-colors ${
+                        isWholeRowSelected
+                          ? "bg-indigo-500"
+                          : "bg-slate-300/75 group-hover:bg-indigo-400"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <table className="border-collapse bg-white text-xs">
+            <tbody>
+              {cells.map((row, ri) => {
+                const isHeader = ri < headerRows;
+                const dataIdx = ri - headerRows;
+                const gRow = !isHeader && groupedStats?.valid ? groupedStats.rows[dataIdx] : undefined;
+                const uRow = !isHeader && ungroupedStats?.valid ? ungroupedStats.entries[dataIdx] : undefined;
+
+                const isMedClass =
+                  !isHeader &&
+                  statCfg.highlightMedianClass &&
+                  tableProps.presetMode === "stat_grouped" &&
+                  groupedStats?.medianClassIndex === dataIdx;
+                const isModClass =
+                  !isHeader &&
+                  statCfg.highlightModalClass &&
+                  tableProps.presetMode === "stat_grouped" &&
+                  Boolean(groupedStats?.modalClassIndices.includes(dataIdx));
+
+                const rowBg = isHeader
+                  ? isDarkBoard
+                    ? "bg-slate-800 text-slate-100"
+                    : "bg-slate-100/90 text-slate-800"
+                  : isMedClass && isModClass
+                    ? "bg-gradient-to-r from-amber-50 to-sky-50"
+                    : isMedClass
+                      ? "bg-amber-50/90"
+                      : isModClass
+                        ? "bg-sky-50/90"
+                        : tableProps.zebraStriping && ri % 2 === 0
+                          ? "bg-slate-50/60"
+                          : "";
+
+                return (
+                  <tr key={ri} className={rowBg}>
+                    {row.map((cell, ci) => {
+                      const inRange =
+                        normRange !== null &&
+                        ri >= normRange.minR &&
+                        ri <= normRange.maxR &&
+                        ci >= normRange.minC &&
+                        ci <= normRange.maxC;
+
+                      // Crisp Excel-like outer selection border around the selected rectangular block
+                      const selShadows: string[] = [];
+                      if (inRange && normRange) {
+                        if (ri === normRange.minR) selShadows.push("inset 0 2px 0 0 #4f46e5");
+                        if (ri === normRange.maxR) selShadows.push("inset 0 -2px 0 0 #4f46e5");
+                        if (ci === normRange.minC) selShadows.push("inset 2px 0 0 0 #4f46e5");
+                        if (ci === normRange.maxC) selShadows.push("inset -2px 0 0 0 #4f46e5");
+                      }
+                      const hasCustomBg = Boolean(cell.bgColor && cell.bgColor !== "transparent");
+
+                      return (
+                        <td
+                          key={ci}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            onSelect?.();
+                            setIsFocusedLocal(true);
+                            if (e.shiftKey && selectionRange) {
+                              e.preventDefault();
+                              commitSelectionRange({
+                                r1: selectionRange.r1,
+                                c1: selectionRange.c1,
+                                r2: ri,
+                                c2: ci,
+                              });
+                            } else {
+                              dragSelectRef.current = { kind: "cell", anchorR: ri, anchorC: ci };
+                              commitSelectionRange({ r1: ri, c1: ci, r2: ri, c2: ci }, false);
+                            }
+                          }}
+                          onPointerEnter={(e) => {
+                            if (dragSelectRef.current?.kind === "cell" && e.buttons === 1) {
+                              const { anchorR, anchorC } = dragSelectRef.current;
+                              if (anchorR !== ri || anchorC !== ci) {
+                                window.getSelection()?.removeAllRanges();
+                              }
+                              commitSelectionRange({ r1: anchorR, c1: anchorC, r2: ri, c2: ci }, false);
+                            }
+                          }}
+                          className={`border border-slate-400/80 px-1.5 py-1 transition-shadow ${
+                            inRange && !hasCustomBg ? "bg-indigo-50/35" : ""
+                          }`}
+                          style={{
+                            width: tableProps.colWidthsPx[ci] ?? (isCustom ? 84 : 96),
+                            minWidth: isCustom ? 64 : 80,
+                            height: 34,
+                            backgroundColor: hasCustomBg ? cell.bgColor : undefined,
+                            boxShadow: selShadows.length > 0 ? selShadows.join(", ") : undefined,
+                          }}
+                        >
+                          <input
+                            type="text"
+                            value={cell.raw}
+                            onFocus={() => {
+                              if (!dragSelectRef.current) {
+                                commitSelectionRange({ r1: ri, c1: ci, r2: ri, c2: ci });
+                              }
+                            }}
+                            onChange={(e) => updateCell(ri, ci, e.target.value)}
+                            onPaste={(e) => handlePaste(ri, ci, e)}
+                            style={{
+                              textAlign: cell.align ?? (isHeader || isCustom ? "center" : "left"),
+                              color: cell.textColor,
+                            }}
+                            className={`w-full bg-transparent outline-none text-base sm:text-xs ${
+                              cell.bold || isHeader ? "font-bold" : "font-medium"
+                            }`}
+                          />
+                        </td>
+                      );
+                    })}
+
+                    {/* Auto-computed Statistics Helper Columns */}
+                    {showXi && (
+                      <td className="border border-slate-400/80 bg-indigo-50/30 px-2 py-1 text-center font-mono text-[11px] font-semibold text-indigo-800">
+                        {isHeader ? "xᵢ" : gRow ? formatIdNumber(gRow.xi, 1) : "-"}
+                      </td>
                     )}
+                    {showFx && (
+                      <td className="border border-slate-400/80 bg-indigo-50/40 px-2 py-1 text-center font-mono text-[11px] font-semibold text-indigo-900">
+                        {isHeader ? "fᵢ·xᵢ" : gRow ? formatIdNumber(gRow.fxi, 1) : uRow ? formatIdNumber(uRow.fx, 1) : "-"}
+                      </td>
+                    )}
+                    {showFk && (
+                      <td className="border border-slate-400/80 bg-amber-50/40 px-2 py-1 text-center font-mono text-[11px] font-semibold text-amber-900">
+                        {isHeader ? "f_k" : gRow ? gRow.fk : uRow ? uRow.fk : "-"}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+
+              {/* Auto Total Row for Statistics */}
+              {isStatMode && statCfg.showTotalRow && (
+                <tr className="bg-slate-100 font-bold text-slate-900">
+                  <td className="border border-slate-300 px-2 py-1 text-center">Jumlah (Σ)</td>
+                  <td className="border border-slate-300 px-2 py-1 text-center font-mono">
+                    {tableProps.presetMode === "stat_grouped"
+                      ? groupedStats?.n ?? 0
+                      : ungroupedStats?.n ?? 0}
                   </td>
-                )}
-                {showFk && <td className="border border-slate-300 px-2 py-1 text-center">—</td>}
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  {showXi && <td className="border border-slate-300 px-2 py-1 text-center">—</td>}
+                  {showFx && (
+                    <td className="border border-slate-300 px-2 py-1 text-center font-mono text-indigo-800">
+                      {formatIdNumber(
+                        tableProps.presetMode === "stat_grouped"
+                          ? groupedStats?.sumFx ?? 0
+                          : ungroupedStats?.sumFx ?? 0,
+                        1,
+                      )}
+                    </td>
+                  )}
+                  {showFk && <td className="border border-slate-300 px-2 py-1 text-center">—</td>}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Step-by-Step Statistics Solver Card */}
         {isStatMode && statCfg.showSolverCard && (
@@ -592,10 +877,10 @@ export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
         )}
       </div>
 
-      {/* Canva-Style Floating Circular + / − Edge Handles (appear cleanly when table is clicked/selected) */}
+      {/* Canva-Style Floating Circular + / − & Quick Color Handles (appear cleanly when table is clicked/selected) */}
       {showCanvaHandles && (
         <>
-          {/* Bottom Edge: Move Handle + / − Row + Delete */}
+          {/* Bottom Edge: Move Handle, Quick Fill Color, + / − Row, Delete */}
           <div
             className="absolute -bottom-8 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5"
             onPointerDown={(e) => e.stopPropagation()}
@@ -611,6 +896,60 @@ export const SmartTableWidget: React.FC<SmartTableWidgetProps> = ({
                 ✥
               </button>
             )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowColorBar((v) => !v)}
+                title="Warna Latar Sel / Baris / Kolom Terpilih"
+                aria-label="Warna Latar Sel"
+                className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white shadow-md transition hover:border-indigo-400 hover:scale-105"
+              >
+                <span
+                  className="h-3.5 w-3.5 rounded-full border border-slate-300"
+                  style={{
+                    backgroundColor: anchorBgColor && anchorBgColor !== "transparent" ? anchorBgColor : "#facc15",
+                  }}
+                />
+              </button>
+              {showColorBar && (
+                <div
+                  data-testid="table-color-popover"
+                  className="absolute left-1/2 top-8 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-slate-200 bg-white/98 px-2 py-1 shadow-xl backdrop-blur-md"
+                >
+                  {TABLE_BG_SWATCHES.map((sw) => (
+                    <button
+                      key={sw.hex}
+                      type="button"
+                      title={sw.label}
+                      aria-label={sw.label}
+                      onClick={() => {
+                        applyQuickBgColor(sw.hex);
+                        setShowColorBar(false);
+                      }}
+                      className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 transition hover:scale-110"
+                      style={{
+                        backgroundColor: sw.hex === "transparent" ? "#ffffff" : sw.hex,
+                        backgroundImage:
+                          sw.hex === "transparent"
+                            ? "linear-gradient(135deg, transparent 44%, #ef4444 45%, #ef4444 55%, transparent 56%)"
+                            : undefined,
+                      }}
+                    />
+                  ))}
+                  <label
+                    title="Warna Custom"
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-slate-300 bg-gradient-to-tr from-pink-400 via-yellow-300 to-sky-400 transition hover:scale-110"
+                  >
+                    <input
+                      type="color"
+                      value={anchorBgColor && anchorBgColor !== "transparent" ? anchorBgColor : "#facc15"}
+                      onChange={(e) => applyQuickBgColor(e.target.value)}
+                      className="h-6 w-6 cursor-pointer opacity-0"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={addRow}

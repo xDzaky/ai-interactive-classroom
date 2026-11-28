@@ -116,7 +116,8 @@ describe('mergeStrokesToShape — Broken Multi-Stroke Sketch Merger', () => {
     expect(merged!.objectType).toBe('polygon');
     expect(merged!.sourceIds).toEqual(['r1', 'sq1', 'd1', 'd2']);
     expect(Array.isArray(merged!.props.multiSegments)).toBe(true);
-    expect((merged!.props.multiSegments as number[][]).length).toBe(4);
+    // Rhombus (4 edges) + Square (4 edges) + 2 Diagonals = 10 individually selectable edges!
+    expect((merged!.props.multiSegments as number[][]).length).toBe(10);
   });
 
   it('ungroups a moved composite object back into its 4 original shapes at the new coordinates', () => {

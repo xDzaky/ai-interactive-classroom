@@ -6,7 +6,7 @@
  * - Multi-page Thumbnail Sidebar (reorder, bookmark, duplicate, delete) matching Screenshot 235043
  * - Dual Floating Pills + Pen Rack + Laser Pointer + Virtual Ruler + Layers + Study Timer + Audio Recorder + Feynman AI
  */
-import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import type {
   NotebookDocument,
@@ -21,6 +21,14 @@ import type {
 import {
   createDefaultSmartTableProps,
   createDefaultSubjectHelperProps,
+  createDefaultIntegerOpsProps,
+  createDefaultInequalityGraphProps,
+  applyStyleToSmartTableCells,
+  type TableCell,
+  type TableCellRange,
+  type IntegerOpsMode,
+  type IntegerOpsWidgetProps,
+  type InequalityGraphProps,
 } from '@ai-classroom/whiteboard-core';
 import { getCachedPlanarRegions } from '@/lib/regionPartition';
 import { TableGridPicker } from '@/components/tables/TableGridPicker';
@@ -29,6 +37,14 @@ const SmartTableWidget = lazy(() =>
 );
 const SubjectHelperWidget = lazy(() =>
   import('@/components/helpers/SubjectHelperWidget').then((m) => ({ default: m.SubjectHelperWidget })),
+);
+const IntegerOpsWidget = lazy(() =>
+  import('@/components/helpers/IntegerOpsWidget').then((m) => ({ default: m.IntegerOpsWidget })),
+);
+const LinearInequalityGraphWidget = lazy(() =>
+  import('@/components/math/LinearInequalityGraphWidget').then((m) => ({
+    default: m.LinearInequalityGraphWidget,
+  })),
 );
 import {
   createDefaultNotebook,
@@ -51,7 +67,12 @@ import {
   type CommandPaletteAction,
 } from '@/components/whiteboard/ExcalidrawCommandPalette';
 import { useHandwritingToLatex } from '@/hooks/useHandwritingToLatex';
-import { analyzeForManimGX, type ManimGxAnalysis } from '@ai-classroom/math-core';
+import {
+  analyzeForManimGX,
+  analyzeSelectionContent,
+  type ManimGxAnalysis,
+  type SelectionContentItem,
+} from '@ai-classroom/math-core';
 import {
   DEFAULT_EXCALIDRAW_STYLE,
   exportBasicSceneToSvg,
@@ -455,6 +476,65 @@ export default function NotesPage() {
   const [selectedNoteObjIds, setSelectedNoteObjIds] = useState<string[]>([]);
   const [noteTables, setNoteTables] = useState<Array<{ id: string; props: SmartTableProps }>>([]);
   const [noteHelpers, setNoteHelpers] = useState<Array<{ id: string; props: SubjectHelperProps }>>([]);
+  const [noteIntegerOps, setNoteIntegerOps] = useState<Array<{ id: string; props: IntegerOpsWidgetProps }>>([]);
+  const [noteInequalityGraphs, setNoteInequalityGraphs] = useState<Array<{ id: string; props: InequalityGraphProps }>>([]);
+
+  const handleInsertNoteIntegerOps = useCallback((mode: IntegerOpsMode) => {
+    const id = `note-intops-${Date.now()}`;
+    setNoteIntegerOps((prev) => [
+      ...prev,
+      { id, props: createDefaultIntegerOpsProps(mode, { x: 90, y: 95 }) },
+    ]);
+    setShowTablePicker(false);
+    showToast('Alat bantu Bilangan Bulat ditambahkan ke catatan');
+  }, []);
+
+  const handleInsertNoteInequalityGraph = useCallback(
+    (opts?: Partial<InequalityGraphProps>) => {
+      const id = `note-ineq-${Date.now()}`;
+      setNoteInequalityGraphs((prev) => [
+        ...prev,
+        { id, props: createDefaultInequalityGraphProps({ x: 110, y: 90, ...opts }) },
+      ]);
+      setShowTablePicker(false);
+      showToast('Grafik SPtLDV ditambahkan ke catatan');
+    },
+    [],
+  );
+
+  // V10 Selection-to-Visual Analyzer in /notes
+  const noteSelectionAnalysis = useMemo(() => {
+    if (!activePage || selectedNoteObjIds.length === 0) return null;
+    const selSet = new Set(selectedNoteObjIds);
+    const items: SelectionContentItem[] = [];
+    for (const obj of activePage.objects) {
+      if (!selSet.has(obj.id)) continue;
+      const p = obj.props as Record<string, unknown>;
+      if (obj.object_type === 'math_block') {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          latex: typeof p.latex === 'string' ? p.latex : undefined,
+          text: typeof p.text === 'string' ? p.text : undefined,
+        });
+      } else if (obj.object_type === 'text' || obj.object_type === 'annotation') {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          text: typeof p.text === 'string' ? p.text : typeof p.label === 'string' ? p.label : undefined,
+        });
+      } else if (obj.object_type === 'smart_table' && Array.isArray(p.cells)) {
+        items.push({
+          id: obj.id,
+          objectType: obj.object_type,
+          tableCells: p.cells as Array<Array<{ raw: string }>>,
+        });
+      }
+    }
+    if (items.length === 0) return null;
+    const res = analyzeSelectionContent(items);
+    return res.kind === 'none' ? null : res;
+  }, [activePage, selectedNoteObjIds]);
 
   const handleInsertNoteTable = useCallback((preset: TablePresetMode, opts?: { rows?: number; cols?: number }) => {
     const id = `note-table-${Date.now()}`;
@@ -872,6 +952,18 @@ export default function NotesPage() {
               objects: prev.objects.map((obj) => {
                 if (!selSet.has(obj.id)) return obj;
                 const op = { ...(obj.props as Record<string, unknown>) };
+                if (obj.object_type === 'smart_table') {
+                  const rawCells = Array.isArray(op.cells) ? (op.cells as TableCell[][]) : null;
+                  if (rawCells) {
+                    const range = (op.selectedRange as TableCellRange | null | undefined) ?? null;
+                    const stylePatch: { bgColor?: string | null; textColor?: string | null } = {};
+                    if (patch.backgroundColor !== undefined) stylePatch.bgColor = patch.backgroundColor;
+                    if (patch.strokeColor !== undefined) stylePatch.textColor = patch.strokeColor;
+                    if (stylePatch.bgColor !== undefined || stylePatch.textColor !== undefined) {
+                      op.cells = applyStyleToSmartTableCells(rawCells, range, stylePatch);
+                    }
+                  }
+                } else {
                 if (patch.strokeColor !== undefined) op.stroke = patch.strokeColor;
                 if (patch.strokeWidth !== undefined) op.strokeWidth = patch.strokeWidth;
                 if (patch.strokeStyle !== undefined) op.strokeStyle = patch.strokeStyle;
@@ -902,6 +994,7 @@ export default function NotesPage() {
                   } else {
                     op.fill = patch.backgroundColor;
                   }
+                }
                 }
                 return { ...obj, props: op, updated_at: Date.now() };
               }),
@@ -1222,11 +1315,118 @@ export default function NotesPage() {
         </div>
       ))}
 
+      {/* V10 Floating Integer Ops & SPtLDV Graph Widgets in /notes */}
+      {noteIntegerOps.map((w) => (
+        <div
+          key={w.id}
+          className="fixed z-40"
+          style={{ left: w.props.x ?? 90, top: w.props.y ?? 95 }}
+        >
+          <Suspense fallback={null}>
+            <IntegerOpsWidget
+              id={w.id}
+              widgetProps={w.props}
+              onUpdateProps={(patch) =>
+                setNoteIntegerOps((prev) =>
+                  prev.map((item) => (item.id === w.id ? { ...item, props: { ...item.props, ...patch } } : item)),
+                )
+              }
+              onMovePosition={(dx, dy) =>
+                setNoteIntegerOps((prev) =>
+                  prev.map((item) =>
+                    item.id === w.id
+                      ? { ...item, props: { ...item.props, x: (item.props.x ?? 90) + dx, y: (item.props.y ?? 95) + dy } }
+                      : item,
+                  ),
+                )
+              }
+              onDelete={() => setNoteIntegerOps((prev) => prev.filter((item) => item.id !== w.id))}
+            />
+          </Suspense>
+        </div>
+      ))}
+
+      {noteInequalityGraphs.map((g) => (
+        <div
+          key={g.id}
+          className="fixed z-40"
+          style={{ left: g.props.x ?? 110, top: g.props.y ?? 90 }}
+        >
+          <Suspense fallback={null}>
+            <LinearInequalityGraphWidget
+              id={g.id}
+              graphProps={g.props}
+              onUpdateProps={(patch) =>
+                setNoteInequalityGraphs((prev) =>
+                  prev.map((item) => (item.id === g.id ? { ...item, props: { ...item.props, ...patch } } : item)),
+                )
+              }
+              onMovePosition={(dx, dy) =>
+                setNoteInequalityGraphs((prev) =>
+                  prev.map((item) =>
+                    item.id === g.id
+                      ? { ...item, props: { ...item.props, x: (item.props.x ?? 110) + dx, y: (item.props.y ?? 90) + dy } }
+                      : item,
+                  ),
+                )
+              }
+              onDelete={() => setNoteInequalityGraphs((prev) => prev.filter((item) => item.id !== g.id))}
+            />
+          </Suspense>
+        </div>
+      ))}
+
+      {/* V10 Selection-to-Visual Analyzer Pill in /notes (below top toolbar) */}
+      {noteSelectionAnalysis && (
+        <div
+          data-testid="notes-selection-analyzer-bar"
+          className="fixed top-[116px] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-emerald-200 bg-white/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-md"
+        >
+          <span className="font-semibold text-slate-700">
+            {noteSelectionAnalysis.kind === 'integer_ops'
+              ? 'Operasi Bilangan Bulat terdeteksi'
+              : `${noteSelectionAnalysis.detectedCount} ekspresi terdeteksi`}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (noteSelectionAnalysis.kind === 'integer_ops') {
+                setNoteIntegerOps((prev) => [
+                  ...prev,
+                  {
+                    id: `note-intops-${Date.now()}`,
+                    props: createDefaultIntegerOpsProps('operations', {
+                      x: 100,
+                      y: 110,
+                      expression: noteSelectionAnalysis.integerExpression ?? '-1 + 3',
+                    }),
+                  },
+                ]);
+              } else if (noteSelectionAnalysis.kind === 'sptlsv') {
+                handleInsertNoteHelper('number_line');
+              } else {
+                handleInsertNoteInequalityGraph({
+                  rawExpressions: noteSelectionAnalysis.rawExpressions,
+                  objectiveExpr: noteSelectionAnalysis.objectiveExpr,
+                  studentTablePoints:
+                    noteSelectionAnalysis.studentTablePoints.length > 0
+                      ? noteSelectionAnalysis.studentTablePoints
+                      : undefined,
+                });
+              }
+            }}
+            className="rounded-xl bg-emerald-600 px-3 py-1 font-bold text-white shadow-xs hover:bg-emerald-700"
+          >
+            {noteSelectionAnalysis.actionLabel}
+          </button>
+        </div>
+      )}
+
       {showTablePicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-xs">
           <div className="max-h-[82vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">📊 Tabel Pintar & Alat Bantu</h3>
+              <h3 className="text-sm font-bold text-slate-900">Tabel Pintar & Alat Bantu</h3>
               <button
                 type="button"
                 onClick={() => setShowTablePicker(false)}
@@ -1238,6 +1438,8 @@ export default function NotesPage() {
             <TableGridPicker
               onInsertTable={handleInsertNoteTable}
               onInsertHelper={handleInsertNoteHelper}
+              onInsertIntegerOps={handleInsertNoteIntegerOps}
+              onInsertInequalityGraph={() => handleInsertNoteInequalityGraph()}
             />
           </div>
         </div>

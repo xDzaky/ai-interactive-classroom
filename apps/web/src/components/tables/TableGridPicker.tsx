@@ -3,11 +3,13 @@
  * Used inside TemplateDrawer ("Tabel & Alat Bantu" tab) and Notes quick-insert popover.
  */
 import React, { useState } from "react";
-import type { SubjectHelperKind, TablePresetMode } from "@ai-classroom/whiteboard-core";
+import type { IntegerOpsMode, SubjectHelperKind, TablePresetMode } from "@ai-classroom/whiteboard-core";
 
 export interface TableGridPickerProps {
   onInsertTable: (preset: TablePresetMode, opts?: { rows?: number; cols?: number }) => void;
   onInsertHelper: (helperKind: SubjectHelperKind) => void;
+  onInsertIntegerOps?: (mode: IntegerOpsMode) => void;
+  onInsertInequalityGraph?: () => void;
 }
 
 const TABLE_PRESETS: Array<{
@@ -79,6 +81,8 @@ const SUBJECT_HELPERS: Array<{
 export const TableGridPicker: React.FC<TableGridPickerProps> = ({
   onInsertTable,
   onInsertHelper,
+  onInsertIntegerOps,
+  onInsertInequalityGraph,
 }) => {
   const [hoverR, setHoverR] = useState(4);
   const [hoverC, setHoverC] = useState(4);
@@ -154,7 +158,72 @@ export const TableGridPicker: React.FC<TableGridPickerProps> = ({
         </div>
       </div>
 
-      {/* 3. Smart Subject Helpers (clean typographic list, no emoji icons) */}
+      {/* 3. V10 Bilangan Bulat & Pertidaksamaan (SPtLDV) */}
+      {(onInsertIntegerOps || onInsertInequalityGraph) && (
+        <div>
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Bilangan Bulat & Pertidaksamaan (SPtLDV)
+          </div>
+          <div className="space-y-1">
+            {onInsertIntegerOps && (
+              <>
+                <button
+                  type="button"
+                  data-testid="insert-integer-concept"
+                  onClick={() => onInsertIntegerOps("concept_map")}
+                  className="flex w-full items-start justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 active:scale-[0.99]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-slate-800">Peta Konsep Bilangan Bulat</div>
+                    <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                      Garis bilangan negatif (hijau) ← Nol → positif (biru) & notasi himpunan
+                    </p>
+                  </div>
+                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 shrink-0">
+                    Baru
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="insert-integer-ops"
+                  onClick={() => onInsertIntegerOps("operations")}
+                  className="flex w-full items-start justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 active:scale-[0.99]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-slate-800">Simulator Operasi Bilangan Bulat</div>
+                    <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                      Animasi lompatan busur step-by-step (+ kanan, − kiri) & keping muatan ±
+                    </p>
+                  </div>
+                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700 shrink-0">
+                    Interaktif
+                  </span>
+                </button>
+              </>
+            )}
+            {onInsertInequalityGraph && (
+              <button
+                type="button"
+                data-testid="insert-inequality-graph"
+                onClick={onInsertInequalityGraph}
+                className="flex w-full items-start justify-between gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 active:scale-[0.99]"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-slate-800">Grafik SPtLDV & Program Linear (DP)</div>
+                  <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                    Daerah Penyelesaian (DP Bersih / Diarsir), tabel titik potong & uji Z
+                  </p>
+                </div>
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800 shrink-0">
+                  SPtLDV
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Smart Subject Helpers (clean typographic list, no emoji icons) */}
       <div>
         <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           Alat Bantu Terstruktur Lintas Materi

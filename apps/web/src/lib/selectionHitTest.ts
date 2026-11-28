@@ -177,6 +177,32 @@ export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
       const h = Number(p.h ?? p.height ?? 340);
       return { x, y, w, h };
     }
+    case 'text':
+    case 'annotation': {
+      const x = Number(p.x ?? 0);
+      const y = Number(p.y ?? 0);
+      const fontSize = Number(p.fontSize ?? 16);
+      const text = String(raw.text ?? '');
+      const lines = text.split('\n');
+      let maxLineWidth = 0;
+      for (const line of lines) {
+        let lineW = 0;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === ' ' || ch === '.' || ch === ',' || ch === ':' || ch === ';' || ch === '!' || ch === 'i' || ch === 'l' || ch === 'I' || ch === '|' || ch === "'") {
+            lineW += fontSize * 0.34;
+          } else if (ch === 'W' || ch === 'M' || ch === 'm' || ch === 'w' || ch === '@' || ch === '%') {
+            lineW += fontSize * 0.82;
+          } else {
+            lineW += fontSize * 0.58;
+          }
+        }
+        if (lineW > maxLineWidth) maxLineWidth = lineW;
+      }
+      const w = Math.max(fontSize * 1.5, Math.ceil(maxLineWidth + 8));
+      const h = Math.max(fontSize * 1.35, Math.ceil(Math.max(1, lines.length) * fontSize * 1.35));
+      return { x, y, w, h };
+    }
     default: {
       const x = Number(p.x ?? 0);
       const y = Number(p.y ?? 0);

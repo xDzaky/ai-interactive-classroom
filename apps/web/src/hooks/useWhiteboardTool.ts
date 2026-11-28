@@ -18,6 +18,7 @@ export type ToolType =
   | "select"
   | "hand"
   | "pen"
+  | "write_pen"
   | "highlighter"
   | "eraser"
   | "line"

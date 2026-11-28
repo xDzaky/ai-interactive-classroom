@@ -32,7 +32,8 @@ export type ResizeHandleKind =
   | 'sw'
   | 'w'
   | 'rotate'
-  | `v:${number}`;
+  | `v:${number}`
+  | `seg:${number}:${number}`;
 
 export interface HandlePoint {
   kind: ResizeHandleKind;
@@ -209,6 +210,18 @@ export function getShapeHandles(obj: BoardObject, bbox: BBox, scale = 1): Handle
   };
 
   if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+    const segs = p.multiSegments as number[][];
+    const activeSegIdx = typeof p.activeSegmentIndex === 'number' ? p.activeSegmentIndex : -1;
+    if (activeSegIdx >= 0 && activeSegIdx < segs.length) {
+      const seg = segs[activeSegIdx];
+      if (Array.isArray(seg) && seg.length >= 4) {
+        const lastPtIdx = Math.floor(seg.length / 2) - 1;
+        return [
+          { kind: `seg:${activeSegIdx}:0`, x: seg[0], y: seg[1] },
+          { kind: `seg:${activeSegIdx}:${lastPtIdx}`, x: seg[lastPtIdx * 2], y: seg[lastPtIdx * 2 + 1] },
+        ];
+      }
+    }
     return applyRot(getResizeHandles(bbox));
   }
 
@@ -354,6 +367,74 @@ export function computeResizedProps(
     const center = { x: origBBox.x + origBBox.w / 2, y: origBBox.y + origBBox.h / 2 };
     const nextRot = computeRotationAngle(center, pos, shiftKey);
     return { ...origProps, rotation: nextRot };
+  }
+
+  // Individual segment endpoint dragging inside a grouped multiSegments object (seg:<segIdx>:<ptIdx>)
+  if (handle.startsWith('seg:') && Array.isArray(origProps.multiSegments)) {
+    const [, segIdxStr, ptIdxStr] = handle.split(':');
+    const segIdx = Number(segIdxStr);
+    const ptIdx = Number(ptIdxStr);
+    const segs = origProps.multiSegments as number[][];
+    if (segIdx >= 0 && segIdx < segs.length && segs[segIdx] && ptIdx * 2 + 1 < segs[segIdx].length) {
+      let nx = pos.x;
+      let ny = pos.y;
+
+      // 1. Magnetic snap (10px) to any other vertex in the same grouped shape (perfect cube corners!)
+      let bestDist = 10;
+      for (let si = 0; si < segs.length; si++) {
+        const s = segs[si];
+        if (!Array.isArray(s)) continue;
+        for (let pi = 0; pi < s.length - 1; pi += 2) {
+          if (si === segIdx && pi / 2 === ptIdx) continue;
+          const d = Math.hypot(nx - s[pi], ny - s[pi + 1]);
+          if (d < bestDist) {
+            bestDist = d;
+            nx = s[pi];
+            ny = s[pi + 1];
+          }
+        }
+      }
+
+      // 2. Auto-straighten horizontal / vertical within ±6px of the other endpoint of this segment
+      const otherPtIdx = ptIdx === 0 ? Math.floor(segs[segIdx].length / 2) - 1 : 0;
+      const ox = segs[segIdx][otherPtIdx * 2];
+      const oy = segs[segIdx][otherPtIdx * 2 + 1];
+      if (bestDist >= 10) {
+        if (Math.abs(ny - oy) <= 6) ny = oy;
+        else if (Math.abs(nx - ox) <= 6) nx = ox;
+      }
+
+      const nextSegs = segs.map((s, si) => {
+        if (si !== segIdx) return s;
+        const copy = [...s];
+        copy[ptIdx * 2] = Math.round(nx);
+        copy[ptIdx * 2 + 1] = Math.round(ny);
+        return copy;
+      });
+
+      let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+      for (const s of nextSegs) {
+        for (let i = 0; i < s.length - 1; i += 2) {
+          if (s[i] < bMinX) bMinX = s[i];
+          if (s[i] > bMaxX) bMaxX = s[i];
+          if (s[i + 1] < bMinY) bMinY = s[i + 1];
+          if (s[i + 1] > bMaxY) bMaxY = s[i + 1];
+        }
+      }
+      const bw = Math.max(12, Math.round(bMaxX - bMinX));
+      const bh = Math.max(12, Math.round(bMaxY - bMinY));
+      return {
+        ...origProps,
+        multiSegments: nextSegs,
+        x: Math.round(bMinX),
+        y: Math.round(bMinY),
+        w: bw,
+        h: bh,
+        cx: Math.round(bMinX + bw / 2),
+        cy: Math.round(bMinY + bh / 2),
+      };
+    }
+    return origProps;
   }
 
   // Individual vertex dragging (v:0, v:1, ...)

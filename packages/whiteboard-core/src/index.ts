@@ -57,6 +57,9 @@ export const BoardObjectSchema = z.object({
     // --- V9 Smart Custom Tables & Subject Helpers ---
     "smart_table",
     "subject_helper",
+    // --- V10 Integer Ops & Linear Inequality Analyzer ---
+    "viz_integer_ops",
+    "viz_inequality_graph",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)
@@ -300,3 +303,5 @@ export * from "./transform.js";
 export * from "./aiCommands.js";
 export * from "./notesTypes.js";
 export * from "./tableTypes.js";
+export * from "./integerOpsTypes.js";
+export * from "./inequalityTypes.js";

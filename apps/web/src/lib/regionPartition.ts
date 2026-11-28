@@ -26,8 +26,8 @@ interface Seg2 {
   b: Pt2;
 }
 
-const EPS_VERTEX = 1.5;
-const SNAP_EXTEND_PX = 10;
+const EPS_VERTEX = 2.5;
+const SNAP_EXTEND_PX = 12;
 
 function dist2(a: Pt2, b: Pt2): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -110,7 +110,9 @@ function buildSnappedSegments(multiSegments: number[][]): Seg2[] {
     return segs;
   });
 
-  // Snap open endpoints of each polyline onto nearest segment of another polyline within SNAP_EXTEND_PX
+  // Snap open endpoints of each polyline:
+  // 1) Prefer snapping to an existing corner vertex of another polyline within SNAP_EXTEND_PX
+  // 2) Otherwise snap to the nearest interior point on another segment within SNAP_EXTEND_PX
   for (let pIdx = 0; pIdx < rawPolylines.length; pIdx++) {
     const pts = rawPolylines[pIdx];
     const isClosed = pts.length >= 3 && dist2(pts[0], pts[pts.length - 1]) < 4;
@@ -118,20 +120,35 @@ function buildSnappedSegments(multiSegments: number[][]): Seg2[] {
 
     for (const endIdx of [0, pts.length - 1]) {
       const ep = pts[endIdx];
-      let bestDist = SNAP_EXTEND_PX;
-      let bestPt: Pt2 | null = null;
+      let bestVertexDist = SNAP_EXTEND_PX;
+      let bestVertexPt: Pt2 | null = null;
+      let bestSegDist = SNAP_EXTEND_PX;
+      let bestSegPt: Pt2 | null = null;
+
       for (let oIdx = 0; oIdx < segsByPoly.length; oIdx++) {
         if (oIdx === pIdx) continue;
         for (const s of segsByPoly[oIdx]) {
+          const da = dist2(ep, s.a);
+          if (da < bestVertexDist) {
+            bestVertexDist = da;
+            bestVertexPt = s.a;
+          }
+          const db = dist2(ep, s.b);
+          if (db < bestVertexDist) {
+            bestVertexDist = db;
+            bestVertexPt = s.b;
+          }
           const hit = closestPointOnSegment(ep, s.a, s.b);
-          if (hit.dist < bestDist) {
-            bestDist = hit.dist;
-            bestPt = hit.pt;
+          if (hit.dist < bestSegDist) {
+            bestSegDist = hit.dist;
+            bestSegPt = hit.pt;
           }
         }
       }
-      if (bestPt) {
-        pts[endIdx] = bestPt;
+      if (bestVertexPt) {
+        pts[endIdx] = { x: bestVertexPt.x, y: bestVertexPt.y };
+      } else if (bestSegPt) {
+        pts[endIdx] = bestSegPt;
       }
     }
   }
@@ -154,7 +171,7 @@ export function computePlanarRegions(multiSegments: number[][]): PlanarRegion[] 
   const segs = buildSnappedSegments(multiSegments);
   if (segs.length < 3) return [];
 
-  // 1. Find all split parameters t in [0, 1] for each segment
+  // 1. Find all proper crossing split parameters t in [0, 1] for each segment
   const splits: number[][] = segs.map(() => [0, 1]);
   for (let i = 0; i < segs.length; i++) {
     for (let j = i + 1; j < segs.length; j++) {
@@ -162,6 +179,30 @@ export function computePlanarRegions(multiSegments: number[][]): PlanarRegion[] 
       if (hit) {
         splits[i].push(hit.t);
         splits[j].push(hit.u);
+      }
+    }
+  }
+
+  // 1b. Guarantee ALL T-junctions & collinear overlapping segments are split!
+  //     Whenever any endpoint of segment i lies within (EPS_VERTEX + 1px) of segment j,
+  //     split segment j at that exact projection parameter so NO edge is ever pruned as dangling.
+  const TJUNCTION_TOL = EPS_VERTEX + 1.0;
+  for (let i = 0; i < segs.length; i++) {
+    for (const ep of [segs[i].a, segs[i].b]) {
+      for (let j = 0; j < segs.length; j++) {
+        if (i === j) continue;
+        const dx = segs[j].b.x - segs[j].a.x;
+        const dy = segs[j].b.y - segs[j].a.y;
+        const len2 = dx * dx + dy * dy;
+        if (len2 < 1e-6) continue;
+        const u = ((ep.x - segs[j].a.x) * dx + (ep.y - segs[j].a.y) * dy) / len2;
+        if (u > 1e-4 && u < 1 - 1e-4) {
+          const projX = segs[j].a.x + u * dx;
+          const projY = segs[j].a.y + u * dy;
+          if (Math.hypot(ep.x - projX, ep.y - projY) <= TJUNCTION_TOL) {
+            splits[j].push(u);
+          }
+        }
       }
     }
   }
@@ -376,4 +417,34 @@ export function findRegionAtPoint(
     }
   }
   return -1;
+}
+
+/**
+ * Returns the index of the closest segment in `multiSegments` within `tolerance` px
+ * of `pt`, or -1 if the click is not on any edge. Enables per-edge selection inside
+ * grouped shapes/cubes so individual edges can be toggled solid/dashed/dotted!
+ */
+export function findSegmentAtPoint(
+  multiSegments: number[][],
+  pt: { x: number; y: number },
+  tolerance = 9,
+): number {
+  let bestIdx = -1;
+  let bestDist = tolerance;
+  for (let idx = 0; idx < multiSegments.length; idx++) {
+    const seg = multiSegments[idx];
+    if (!Array.isArray(seg) || seg.length < 4) continue;
+    for (let i = 0; i < seg.length - 3; i += 2) {
+      const hit = closestPointOnSegment(
+        pt,
+        { x: seg[i], y: seg[i + 1] },
+        { x: seg[i + 2], y: seg[i + 3] },
+      );
+      if (hit.dist < bestDist) {
+        bestDist = hit.dist;
+        bestIdx = idx;
+      }
+    }
+  }
+  return bestIdx;
 }

@@ -598,14 +598,35 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
             ctx.restore();
           }
         }
-        for (const seg of segs) {
-          if (seg.length < 4) continue;
+        const segStyles = Array.isArray(p.multiSegmentStyles)
+          ? (p.multiSegmentStyles as Array<{ strokeStyle?: string; stroke?: string; strokeWidth?: number }>)
+          : null;
+        segs.forEach((seg, idx) => {
+          if (seg.length < 4) return;
+          const sm = segStyles?.[idx];
+          ctx.save();
+          if (sm?.stroke) ctx.strokeStyle = sm.stroke;
+          if (typeof sm?.strokeWidth === 'number') ctx.lineWidth = sm.strokeWidth;
+          if (sm?.strokeStyle === 'dashed') ctx.setLineDash([8, 6]);
+          else if (sm?.strokeStyle === 'dotted') ctx.setLineDash([2, 5]);
+          else if (sm?.strokeStyle === 'solid') ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(seg[0], seg[1]);
           for (let i = 2; i < seg.length - 1; i += 2) {
             ctx.lineTo(seg[i], seg[i + 1]);
           }
           ctx.stroke();
+          ctx.restore();
+        });
+        if (Array.isArray(p.groupedLabels)) {
+          for (const lbl of p.groupedLabels as Array<{ x: number; y: number; text: string; fontSize?: number; fill?: string; stroke?: string }>) {
+            ctx.save();
+            ctx.fillStyle = lbl.stroke ?? lbl.fill ?? '#0f172a';
+            ctx.font = `600 ${lbl.fontSize ?? 16}px sans-serif`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(lbl.text, lbl.x, lbl.y);
+            ctx.restore();
+          }
         }
       } else if (Array.isArray(p.customPoints) && (p.customPoints as number[]).length >= 6) {
         const pts = p.customPoints as number[];
@@ -1180,6 +1201,11 @@ export const NotesCanvas: React.FC<NotesCanvasProps> = ({
               if (Array.isArray(p.multiSegments)) {
                 p.multiSegments = (p.multiSegments as number[][]).map((seg) =>
                   seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)),
+                );
+              }
+              if (Array.isArray(p.groupedLabels)) {
+                p.groupedLabels = (p.groupedLabels as Array<{ x: number; y: number } & Record<string, unknown>>).map(
+                  (lbl) => ({ ...lbl, x: lbl.x + dx, y: lbl.y + dy }),
                 );
               }
               if (Array.isArray(p.customPoints)) {

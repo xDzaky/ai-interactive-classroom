@@ -61,7 +61,7 @@ function capabilitiesForSingleType(t: string): ExcalidrawPropertyCapabilities {
       opacity: false,
     };
   }
-  if (t === 'stroke' || t === 'pen' || t === 'fountain' || t === 'ballpoint' || t === 'pencil' || t === 'highlighter') {
+  if (t === 'stroke' || t === 'pen' || t === 'write_pen' || t === 'fountain' || t === 'ballpoint' || t === 'pencil' || t === 'highlighter') {
     return {
       hasAny: true,
       strokeColor: true,
@@ -464,19 +464,46 @@ export const ExcalidrawPropertiesPanel: React.FC<ExcalidrawPropertiesPanelProps>
         </div>
         )}
         {capabilities.fontFamily && (
-        <div data-testid="prop-section-font-family">
-          <div className="mb-1 text-[10px] font-semibold opacity-70">Font</div>
-          <div className="grid grid-cols-3 gap-0.5">
-            {([['hand', '✍'], ['sans', 'Aa'], ['mono', '</>']] as Array<[FontFamilyKind, string]>).map(([f, icon]) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => onChangeStyle({ fontFamily: f })}
-                className={`rounded-lg border py-1 text-[10px] font-bold ${style.fontFamily === f ? btnActive : btnBase}`}
-              >
-                {icon}
-              </button>
-            ))}
+        <div data-testid="prop-section-font-family" className="space-y-2">
+          <div>
+            <div className="mb-1 text-[10px] font-semibold opacity-70">Font</div>
+            <div className="grid grid-cols-3 gap-0.5">
+              {([['hand', '✍'], ['sans', 'Aa'], ['mono', '</>']] as Array<[FontFamilyKind, string]>).map(([f, icon]) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => onChangeStyle({ fontFamily: f })}
+                  className={`rounded-lg border py-1 text-[10px] font-bold ${style.fontFamily === f ? btnActive : btnBase}`}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div data-testid="prop-section-font-size">
+            <div className="mb-1 flex items-center justify-between text-[10px] font-semibold opacity-70">
+              <span>Ukuran Teks</span>
+              <span className="font-mono">{style.fontSize ?? 16}px</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {([
+                [14, 'S'],
+                [18, 'M'],
+                [24, 'L'],
+                [34, 'XL'],
+              ] as Array<[number, string]>).map(([sz, lbl]) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => onChangeStyle({ fontSize: sz })}
+                  className={`rounded-lg border py-1 text-[10px] font-bold ${
+                    Math.abs((style.fontSize ?? 16) - sz) <= 2 ? btnActive : btnBase
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         )}

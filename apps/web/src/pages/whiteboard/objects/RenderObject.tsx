@@ -185,7 +185,14 @@ export function computeObjectBbox(obj: BoardObject): BoundingBox {
       const y = Number(p.y ?? 0);
       const fontSize = Number(p.fontSize ?? 16);
       const text = String(p.text ?? "");
-      return { x, y, w: text.length * fontSize * 0.6, h: fontSize * 1.5 };
+      const lines = text.split("\n");
+      const maxChars = Math.max(1, ...lines.map((l) => l.length));
+      return {
+        x,
+        y,
+        w: Math.max(fontSize * 1.5, Math.ceil(maxChars * fontSize * 0.56 + 8)),
+        h: Math.max(fontSize * 1.35, Math.ceil(lines.length * fontSize * 1.35)),
+      };
     }
     default:
       return { x: 0, y: 0, w: 100, h: 100 };
@@ -238,13 +245,26 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
         : null;
     const activeRegionIdx =
       typeof rawProps.activeRegionIndex === "number" ? rawProps.activeRegionIndex : -1;
+    const activeSegmentIdx =
+      typeof rawProps.activeSegmentIndex === "number" ? rawProps.activeSegmentIndex : -1;
+    const groupedLabels = Array.isArray(rawProps.groupedLabels)
+      ? (rawProps.groupedLabels as Array<{
+          x: number;
+          y: number;
+          text: string;
+          fontSize?: number;
+          fontFamily?: string;
+          fill?: string;
+          stroke?: string;
+        }>)
+      : [];
     const regions =
       (regionFills && Object.keys(regionFills).length > 0) || activeRegionIdx >= 0
         ? getCachedPlanarRegions(segs)
         : [];
     return (
       <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening} {...lineRotProps}>
-        {/* Per-region background fills (e.g. 1/2, 2/4, 4/8 fraction slices!) */}
+        {/* Per-region background fills (e.g. 1/2, 2/4, 4/8 fraction slices & cube faces!) */}
         {regions.map((reg) => {
           const fillCol = regionFills?.[String(reg.index)];
           const isActive = reg.index === activeRegionIdx;
@@ -263,20 +283,69 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
             />
           );
         })}
-        {/* Crisp vector outline & divider segments on top */}
-        {segs.map((seg, idx) => (
+        {/* Highlight halo for individually selected edge inside the group */}
+        {activeSegmentIdx >= 0 && segs[activeSegmentIdx] && (
           <Line
-            key={idx}
-            points={seg}
+            points={segs[activeSegmentIdx]}
             closed={false}
-            stroke={p.stroke ?? "#0f172a"}
-            strokeWidth={strokeW}
+            stroke="rgba(79, 70, 229, 0.45)"
+            strokeWidth={strokeW + 6}
             lineCap="round"
             lineJoin="round"
-            listening={listening}
+            listening={false}
             perfectDrawEnabled={false}
             shadowForStrokeEnabled={false}
-            hitStrokeWidth={hitW}
+          />
+        )}
+        {/* Crisp vector outline & divider segments on top (preserving per-segment dashed/solid style & strokeWidth!) */}
+        {segs.map((seg, idx) => {
+          const segMeta = Array.isArray(rawProps.multiSegmentStyles)
+            ? (rawProps.multiSegmentStyles[idx] as { strokeStyle?: string; stroke?: string; strokeWidth?: number } | undefined)
+            : undefined;
+          const segDash =
+            segMeta?.strokeStyle === "dashed"
+              ? [8, 6]
+              : segMeta?.strokeStyle === "dotted"
+                ? [2, 5]
+                : segMeta?.strokeStyle === "solid"
+                  ? undefined
+                  : dashArr;
+          const segWidth = typeof segMeta?.strokeWidth === "number" ? segMeta.strokeWidth : strokeW;
+          const segStroke = segMeta?.stroke ?? p.stroke ?? "#0f172a";
+          return (
+            <Line
+              key={idx}
+              points={seg}
+              closed={false}
+              stroke={segStroke}
+              strokeWidth={segWidth}
+              dash={segDash}
+              lineCap="round"
+              lineJoin="round"
+              listening={listening}
+              perfectDrawEnabled={false}
+              shadowForStrokeEnabled={false}
+              hitStrokeWidth={hitW}
+            />
+          );
+        })}
+        {/* Grouped text labels (e.g. cube vertices A, B, C, D, E, F, G, H) */}
+        {groupedLabels.map((lbl, li) => (
+          <KonvaText
+            key={`glbl-${li}`}
+            x={lbl.x}
+            y={lbl.y}
+            text={lbl.text}
+            fontSize={lbl.fontSize ?? 16}
+            fontFamily={
+              lbl.fontFamily === "mono"
+                ? "ui-monospace, monospace"
+                : lbl.fontFamily === "sans"
+                  ? "Inter, system-ui, sans-serif"
+                  : fontFamily
+            }
+            fill={lbl.stroke ?? lbl.fill ?? "#0f172a"}
+            listening={false}
           />
         ))}
       </Group>

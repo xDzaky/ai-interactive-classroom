@@ -12,7 +12,7 @@ import {
 } from '@/lib/realWorldTemplates';
 import { TemplateCardThumb } from './TemplateCardThumb';
 import { TableGridPicker } from '@/components/tables/TableGridPicker';
-import type { SubjectHelperKind, TablePresetMode } from '@ai-classroom/whiteboard-core';
+import type { IntegerOpsMode, SubjectHelperKind, TablePresetMode } from '@ai-classroom/whiteboard-core';
 
 export interface TemplateDrawerProps {
   open: boolean;
@@ -21,6 +21,8 @@ export interface TemplateDrawerProps {
   onInsertTemplate: (item: VisualTemplateItem, dropClientPos?: { x: number; y: number }) => void;
   onInsertSmartTable?: (preset: TablePresetMode, opts?: { rows?: number; cols?: number }) => void;
   onInsertSubjectHelper?: (helperKind: SubjectHelperKind) => void;
+  onInsertIntegerOps?: (mode: IntegerOpsMode) => void;
+  onInsertInequalityGraph?: () => void;
 }
 
 const CATEGORIES: Array<'Semua' | 'Tabel & Alat Bantu' | TemplateCategory> = [
@@ -37,6 +39,8 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
   onInsertTemplate,
   onInsertSmartTable,
   onInsertSubjectHelper,
+  onInsertIntegerOps,
+  onInsertInequalityGraph,
 }) => {
   const [tab, setTab] = useState<'Semua' | 'Tabel & Alat Bantu' | TemplateCategory>('Tabel & Alat Bantu');
   const [query, setQuery] = useState('');
@@ -175,6 +179,22 @@ export const TemplateDrawer: React.FC<TemplateDrawerProps> = ({
                 onInsertSubjectHelper?.(kind);
                 onClose();
               }}
+              onInsertIntegerOps={
+                onInsertIntegerOps
+                  ? (mode) => {
+                      onInsertIntegerOps(mode);
+                      onClose();
+                    }
+                  : undefined
+              }
+              onInsertInequalityGraph={
+                onInsertInequalityGraph
+                  ? () => {
+                      onInsertInequalityGraph();
+                      onClose();
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : (
