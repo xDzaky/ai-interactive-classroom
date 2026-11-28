@@ -1235,7 +1235,7 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     }
   }, [sectionPolygon]);
 
-  // Glitch-free 60fps Drag-to-Move 3D solid: imperative GPU translate3d during drag, single commit on pointerup!
+  // Glitch-free 60fps Drag-to-Move 3D solid: preserves parent's translate3d(sx,sy,0) scale(s) matrix!
   const handleDragStart = (e: React.PointerEvent) => {
     if (!onMovePositionRef.current) return;
     e.stopPropagation();
@@ -1244,27 +1244,52 @@ export const TongchuangSolidWidget: React.FC<TongchuangSolidWidgetProps> = ({
     const startY = e.clientY;
     let totalDx = 0;
     let totalDy = 0;
-    const el = rootElRef.current?.parentElement ?? rootElRef.current;
+    const parentEl = rootElRef.current?.parentElement;
+
+    // Read current screen-space transform (sx, sy, scale) from WhiteboardOverlay container
+    // so we NEVER wipe out its world-locked position or zoom scale while dragging!
+    let baseX = 0;
+    let baseY = 0;
+    let baseScale = 1;
+    let hasParentMatrix = false;
+    if (parentEl && typeof window !== 'undefined' && typeof DOMMatrix !== 'undefined') {
+      const computed = window.getComputedStyle(parentEl).transform;
+      if (computed && computed !== 'none') {
+        const m = new DOMMatrix(computed);
+        baseX = m.e;
+        baseY = m.f;
+        baseScale = m.a || 1;
+        hasParentMatrix = true;
+      }
+    }
 
     const onMove = (ev: PointerEvent) => {
       totalDx = ev.clientX - startX;
       totalDy = ev.clientY - startY;
-      if (el) {
-        el.style.transform = `translate3d(${totalDx}px, ${totalDy}px, 0)`;
+      if (parentEl && hasParentMatrix) {
+        parentEl.style.transform = `translate3d(${baseX + totalDx}px, ${baseY + totalDy}px, 0) scale(${baseScale})`;
+      } else if (rootElRef.current) {
+        rootElRef.current.style.transform = `translate3d(${totalDx}px, ${totalDy}px, 0)`;
       }
     };
-    const onUp = () => {
+    const finish = (commit: boolean) => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      if (el) {
-        el.style.transform = '';
+      window.removeEventListener('pointercancel', onCancel);
+      if (!hasParentMatrix && rootElRef.current) {
+        rootElRef.current.style.transform = '';
+      } else if (!commit && parentEl && hasParentMatrix) {
+        parentEl.style.transform = `translate3d(${baseX}px, ${baseY}px, 0) scale(${baseScale})`;
       }
-      if (Math.abs(totalDx) > 0.5 || Math.abs(totalDy) > 0.5) {
+      if (commit && (Math.abs(totalDx) > 0.5 || Math.abs(totalDy) > 0.5)) {
         onMovePositionRef.current?.(totalDx, totalDy);
       }
     };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   };
 
   const enterSectionMode = () => {

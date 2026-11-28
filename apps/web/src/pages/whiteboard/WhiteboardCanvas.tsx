@@ -63,6 +63,7 @@ import {
   type ExcalidrawStyleState,
 } from "@/lib/excalidrawEngine";
 import { LaserPointerEngine } from "@/lib/laserPointerEngine";
+import { canMergeSelectionToShape, canUngroupSelection } from "@/lib/mergeStrokesToShape";
 import {
   resolveActions,
   WHITEBOARD_ACTIONS,
@@ -631,6 +632,7 @@ export function WhiteboardCanvas({
   }, []);
   const internalStageRef = useRef<Konva.Stage | null>(null);
   const stageRef = externalStageRef ?? internalStageRef;
+  const committedLayerRef = useRef<Konva.Layer | null>(null);
   const previewLayerRef = useRef<Konva.Layer | null>(null);
   const uiLayerRef = useRef<Konva.Layer | null>(null);
   const lastTouchDist = useRef<number>(0);
@@ -775,6 +777,8 @@ export function WhiteboardCanvas({
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
   const isDraggingSelection = useRef(false);
   const dragSelectionStart = useRef<{ x: number; y: number } | null>(null);
+  const dragAccumDeltaRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const dragNodeOriginsRef = useRef<Map<string, { node: Konva.Node; x: number; y: number }>>(new Map());
   const longPressTimer = useRef<any>(null);
 
   // ---------------------------------------------------------------------------
@@ -808,7 +812,21 @@ export function WhiteboardCanvas({
       const obj = curScene.objects[id];
       if (obj) {
         const props = { ...(obj.props as Record<string, unknown>) };
-        if (Array.isArray(props.customPoints)) {
+        if (Array.isArray(props.multiSegments)) {
+          props.multiSegments = (props.multiSegments as number[][]).map((seg) =>
+            seg.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)),
+          );
+          if (typeof props.x === "number") props.x += dx;
+          if (typeof props.y === "number") props.y += dy;
+          if (typeof props.cx === "number") props.cx += dx;
+          if (typeof props.cy === "number") props.cy += dy;
+          if (typeof props.x1 === "number") {
+            props.x1 += dx;
+            props.y1 = (props.y1 as number) + dy;
+            props.x2 = (props.x2 as number) + dx;
+            props.y2 = (props.y2 as number) + dy;
+          }
+        } else if (Array.isArray(props.customPoints)) {
           props.customPoints = (props.customPoints as number[]).map((v, i) =>
             i % 2 === 0 ? v + dx : v + dy
           );
@@ -855,6 +873,63 @@ export function WhiteboardCanvas({
     }
   }, []);
 
+  // Zero-jank 60fps imperative Konva drag for selected 2D objects & strokes (single React commit on pointerup)
+  const beginSelectionDrag = useCallback((ids: string[], worldPos: { x: number; y: number }) => {
+    isDraggingSelection.current = true;
+    dragSelectionStart.current = { x: worldPos.x, y: worldPos.y };
+    dragAccumDeltaRef.current = { dx: 0, dy: 0 };
+    const origins = new Map<string, { node: Konva.Node; x: number; y: number }>();
+    const layer = committedLayerRef.current;
+    if (layer && typeof layer.getChildren === "function") {
+      const idSet = new Set(ids);
+      layer.getChildren().forEach((child) => {
+        const cid = child.id();
+        if (cid && idSet.has(cid)) {
+          origins.set(cid, { node: child, x: child.x(), y: child.y() });
+        }
+      });
+    }
+    dragNodeOriginsRef.current = origins;
+  }, []);
+
+  const applySelectionDragDelta = useCallback((totalDx: number, totalDy: number) => {
+    dragAccumDeltaRef.current = { dx: totalDx, dy: totalDy };
+    const origins = dragNodeOriginsRef.current;
+    if (origins.size > 0) {
+      origins.forEach(({ node, x, y }) => {
+        node.position({ x: x + totalDx, y: y + totalDy });
+      });
+      committedLayerRef.current?.batchDraw();
+    }
+    if (uiLayerRef.current) {
+      uiLayerRef.current.position({ x: totalDx, y: totalDy });
+      uiLayerRef.current.batchDraw();
+    }
+  }, []);
+
+  const finishSelectionDrag = useCallback(() => {
+    const { dx, dy } = dragAccumDeltaRef.current;
+    isDraggingSelection.current = false;
+    dragSelectionStart.current = null;
+    dragAccumDeltaRef.current = { dx: 0, dy: 0 };
+
+    // Restore Konva node local offsets before committing new world coords via React state
+    dragNodeOriginsRef.current.forEach(({ node, x, y }) => {
+      node.position({ x, y });
+    });
+    dragNodeOriginsRef.current.clear();
+
+    if (uiLayerRef.current) {
+      uiLayerRef.current.position({ x: 0, y: 0 });
+      uiLayerRef.current.batchDraw();
+    }
+    committedLayerRef.current?.batchDraw();
+
+    if (Math.hypot(dx, dy) > 0.5) {
+      translateSelectedLive(dx, dy);
+    }
+  }, [translateSelectedLive]);
+
   const selectionBBox = useMemo(() => {
     if (selectedIds.length === 0) return null;
     let minX = Infinity;
@@ -885,6 +960,7 @@ export function WhiteboardCanvas({
       onOpenConvert3D: (shape) => setConvert3DShape(shape),
       onOpenAiExplain: (target) => setExplainTarget(target),
       onClearSelection: () => setSelectedIds([]),
+      onSelectIds: (ids) => setSelectedIds(ids),
     }),
     [selectedIds, scene, boardState, roomId, actorId, commitEvent]
   );
@@ -1087,22 +1163,28 @@ export function WhiteboardCanvas({
         const worldPt = viewportController.toWorld(pt.x, pt.y);
         const hitId = findHitItem(worldPt, sceneRef.current);
         if (hitId) {
-          if (!selectedIdsRef.current.includes(hitId)) {
-            selectedIdsRef.current = [hitId];
-            setSelectedIds([hitId]);
+          const nextIds = selectedIdsRef.current.includes(hitId)
+            ? selectedIdsRef.current
+            : [hitId];
+          if (nextIds !== selectedIdsRef.current) {
+            selectedIdsRef.current = nextIds;
+            setSelectedIds(nextIds);
           }
-          isDraggingSelection.current = true;
-          dragSelectionStart.current = { x: worldPt.x, y: worldPt.y };
+          beginSelectionDrag(nextIds, worldPt);
         }
       },
       onLongPressDragMove: (_pt, dx, dy) => {
         if (!isDraggingSelection.current) return;
         const sc = Math.max(0.1, viewportController.getState().scale);
-        translateSelectedLive(dx / sc, dy / sc);
+        applySelectionDragDelta(
+          dragAccumDeltaRef.current.dx + dx / sc,
+          dragAccumDeltaRef.current.dy + dy / sc,
+        );
       },
       onLongPressDragEnd: () => {
-        isDraggingSelection.current = false;
-        dragSelectionStart.current = null;
+        if (isDraggingSelection.current) {
+          finishSelectionDrag();
+        }
       },
       onPan: (dx, dy) => {
         const v = viewportController.getState();
@@ -1719,8 +1801,7 @@ export function WhiteboardCanvas({
           const nextIds = curSelected.includes(hitId) && curSelected.length > 1 ? curSelected : [hitId];
           selectedIdsRef.current = nextIds;
           setSelectedIds(nextIds);
-          isDraggingSelection.current = true;
-          dragSelectionStart.current = { x: pos.x, y: pos.y };
+          beginSelectionDrag(nextIds, pos);
         } else {
           selectedIdsRef.current = [];
           setSelectedIds([]);
@@ -1743,8 +1824,7 @@ export function WhiteboardCanvas({
           }
           selectedIdsRef.current = nextIds;
           setSelectedIds(nextIds);
-          isDraggingSelection.current = true;
-          dragSelectionStart.current = { x: pos.x, y: pos.y };
+          beginSelectionDrag(nextIds, pos);
         } else {
           if (!e.evt.shiftKey) {
             selectedIdsRef.current = [];
@@ -1869,14 +1949,13 @@ export function WhiteboardCanvas({
         return;
       }
 
-      // 2. Smooth 60fps live dragging of single OR multi-selected items (both Select & Hand modes!)
+      // 2. Zero-jank 60fps imperative Konva dragging of single OR multi-selected items (both Select & Hand modes!)
       if ((tool === "select" || tool === "hand") && isDraggingSelection.current && dragSelectionStart.current) {
         clearTimeout(longPressTimer.current);
-        const dx = pos.x - dragSelectionStart.current.x;
-        const dy = pos.y - dragSelectionStart.current.y;
-        if (Math.hypot(dx, dy) > 0.5) {
-          dragSelectionStart.current = { x: pos.x, y: pos.y };
-          translateSelectedLive(dx, dy);
+        const totalDx = pos.x - dragSelectionStart.current.x;
+        const totalDy = pos.y - dragSelectionStart.current.y;
+        if (Math.hypot(totalDx, totalDy) > 0.5) {
+          applySelectionDragDelta(totalDx, totalDy);
         }
         return;
       }
@@ -2027,14 +2106,14 @@ export function WhiteboardCanvas({
           }
         }
 
-        if (isDraggingSelection.current && dragSelectionStart.current && pos) {
-          const dx = pos.x - dragSelectionStart.current.x;
-          const dy = pos.y - dragSelectionStart.current.y;
-          if (Math.hypot(dx, dy) > 0.5) {
-            translateSelectedLive(dx, dy);
+        if (isDraggingSelection.current) {
+          if (dragSelectionStart.current && pos) {
+            dragAccumDeltaRef.current = {
+              dx: pos.x - dragSelectionStart.current.x,
+              dy: pos.y - dragSelectionStart.current.y,
+            };
           }
-          isDraggingSelection.current = false;
-          dragSelectionStart.current = null;
+          finishSelectionDrag();
         }
         return;
       }
@@ -2618,6 +2697,7 @@ export function WhiteboardCanvas({
         {/* Layer 1: committedLayer — listening only while tool is select/eraser */}
         <Layer
           id="committed-layer"
+          ref={committedLayerRef}
           listening={isSelectOrEraser}
         >
           {strokeElems}
@@ -3304,9 +3384,19 @@ export function WhiteboardCanvas({
               onOpenTemplates={onOpenTemplates}
               selectedCount={selectedIds.length}
               canConvert3D={canConvert3D}
+              canMergeTo2D={canMergeSelectionToShape(selectedIds, scene)}
+              canUngroup={canUngroupSelection(selectedIds, scene)}
               isLocked={isLocked}
               onConvert3D={() => {
                 const act = WHITEBOARD_ACTIONS.find((a) => a.id === "convert_3d");
+                act?.run(actionContext);
+              }}
+              onMergeTo2D={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "merge_to_2d");
+                act?.run(actionContext);
+              }}
+              onUngroup={() => {
+                const act = WHITEBOARD_ACTIONS.find((a) => a.id === "ungroup_2d");
                 act?.run(actionContext);
               }}
               onExplainAi={() => {
@@ -3436,7 +3526,10 @@ export function WhiteboardCanvas({
         const isCompactMobile = width < 768 || height < 520;
         if (!activeShape && !isCompactMobile && selectedIds.length === 1) {
           const selObj = scene.objects[selectedIds[0]];
-          if (selObj && CONVERTIBLE_2D.has(selObj.object_type) && dismissedConvert3DId !== selObj.id) {
+          const isCompositeMulti = Boolean(
+            selObj && Array.isArray((selObj.props as Record<string, unknown>)?.multiSegments),
+          );
+          if (selObj && !isCompositeMulti && CONVERTIBLE_2D.has(selObj.object_type) && dismissedConvert3DId !== selObj.id) {
             activeShape = {
               id: selObj.id,
               object_type: selObj.object_type,

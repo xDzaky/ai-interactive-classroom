@@ -46,8 +46,12 @@ export interface TongchuangRadialWheelProps {
   // Object-mode props
   selectedCount?: number;
   canConvert3D?: boolean;
+  canMergeTo2D?: boolean;
+  canUngroup?: boolean;
   isLocked?: boolean;
   onConvert3D?: () => void;
+  onMergeTo2D?: () => void;
+  onUngroup?: () => void;
   onExplainAi?: () => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
@@ -107,8 +111,12 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
   onOpenTemplates,
   selectedCount = 0,
   canConvert3D = false,
+  canMergeTo2D = false,
+  canUngroup = false,
   isLocked = false,
   onConvert3D,
+  onMergeTo2D,
+  onUngroup,
   onExplainAi,
   onDuplicate,
   onDelete,
@@ -232,18 +240,44 @@ export const TongchuangRadialWheel: React.FC<TongchuangRadialWheelProps> = ({
               onClose?.();
             },
           },
-          {
-            id: 'formula_calc',
-            label: 'Hitung Rumus (∑)',
-            icon: '∑',
-            angleDeg: -150,
-            active: false,
-            disabled: false,
-            onClick: () => {
-              onInsertFormula?.();
-              onClose?.();
-            },
-          },
+          canMergeTo2D
+            ? {
+                id: 'merge_2d',
+                label: 'Gabung Objek',
+                icon: '🔗',
+                angleDeg: -150,
+                active: false,
+                disabled: false,
+                onClick: () => {
+                  onMergeTo2D?.();
+                  onClose?.();
+                },
+              }
+            : canUngroup
+              ? {
+                  id: 'ungroup_2d',
+                  label: 'Pisah Grup',
+                  icon: '✂️',
+                  angleDeg: -150,
+                  active: false,
+                  disabled: false,
+                  onClick: () => {
+                    onUngroup?.();
+                    onClose?.();
+                  },
+                }
+              : {
+                  id: 'formula_calc',
+                  label: 'Hitung Rumus (∑)',
+                  icon: '∑',
+                  angleDeg: -150,
+                  active: false,
+                  disabled: false,
+                  onClick: () => {
+                    onInsertFormula?.();
+                    onClose?.();
+                  },
+                },
         ]
       : [
           {

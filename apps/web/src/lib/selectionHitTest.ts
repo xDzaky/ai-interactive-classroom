@@ -43,6 +43,21 @@ export function getObjectTransform(obj: BoardObject): CanonicalTransform {
 
 export function computeObjectBbox(obj: BoardObject): BoundingBox2D {
   const raw = obj.props as Record<string, unknown>;
+  if (Array.isArray(raw.multiSegments) && raw.multiSegments.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const seg of raw.multiSegments as number[][]) {
+      if (!Array.isArray(seg)) continue;
+      for (let i = 0; i < seg.length - 1; i += 2) {
+        if (seg[i] < minX) minX = seg[i];
+        if (seg[i] > maxX) maxX = seg[i];
+        if (seg[i + 1] < minY) minY = seg[i + 1];
+        if (seg[i + 1] > maxY) maxY = seg[i + 1];
+      }
+    }
+    if (isFinite(minX)) {
+      return { x: minX, y: minY, w: Math.max(10, maxX - minX), h: Math.max(10, maxY - minY) };
+    }
+  }
   if (Array.isArray(raw.customPoints) && raw.customPoints.length >= 6) {
     const pts = raw.customPoints as number[];
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

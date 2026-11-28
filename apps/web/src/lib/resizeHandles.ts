@@ -46,6 +46,9 @@ export interface HandlePoint {
  */
 export function getShapeVertices(obj: BoardObject): number[] | null {
   const p = obj.props as Record<string, unknown>;
+  if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+    return null;
+  }
   if (Array.isArray(p.customPoints) && p.customPoints.length >= 6) {
     return p.customPoints as number[];
   }
@@ -204,6 +207,10 @@ export function getShapeHandles(obj: BoardObject, bbox: BBox, scale = 1): Handle
     }
     return transformed;
   };
+
+  if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+    return applyRot(getResizeHandles(bbox));
+  }
 
   if (Array.isArray(p.customPoints) && p.customPoints.length >= 6) {
     const pts = p.customPoints as number[];
@@ -402,6 +409,31 @@ export function computeResizedProps(
     newH = Math.max(12, maxY - minY);
     newCx = minX + newW / 2;
     newCy = minY + newH / 2;
+  }
+
+  if (Array.isArray(origProps.multiSegments) && origProps.multiSegments.length > 0) {
+    const oldW = Math.max(1, origBBox.w);
+    const oldH = Math.max(1, origBBox.h);
+    const sx = newW / oldW;
+    const sy = newH / oldH;
+    const scaledSegments = (origProps.multiSegments as number[][]).map((seg) =>
+      seg.map((v, i) =>
+        i % 2 === 0
+          ? minX + (v - origBBox.x) * sx
+          : minY + (v - origBBox.y) * sy,
+      ),
+    );
+    return {
+      ...origProps,
+      multiSegments: scaledSegments,
+      x: minX,
+      y: minY,
+      w: newW,
+      h: newH,
+      cx: newCx,
+      cy: newCy,
+      r: Math.max(8, Math.max(newW, newH) / 2),
+    };
   }
 
   switch (obj.object_type) {

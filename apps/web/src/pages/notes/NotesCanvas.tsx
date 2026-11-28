@@ -119,6 +119,24 @@ function drawPaperTemplate(
         ctx.fill();
       }
     }
+  } else if (template === 'four_lines_three_grids') {
+    // Honghe GC4Lines3Grids: 4-Line 3-Grid English/Handwriting practice paper
+    const rowH = Math.max(16, Math.round(spacing * 0.65));
+    const groupH = rowH * 3 + 22;
+    for (let top = 40; top + rowH * 3 < h; top += groupH) {
+      [0, 1, 2, 3].forEach((idx) => {
+        const y = top + idx * rowH;
+        ctx.save();
+        ctx.strokeStyle = idx === 2 ? '#ef4444' : idx === 1 ? '#3b82f6' : '#94a3b8';
+        ctx.lineWidth = idx === 2 ? 1.25 : 1;
+        if (idx === 1) ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(28, y);
+        ctx.lineTo(w - 28, y);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
   } else if (template === 'cornell') {
     // Header line, left cue column, bottom summary
     ctx.strokeStyle = '#94a3b8';

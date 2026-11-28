@@ -89,6 +89,21 @@ export function generateStarPoints(
 
 export function computeObjectBbox(obj: BoardObject): BoundingBox {
   const p = obj.props as Record<string, unknown>;
+  if (Array.isArray(p.multiSegments) && p.multiSegments.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const seg of p.multiSegments as number[][]) {
+      if (!Array.isArray(seg)) continue;
+      for (let i = 0; i < seg.length - 1; i += 2) {
+        if (seg[i] < minX) minX = seg[i];
+        if (seg[i] > maxX) maxX = seg[i];
+        if (seg[i + 1] < minY) minY = seg[i + 1];
+        if (seg[i + 1] > maxY) maxY = seg[i + 1];
+      }
+    }
+    if (isFinite(minX)) {
+      return { x: minX, y: minY, w: Math.max(10, maxX - minX), h: Math.max(10, maxY - minY) };
+    }
+  }
   if (Array.isArray(p.customPoints) && p.customPoints.length >= 6) {
     const pts = p.customPoints as number[];
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -214,6 +229,28 @@ function RenderObjectComponent({ obj, onNodeRef, listening = false }: RenderObje
 
   // Custom editable polygon vertices (created when double-clicking corners/edges or dragging vertices)
   const rawProps = obj.props as Record<string, unknown>;
+  if (Array.isArray(rawProps.multiSegments) && rawProps.multiSegments.length > 0) {
+    const segs = rawProps.multiSegments as number[][];
+    return (
+      <Group id={obj.id} ref={refCallback} opacity={exOpacity} listening={listening} {...lineRotProps}>
+        {segs.map((seg, idx) => (
+          <Line
+            key={idx}
+            points={seg}
+            closed={false}
+            stroke={p.stroke ?? "#0f172a"}
+            strokeWidth={strokeW}
+            lineCap="round"
+            lineJoin="round"
+            listening={listening}
+            perfectDrawEnabled={false}
+            shadowForStrokeEnabled={false}
+            hitStrokeWidth={hitW}
+          />
+        ))}
+      </Group>
+    );
+  }
   if (Array.isArray(rawProps.customPoints) && rawProps.customPoints.length >= 6) {
     return (
       <Line

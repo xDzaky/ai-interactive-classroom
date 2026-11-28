@@ -53,6 +53,7 @@ export const BoardObjectSchema = z.object({
     "trig_proof",
     "frame",
     "viz_manimgx",
+    "viz_activity",
     // --- Extended math shapes ---
     "ellipse",        // cx, cy, rx, ry
     "polygon",        // cx, cy, r, sides (regular n-gon)

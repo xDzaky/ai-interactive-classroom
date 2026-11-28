@@ -50,6 +50,34 @@ import { QuizLauncherModal } from "@/components/classroom/QuizLauncherModal";
 import { KnowledgeExplorerModal } from "@/components/whiteboard/KnowledgeExplorerModal";
 import { LayersPanel } from "@/components/whiteboard/LayersPanel";
 import { queueWhiteboardToAffineTransfer } from "@/lib/classroomBlockBridge";
+import { broadcastPresenterState } from "@/lib/presenterSync";
+import type { FocusUtilityMode } from "@/components/classroom/SpotlightCurtainOverlay";
+
+// V8 Lazy-Loaded Seewo EasiNote & Honghe Classroom Suite (Zero Initial Bundle Bloat!)
+const ClassroomActivitiesModal = lazy(() =>
+  import("@/components/activities/ClassroomActivitiesModal").then((m) => ({ default: m.ClassroomActivitiesModal })),
+);
+const BoardInBoardOverlay = lazy(() =>
+  import("@/components/classroom/BoardInBoardOverlay").then((m) => ({ default: m.BoardInBoardOverlay })),
+);
+const SpotlightCurtainOverlay = lazy(() =>
+  import("@/components/classroom/SpotlightCurtainOverlay").then((m) => ({ default: m.SpotlightCurtainOverlay })),
+);
+const DocumentVisualizerModal = lazy(() =>
+  import("@/components/classroom/DocumentVisualizerModal").then((m) => ({ default: m.DocumentVisualizerModal })),
+);
+const MicroLectureRecorderModal = lazy(() =>
+  import("@/components/classroom/MicroLectureRecorderModal").then((m) => ({ default: m.MicroLectureRecorderModal })),
+);
+const PeriodicTableWidget = lazy(() =>
+  import("@/components/subjects/PeriodicTableWidget").then((m) => ({ default: m.PeriodicTableWidget })),
+);
+const SolarSystemWidget = lazy(() =>
+  import("@/components/subjects/SolarSystemWidget").then((m) => ({ default: m.SolarSystemWidget })),
+);
+const InstrumentStudioModal = lazy(() =>
+  import("@/components/subjects/InstrumentStudioModal").then((m) => ({ default: m.InstrumentStudioModal })),
+);
 import { ExcalidrawToolbar } from "@/components/whiteboard/ExcalidrawToolbar";
 import {
   ExcalidrawPropertiesPanel,
@@ -154,6 +182,18 @@ export default function PersonalRoomPage() {
   const [showLayersPanel, setShowLayersPanel] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const jsonImportInputRef = useRef<HTMLInputElement | null>(null);
+  const pptxImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  // V8 Classroom Suite Modals (Seewo EasiNote 5 + Honghe Whiteboard)
+  const [showActivitiesModal, setShowActivitiesModal] = useState(false);
+  const [showBoardInBoard, setShowBoardInBoard] = useState(false);
+  const [focusUtilityMode, setFocusUtilityMode] = useState<FocusUtilityMode>("off");
+  const [showDocCamModal, setShowDocCamModal] = useState(false);
+  const [showRecorderModal, setShowRecorderModal] = useState(false);
+  const [showPeriodicModal, setShowPeriodicModal] = useState(false);
+  const [showSolarModal, setShowSolarModal] = useState(false);
+  const [showInstrumentModal, setShowInstrumentModal] = useState(false);
+  const [presenterEnabled, setPresenterEnabled] = useState(false);
 
   // V6 Excalidraw Full Feature Set State (Toolbar Lock, Style Inspector, Zen, Dark Canvas, Grid Snap, Command Palette, Mermaid)
   const [excalidrawStyle, setExcalidrawStyle] = useState<ExcalidrawStyleState>(DEFAULT_EXCALIDRAW_STYLE);
@@ -183,6 +223,12 @@ export default function PersonalRoomPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const handwriting = useHandwritingToLatex({ enabled: true });
   const [aiCaption, setAiCaption] = useState<string | null>(null);
+
+  // Sync Dual-Screen Projector (/presenter) whenever boardState updates
+  useEffect(() => {
+    if (!presenterEnabled) return;
+    broadcastPresenterState(boardState, aiCaption);
+  }, [presenterEnabled, boardState, aiCaption]);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
   const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [remoteCode] = useState(() => generatePairingCode());
@@ -1205,6 +1251,41 @@ export default function PersonalRoomPage() {
     },
     { id: "copy-obj", label: "Salin Objek Terpilih (2D / 3D)", category: "Kanvas", shortcut: "Ctrl+C", run: handleCopySelected },
     { id: "paste-obj", label: "Tempel Objek dari Clipboard", category: "Kanvas", shortcut: "Ctrl+V", run: () => void handlePasteClipboard() },
+    { id: "v8-games", label: "🎮 7 Aktivitas Gamifikasi Kelas (Choice, Classify, 2-Tim)", category: "Seewo & Honghe V8", run: () => setShowActivitiesModal(true) },
+    { id: "v8-bib", label: "📝 Papan Mini Mengambang (Board-in-Board)", category: "Seewo & Honghe V8", run: () => setShowBoardInBoard((v) => !v) },
+    { id: "v8-spot", label: "🔦 Spotlight & 🎭 Tirai Layar Fokus", category: "Seewo & Honghe V8", run: () => setFocusUtilityMode((m) => (m === "off" ? "spotlight" : "off")) },
+    { id: "v8-cam", label: "📷 Kamera Dokumen / Visualizer + Anotasi", category: "Seewo & Honghe V8", run: () => setShowDocCamModal(true) },
+    { id: "v8-rec", label: "🎥 Perekam Micro-Lecture (Simpan Video Offline)", category: "Seewo & Honghe V8", run: () => setShowRecorderModal(true) },
+    {
+      id: "v8-presenter",
+      label: "🖥️ Buka Layar Proyektor Dual-Screen (/presenter)",
+      category: "Seewo & Honghe V8",
+      run: () => {
+        setPresenterEnabled(true);
+        window.open("/presenter", "_blank", "noopener,noreferrer");
+        window.setTimeout(() => broadcastPresenterState(boardStateRef.current, aiCaption), 600);
+      },
+    },
+    {
+      id: "v8-pptx-exp",
+      label: "📊 Ekspor Papan ke PowerPoint (.PPTX)",
+      category: "Office & Ekspor",
+      run: () => {
+        const dataUrl = stageRef.current?.toDataURL({ pixelRatio: 1.5 }) ?? null;
+        void import("@/lib/pptxExporter").then((m) =>
+          m.exportBoardStateToPptx(boardStateRef.current, dataUrl),
+        );
+      },
+    },
+    {
+      id: "v8-pptx-imp",
+      label: "📥 Impor Slide PowerPoint (.PPTX) ke Papan",
+      category: "Office & Ekspor",
+      run: () => pptxImportInputRef.current?.click(),
+    },
+    { id: "v8-periodic", label: "⚛ Tabel Periodik Interaktif (118 Unsur)", category: "Alat Mapel", run: () => setShowPeriodicModal(true) },
+    { id: "v8-solar", label: "🪐 Tata Surya 3D Interaktif", category: "Alat Mapel", run: () => setShowSolarModal(true) },
+    { id: "v8-music", label: "🎹 Studio Piano & Gitar + Gelombang Bunyi (Hz)", category: "Alat Mapel", run: () => setShowInstrumentModal(true) },
     {
       id: "send-to-affine",
       label: "Kirim Objek Terpilih ke Catatan AFFiNE (Doc & Board)",
@@ -1990,6 +2071,107 @@ export default function PersonalRoomPage() {
           <p className="text-sm font-medium">Layar Papan Tulis Diredam (Klik di mana saja untuk membuka)</p>
         </div>
       )}
+
+      {/* Hidden .PPTX File Importer */}
+      <input
+        ref={pptxImportInputRef}
+        type="file"
+        accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            void import("@/lib/pptxImporter").then(async ({ parsePptxFile }) => {
+              const slides = await parsePptxFile(f);
+              const events: WhiteboardEvent[] = [];
+              let rowY = 80;
+              slides.slice(0, 6).forEach((s) => {
+                const body = s.texts.join(" · ").slice(0, 160);
+                if (!body) return;
+                events.push({
+                  event_type: "object.created",
+                  payload: {
+                    id: `pptx-${Date.now()}-${s.slideNumber}`,
+                    object_type: "text",
+                    props: {
+                      x: 100,
+                      y: rowY,
+                      text: `Slide ${s.slideNumber}: ${body}`,
+                      fontSize: 18,
+                      fill: "#0f172a",
+                      stroke: "#0f172a",
+                    },
+                  },
+                });
+                rowY += 56;
+              });
+              if (events.length > 0) {
+                handleEvent({ event_type: "batch", payload: { events } });
+                showClipboardToast(`${events.length} slide PPTX diimpor ke papan`);
+              }
+            });
+          }
+          e.target.value = "";
+        }}
+      />
+
+      {/* V8 Lazy-Loaded Seewo EasiNote 5 & Honghe Whiteboard Suite */}
+      <Suspense fallback={null}>
+        {showActivitiesModal && (
+          <ClassroomActivitiesModal
+            open={showActivitiesModal}
+            onClose={() => setShowActivitiesModal(false)}
+          />
+        )}
+        {showBoardInBoard && (
+          <BoardInBoardOverlay
+            open={showBoardInBoard}
+            onClose={() => setShowBoardInBoard(false)}
+            onSendImageToBoard={(blob, lbl) => void handleIngestImageBlob(blob, undefined, lbl)}
+          />
+        )}
+        {focusUtilityMode !== "off" && (
+          <SpotlightCurtainOverlay
+            mode={focusUtilityMode}
+            onChangeMode={setFocusUtilityMode}
+          />
+        )}
+        {showDocCamModal && (
+          <DocumentVisualizerModal
+            open={showDocCamModal}
+            onClose={() => setShowDocCamModal(false)}
+            onCaptureToBoard={(blob, lbl) => void handleIngestImageBlob(blob, undefined, lbl)}
+          />
+        )}
+        {showRecorderModal && (
+          <MicroLectureRecorderModal
+            open={showRecorderModal}
+            onClose={() => setShowRecorderModal(false)}
+          />
+        )}
+        {showPeriodicModal && (
+          <PeriodicTableWidget
+            open={showPeriodicModal}
+            onClose={() => setShowPeriodicModal(false)}
+            onOpenBuildAtomLab={() => {
+              setPhetInitialSimId("build-an-atom");
+              setShowPhetModal(true);
+            }}
+          />
+        )}
+        {showSolarModal && (
+          <SolarSystemWidget
+            open={showSolarModal}
+            onClose={() => setShowSolarModal(false)}
+          />
+        )}
+        {showInstrumentModal && (
+          <InstrumentStudioModal
+            open={showInstrumentModal}
+            onClose={() => setShowInstrumentModal(false)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

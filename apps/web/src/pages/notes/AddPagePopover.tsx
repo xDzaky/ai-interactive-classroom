@@ -23,6 +23,7 @@ const TEMPLATES: Array<{ kind: PaperTemplateKind; label: string; preview: string
   { kind: 'cornell', label: 'Cornell', preview: 'bg-amber-50/40' },
   { kind: 'isometric_dot', label: 'Isometrik', preview: 'bg-[radial-gradient(#64748b_1px,transparent_1px)] bg-[size:12px_10px]' },
   { kind: 'music_staff', label: 'Not Balok', preview: 'bg-[repeating-linear-gradient(to_bottom,#fff_0px,#fff_6px,#94a3b8_7px)]' },
+  { kind: 'four_lines_three_grids', label: '4-Garis 3-Kotak', preview: 'bg-[repeating-linear-gradient(to_bottom,#fff_0px,#fff_5px,#94a3b8_6px,#fff_7px,#fff_11px,#ef4444_12px)]' },
 ];
 
 export const AddPagePopover: React.FC<AddPagePopoverProps> = ({

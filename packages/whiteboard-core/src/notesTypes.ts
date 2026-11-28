@@ -59,7 +59,8 @@ export type PaperTemplateKind =
   | "dot_grid"
   | "cornell"
   | "isometric_dot"
-  | "music_staff";
+  | "music_staff"
+  | "four_lines_three_grids";
 
 export interface NoteLayer {
   id: string;

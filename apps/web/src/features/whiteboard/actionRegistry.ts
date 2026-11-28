@@ -6,6 +6,12 @@
 
 import type { BoardObject, BoardStroke, WhiteboardEvent, SceneState, BoardState } from '@ai-classroom/whiteboard-core';
 import type { Input2DShape } from '@/lib/shapeToSolid';
+import {
+  canMergeSelectionToShape,
+  mergeSelectionTo2DShape,
+  canUngroupSelection,
+  ungroupSelectedObject,
+} from '@/lib/mergeStrokesToShape';
 
 export type ActionCategory = 'math' | 'ai' | 'edit' | 'arrange' | 'style';
 
@@ -30,6 +36,7 @@ export interface ActionContext {
   onOpenConvert3D?: (shape: Input2DShape) => void;
   onOpenAiExplain?: (target: BoardObject | BoardStroke) => void;
   onClearSelection?: () => void;
+  onSelectIds?: (ids: string[]) => void;
 }
 
 /**
@@ -42,9 +49,10 @@ export function getPrimarySelected(ctx: ActionContext): BoardObject | BoardStrok
 }
 
 /**
- * Checks if the primary selected object is a 2D shape convertible to 3D.
+ * Checks if the selection is a 2D shape OR broken strokes/lines convertible to a 2D/3D shape.
  */
 export function is2DConvertible(ctx: ActionContext): boolean {
+  if (canMergeSelectionToShape(ctx.selectedIds, ctx.scene)) return true;
   if (ctx.selectedIds.length !== 1) return false;
   const id = ctx.selectedIds[0];
   const obj = ctx.scene.objects[id];
@@ -68,6 +76,49 @@ export function is2DConvertible(ctx: ActionContext): boolean {
 
 export const WHITEBOARD_ACTIONS: ActionItem[] = [
   {
+    id: 'merge_to_2d',
+    label: 'Gabung Objek',
+    icon: '🔗',
+    category: 'math',
+    shortcut: 'G',
+    appliesTo: (ctx) => canMergeSelectionToShape(ctx.selectedIds, ctx.scene),
+    run: (ctx) => {
+      const merged = mergeSelectionTo2DShape(ctx.selectedIds, ctx.scene);
+      if (!merged) return;
+      const newId = `shape-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+      const events: WhiteboardEvent[] = [
+        ...merged.sourceIds.map((sid) => ({
+          event_type: 'object.deleted' as const,
+          payload: { id: sid },
+        })),
+        {
+          event_type: 'object.created' as const,
+          payload: {
+            id: newId,
+            object_type: merged.objectType,
+            props: merged.props,
+          },
+        },
+      ];
+      ctx.onEvent({ event_type: 'batch', payload: { events } });
+      ctx.onSelectIds?.([newId]);
+    },
+  },
+  {
+    id: 'ungroup_2d',
+    label: 'Pisah Grup',
+    icon: '✂️',
+    category: 'edit',
+    shortcut: 'Shift+G',
+    appliesTo: (ctx) => canUngroupSelection(ctx.selectedIds, ctx.scene),
+    run: (ctx) => {
+      const res = ungroupSelectedObject(ctx.selectedIds, ctx.scene);
+      if (!res) return;
+      ctx.onEvent({ event_type: 'batch', payload: { events: res.events } });
+      ctx.onSelectIds?.(res.newIds);
+    },
+  },
+  {
     id: 'convert_3d',
     label: 'Ubah ke Bangun Ruang 3D',
     icon: '📦',
@@ -75,6 +126,33 @@ export const WHITEBOARD_ACTIONS: ActionItem[] = [
     shortcut: '3D',
     appliesTo: (ctx) => is2DConvertible(ctx),
     run: (ctx) => {
+      if (canMergeSelectionToShape(ctx.selectedIds, ctx.scene)) {
+        const merged = mergeSelectionTo2DShape(ctx.selectedIds, ctx.scene);
+        if (!merged) return;
+        const newId = `shape-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+        const events: WhiteboardEvent[] = [
+          ...merged.sourceIds.map((sid) => ({
+            event_type: 'object.deleted' as const,
+            payload: { id: sid },
+          })),
+          {
+            event_type: 'object.created' as const,
+            payload: {
+              id: newId,
+              object_type: merged.objectType,
+              props: merged.props,
+            },
+          },
+        ];
+        ctx.onEvent({ event_type: 'batch', payload: { events } });
+        ctx.onSelectIds?.([newId]);
+        ctx.onOpenConvert3D?.({
+          id: newId,
+          object_type: merged.objectType,
+          props: merged.props,
+        });
+        return;
+      }
       const obj = ctx.scene.objects[ctx.selectedIds[0]];
       if (obj && ctx.onOpenConvert3D) {
         ctx.onOpenConvert3D({
@@ -113,6 +191,14 @@ export const WHITEBOARD_ACTIONS: ActionItem[] = [
         if (obj) {
           const newId = `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
           const props = { ...(obj.props as Record<string, unknown>) };
+          if (Array.isArray(props.multiSegments)) {
+            props.multiSegments = (props.multiSegments as number[][]).map((seg) =>
+              seg.map((v) => v + offset),
+            );
+          }
+          if (Array.isArray(props.customPoints)) {
+            props.customPoints = (props.customPoints as number[]).map((v) => v + offset);
+          }
           if (typeof props.x === 'number') props.x += offset;
           if (typeof props.y === 'number') props.y += offset;
           if (typeof props.cx === 'number') props.cx += offset;
